@@ -19,3 +19,11 @@ def test_get(tmpdir):
     df2 = c.get(name='achilles-v2-4-6', version=3)
     assert df2 is not None
     assert get_cached_count() == 2
+
+def test_get_table(tmpdir):
+    # test fetch table
+    cache_dir = str(tmpdir.join("cache"))
+    c = TaigaClient(cache_dir=cache_dir)
+    df3 = c.get(name="kegg-ribosome", version=1)
+    assert df3 is not None
+    

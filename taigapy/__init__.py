@@ -36,7 +36,11 @@ class TaigaClient:
             r = requests.get(self.url+"/rest/v0/datasets/"+id+"?format=tabular_csv", stream=True)
             if r.status_code == 404:
                 return None
-            assert r.status_code == 200
+            
+            if r.status_code != 200:
+                # hack: If this couldn't be fetched as tabular_csv try just csv
+                r = requests.get(self.url+"/rest/v0/datasets/"+id+"?format=csv", stream=True)
+                assert r.status_code == 200
                     
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
                 for chunk in r.iter_content(chunk_size=100000):
