@@ -1,4 +1,4 @@
-from taigapy import TaigaClient
+from taigapy import Taiga1Client as TaigaClient
 import os
 
 def test_get(tmpdir):
