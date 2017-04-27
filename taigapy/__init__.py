@@ -135,7 +135,8 @@ class Taiga2Client:
             for block in r.iter_content(1024*100):
                 handle.write(block)
 
-    def get(self, id=None, name=None, version=None, file=None, force=False):
+    def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
+        # returns a file in the cache with the data
         if id is None:
             assert name is not None, "id or name must be specified"
 
@@ -153,17 +154,21 @@ class Taiga2Client:
         assert data_version is not None
         assert data_file is not None
 
-        local_file = os.path.join(self.cache_dir, data_id + ".csv")
+        local_file = os.path.join(self.cache_dir, data_id + "." +format)
         if not os.path.exists(local_file):
             if not os.path.exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
 
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
-    #            def _dl_file(self, id, name, version, file, force, destination):
+                #            def _dl_file(self, id, name, version, file, force, destination):
 
                 self._dl_file(data_id, None, None, data_file, False, "csv", fd.name)
             os.rename(fd.name, local_file)
+        return local_file
 
+    def get(self, id=None, name=None, version=None, file=None, force=False):
+        # return a pandas dataframe with the data
+        local_file = self.download_to_cache(id, name, version, file, force)
         return pandas.read_csv(local_file)
 
 TaigaClient = Taiga2Client
