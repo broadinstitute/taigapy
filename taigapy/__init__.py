@@ -22,32 +22,40 @@ class Taiga1Client:
             return None
         return r.text
 
-    def get(self, id=None, name=None, version=None):
+    def download_to_cache(self, id=None, name=None, version=None, format="csv"):
         if id is None:
             assert name is not None, "id or name must be specified"
             id = self.get_dataset_id_by_name(name, version=version)
             if id is None:
                 return None
-                
-        local_file = os.path.join(self.cache_dir, id+".csv")
+
+        local_file = os.path.join(self.cache_dir, id + "." + format)
         if not os.path.exists(local_file):
             if not os.path.exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
 
-            r = requests.get(self.url+"/rest/v0/datasets/"+id+"?format=tabular_csv", stream=True)
+            if format == "csv":
+                format = "tabular_csv"
+
+            r = requests.get(self.url + "/rest/v0/datasets/" + id + "?format="+format, stream=True)
             if r.status_code == 404:
                 return None
-            
-            if r.status_code != 200:
+
+            if r.status_code != 200 and format == "tabular_csv":
                 # hack: If this couldn't be fetched as tabular_csv try just csv
-                r = requests.get(self.url+"/rest/v0/datasets/"+id+"?format=csv", stream=True)
-                assert r.status_code == 200
-                    
+                r = requests.get(self.url + "/rest/v0/datasets/" + id + "?format=csv", stream=True)
+
+            assert r.status_code == 200
+
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
+                print("read...")
                 for chunk in r.iter_content(chunk_size=100000):
                     fd.write(chunk)
             os.rename(fd.name, local_file)
-        
+        return local_file
+
+    def get(self, id=None, name=None, version=None):
+        local_file = self.download_to_cache(id, name, version)
         return pandas.read_csv(local_file)
 
 
