@@ -29,3 +29,10 @@ def test_get_table(tmpdir):
     df3 = c.get(name="lineage-colors", version=1)
     assert df3 is not None
 
+def test_download_hdf5(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+    c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    local_file = c.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='hdf5')
+    assert 'hdf5' in local_file
+    assert os.path.exists(local_file)
+

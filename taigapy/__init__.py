@@ -170,7 +170,7 @@ class Taiga2Client:
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
                 #            def _dl_file(self, id, name, version, file, force, destination):
 
-                self._dl_file(data_id, None, None, data_file, False, "csv", fd.name)
+                self._dl_file(data_id, None, None, data_file, False, format, fd.name)
             os.rename(fd.name, local_file)
         return local_file
 
