@@ -162,7 +162,7 @@ class Taiga2Client:
         assert data_version is not None
         assert data_file is not None
 
-        local_file = os.path.join(self.cache_dir, data_id + "." +format)
+        local_file = os.path.join(self.cache_dir, data_id + "_" + data_file + "." +format)
         if not os.path.exists(local_file):
             if not os.path.exists(self.cache_dir):
                 os.makedirs(self.cache_dir)

@@ -36,3 +36,12 @@ def test_download_hdf5(tmpdir):
     assert 'hdf5' in local_file
     assert os.path.exists(local_file)
 
+def test_download_multiple_files(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+    c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    t1 = c.get(name='taigr-data-40f2', version=1, file="non-utf8-table")
+    assert t1.shape == (2,3)
+    
+    t2 = c.get(name='taigr-data-40f2', version=1, file="tiny_table")
+    assert t2.shape == (3,4)
+
