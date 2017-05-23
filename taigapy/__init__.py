@@ -89,8 +89,15 @@ class Taiga2Client:
         params = dict(format=format)
 
         if id is not None:
-            params['dataset_version_id'] = id
-            assert version is None
+            if '.' in id:
+                name, version = id.split('.')
+                assert name
+                params['dataset_permaname'] = name
+                if version:
+                    params['version'] = version
+            else:
+                params['dataset_version_id'] = id
+                assert version is None
         else:
             assert name is not None
             params['dataset_permaname'] = name

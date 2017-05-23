@@ -36,3 +36,8 @@ def test_download_hdf5(tmpdir):
     assert 'hdf5' in local_file
     assert os.path.exists(local_file)
 
+def test_name_version_as_id_input(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+    c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    df3 = c.get(id="lineage-colors.1")
+    assert df3 is not None
