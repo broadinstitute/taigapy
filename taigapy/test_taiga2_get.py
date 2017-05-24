@@ -48,5 +48,12 @@ def test_download_multiple_files(tmpdir):
 def test_name_version_as_id_input(tmpdir):
     cache_dir = str(tmpdir.join("cache"))
     c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
-    df3 = c.get(id="lineage-colors.1")
-    assert df3 is not None
+    df4 = c.get(id="lineage-colors.1")
+    assert df4 is not None
+
+def test_name_version_file_as_id_input(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+    c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    # df5 = c.get(id="avana-1-0-83e3.2/cell_line_info") # bug found? this dataset doesnt work
+    df5 = c.get(id="taigr-data-40f2.1/non-utf8-table")
+    assert df5 is not None
