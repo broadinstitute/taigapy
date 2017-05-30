@@ -33,4 +33,25 @@ df = c.get(id='taigr-data-40f2.1/tiny_table')
 
 ```
 
+You can also upload data into taiga. Example:
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+
+# Create a new dataset in public
+c.upload(dataset_name='My Dataset Name',
+    dataset_description='My Dataset Description',
+    upload_file_path_dict={'file_one_path': 'format'}, folder_id='public')
+
+Formats available currently are:
+- NumericMatrixCSV
+- NumericMatrixTSV
+- TableCSV
+- TableTSV
+- GCT
+- Raw
+```
+
 Confluence: https://confluence.broadinstitute.org/display/CPDS/Taiga
