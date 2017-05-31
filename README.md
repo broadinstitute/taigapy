@@ -27,7 +27,6 @@ df = c.get(name='taigr-data-40f2', version=1, file="tiny_table")
 df = c.get(id='achilles-v2-4-6.4')
 
 # the file can also be specified in the id using name.version/file
-# not supported in taigr (as of 052417)
 # id/file (as in 6d9a6104-e2f8-45cf-9002-df3bcedcb80b/tiny_table) is also not supported in either
 df = c.get(id='taigr-data-40f2.1/tiny_table')
 
