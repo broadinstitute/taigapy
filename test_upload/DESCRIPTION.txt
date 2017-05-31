@@ -1,0 +1,2 @@
+Project ID	 MTS_REP_539pert_562cl_2017Q2
+Project Description	PRISM medium throughput screen (MTS) for compound repurposing, containing 539 compounds across 562 cell lines. Single dose at 2.5uM. Assembled in 2017 Q2

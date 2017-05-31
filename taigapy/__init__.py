@@ -191,24 +191,9 @@ class Taiga2Client:
         local_file = self.download_to_cache(id, name, version, file, force)
         return pandas.read_csv(local_file)
 
-    # <editor-fold desc="Upload Session">
+    # <editor-fold desc="Upload">
 
-    # TODO: Add the creation of a folder, given a path relative to home ('~')
-    def upload(self, dataset_name=None, dataset_description=None,
-               upload_file_path_dict=None, folder_id=None):
-        # TODO: Add the folder id to put the files into
-        """Upload multiples files to Taiga, in the Public folder
-
-        :param dataset_name: str
-        :param dataset_description: str
-        :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
-        """
-        assert len(upload_file_path_dict) != 0
-        if folder_id is None:
-            folder_id = 'public'
-            user_continue = raw_input("Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) ")
-            if user_continue != 'y':
-                return
+    def upload_session_files(self, upload_file_path_dict):
         # We first create a new session, and fetch its id
         new_session_api_endpoint = "/api/upload_session"
 
@@ -245,7 +230,7 @@ class Taiga2Client:
             # We now organize the conversion and the reupload
             data_create_upload_session_file = dict()
             data_create_upload_session_file = {
-                'location': 'hello',
+                'location': '',
                 'eTag': S3UploadedData['ETag'],
                 'bucket': str(bucket),
                 'key': str(upload_file_object.prefix_and_file_name),
@@ -273,6 +258,30 @@ class Taiga2Client:
                 print("\n\t While processing {}, we got this error {}".format(upload_file_object.file_name,
                                                                               task_status.message))
 
+            return new_session_id
+
+    # TODO: Add the creation of a folder, given a path relative to home ('~')
+    def create_dataset(self, dataset_name=None, dataset_description=None,
+                       upload_file_path_dict=None, folder_id=None):
+        # TODO: Add the folder id to put the files into
+        """Upload multiples files to Taiga, by default in the Public folder
+
+        :param dataset_name: str
+        :param dataset_description: str
+        :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
+
+        :return dataset_id: str
+        """
+        assert len(upload_file_path_dict) != 0
+        if folder_id is None:
+            folder_id = 'public'
+            user_continue = raw_input(
+                "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) ")
+            if user_continue != 'y':
+                return
+
+        new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict)
+
         # We create the dataset since all files have been uploaded
         create_dataset_api_endpoint = '/api/dataset'
         # TODO: Get user id from token
@@ -283,8 +292,96 @@ class Taiga2Client:
             'datasetDescription': dataset_description
         }
         dataset_id = self.request_post(api_endpoint=create_dataset_api_endpoint, data=data_create_dataset)
-        print("\nCongratulations! Your dataset `{}` has been created in the public folder with the id {}. You can directly access to it with this url: {}\n"
-              .format(dataset_name, dataset_id, self.url + "/dataset/" + dataset_id))
+        print(
+            "\nCongratulations! Your dataset `{}` has been created in the public folder with the id {}. You can directly access to it with this url: {}\n"
+                .format(dataset_name, dataset_id, self.url + "/dataset/" + dataset_id))
+
+        return dataset_id
+
+    def update_dataset(self, dataset_id, dataset_permaname=None, dataset_version=None, dataset_description=None,
+                       upload_file_path_dict=None, force_keep=False, force_remove=False):
+        """Create a new version of the dataset. By default will be interactive. Use force_keep or force_remove to
+        keep/remove the previous files
+
+        :param dataset_description: str
+        :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
+        :param force_keep: boolean
+        :param force_remove: boolean
+
+        :return new_dataset_version_id:
+        """
+        assert (not dataset_id and dataset_permaname and dataset_version) or \
+               (dataset_id and not dataset_permaname and not dataset_version)
+        assert ((force_keep and not force_remove) or \
+                (force_remove and not force_keep) or \
+                (not force_keep and not force_remove))
+        assert len(upload_file_path_dict) != 0
+
+        dataset_json = None
+        dataset_version_json = None
+        keep_datafile_id_list = []
+
+        if dataset_permaname and dataset_version:
+            # We retrieve the dataset_id
+            get_dataset_with_permaname_api_endpoint = "/api/dataset/" + dataset_permaname + "/" + dataset_version
+            result = self.request_get(api_endpoint=get_dataset_with_permaname_api_endpoint)
+            dataset_json = result["dataset"]
+            dataset_version_json = result["datasetVersion"]
+
+            dataset_id = dataset_json["id"]
+        else:
+            get_dataset_with_id_api_endpoint = "/api/dataset/" + dataset_id + "/last"
+            result = self.request_get(api_endpoint=get_dataset_with_id_api_endpoint)
+            dataset_version_json = result
+
+        datafiles = dataset_version_json['datafiles']
+
+        if not force_keep and not force_remove:
+            # We will be interactive at asking which files they want to keep or remove
+            print("Now choosing the datasets you would want to keep or remove:")
+            for datafile in datafiles:
+                keep_answer = raw_input("\tKeep " + datafile['name'] + " ? (y/n) ")
+                if keep_answer == 'y':
+                    # Add to the keep list
+                    keep_datafile_id_list.append(datafile['id'])
+                else:
+                    print("\tNot keeping " + datafile['name'])
+
+        if force_keep and not force_remove:
+            keep_datafile_id_list = [datafile['id'] for datafile in datafiles]
+
+        if force_remove and not force_keep:
+            keep_datafile_id_list = []
+
+        new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict)
+
+        new_dataset_version_params = dict()
+        new_dataset_version_params['sessionId'] = new_session_id
+        new_dataset_version_params['datasetId'] = dataset_id
+
+        if dataset_description:
+            new_dataset_version_params['newDescription'] = dataset_description
+        else:
+            new_dataset_version_params['newDescription'] = dataset_version_json['description']
+
+        new_dataset_version_params['datafileIds'] = keep_datafile_id_list
+
+        print("Creating the new version with these files:")
+        for new_file_path, format in upload_file_path_dict.iteritems():
+            new_file_name = UploadFile.get_file_name(UploadFile.drop_extension(new_file_path))
+            print("\tNEW: " + new_file_name + " - " + format)
+        for datafile in datafiles:
+            if datafile['id'] in keep_datafile_id_list:
+                print("\tKEEP: " + datafile["name"] + " - " + datafile["type"])
+
+        new_dataset_version_api_endpoint = "/api/datasetVersion"
+        new_dataset_version_id = self.request_post(api_endpoint=new_dataset_version_api_endpoint,
+                                                   data=new_dataset_version_params)
+
+        print("\nDataset version with id {} created. You can access to this dataset version directly with this url: {}"
+              .format(new_dataset_version_id, self.url + "/dataset_version/" + new_dataset_version_id))
+
+        return new_dataset_version_id
 
     # </editor-fold>
 

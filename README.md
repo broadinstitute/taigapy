@@ -41,9 +41,10 @@ from taigapy import TaigaClient
 c = TaigaClient(token_path=myTxtWithTokenInside)
 
 # Create a new dataset in public
-c.upload(dataset_name='My Dataset Name',
+c.create_dataset(dataset_name='My Dataset Name',
     dataset_description='My Dataset Description',
     upload_file_path_dict={'file_one_path': 'format'}, folder_id='public')
+```
 
 Formats available currently are:
 - NumericMatrixCSV
@@ -52,6 +53,6 @@ Formats available currently are:
 - TableTSV
 - GCT
 - Raw
-```
+
 
 Confluence: https://confluence.broadinstitute.org/display/CPDS/Taiga
