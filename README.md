@@ -35,6 +35,7 @@ df = c.get(id='taigr-data-40f2.1/tiny_table')
 You can also upload data into taiga (see below for available formats). Example:
 
 - Create a new dataset in folder public (you can find the folder_id in the url of Taiga web)
+
 ```python
 from taigapy import TaigaClient
 
@@ -47,6 +48,7 @@ c.create_dataset(dataset_name='My Dataset Name',
 ```
 
 - Update a dataset with new files, interactively, in public folder (default)
+
 ```python
 from taigapy import TaigaClient
 
@@ -57,6 +59,7 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_
 ```
 
 - Update a dataset with new files, keeping all previous files, in a specific folder:
+
 ```python
 from taigapy import TaigaClient
 
@@ -68,6 +71,7 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 
 ```
 
 - Update a dataset with new files, removing all previous files, in a specific folder:
+
 ```python
 from taigapy import TaigaClient
 
