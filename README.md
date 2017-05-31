@@ -83,6 +83,7 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_
 ```
 
 Formats available currently are:
+
 - NumericMatrixCSV
 - NumericMatrixTSV
 - TableCSV
