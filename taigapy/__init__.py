@@ -298,11 +298,15 @@ class Taiga2Client:
 
         return dataset_id
 
-    def update_dataset(self, dataset_id, dataset_permaname=None, dataset_version=None, dataset_description=None,
+    def update_dataset(self, dataset_id=None, dataset_permaname=None, dataset_version=None, dataset_description=None,
                        upload_file_path_dict=None, force_keep=False, force_remove=False):
         """Create a new version of the dataset. By default will be interactive. Use force_keep or force_remove to
-        keep/remove the previous files
+        keep/remove the previous files. If using dataset_id, will get the latest dataset version and create a new one
+        from it.
 
+        :param dataset_id: str => Id of a dataset, don't use with dataset_permaname/dataset_version
+        :param dataset_permaname: str => Permaname of a dataset. Will retrieve latest dataset version if no dataset_version provided
+        :param dataset_version: int => version of a dataset. Use with dataset_permaname
         :param dataset_description: str
         :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
         :param force_keep: boolean
@@ -310,7 +314,7 @@ class Taiga2Client:
 
         :return new_dataset_version_id:
         """
-        assert (not dataset_id and dataset_permaname and dataset_version) or \
+        assert (not dataset_id and dataset_permaname) or \
                (dataset_id and not dataset_permaname and not dataset_version)
         assert ((force_keep and not force_remove) or \
                 (force_remove and not force_keep) or \
@@ -322,12 +326,30 @@ class Taiga2Client:
         keep_datafile_id_list = []
 
         if dataset_permaname and dataset_version:
-            # We retrieve the dataset_id
-            get_dataset_with_permaname_api_endpoint = "/api/dataset/" + dataset_permaname + "/" + dataset_version
-            result = self.request_get(api_endpoint=get_dataset_with_permaname_api_endpoint)
+            # We retrieve the dataset version given
+            get_dataset_with_permaname_and_version_api_endpoint = "/api/dataset/" + dataset_permaname + "/" + dataset_version
+            result = self.request_get(api_endpoint=get_dataset_with_permaname_and_version_api_endpoint)
             dataset_json = result["dataset"]
             dataset_version_json = result["datasetVersion"]
 
+            dataset_id = dataset_json["id"]
+        elif dataset_permaname and not dataset_version:
+            # We retrieve the latest dataset version
+            import pdb; pdb.set_trace()
+            get_latest_dataset_version_id_api_endpoint = "/api/dataset/" + dataset_permaname
+            result = self.request_get(api_endpoint=get_latest_dataset_version_id_api_endpoint)
+            dataset_versions_only_permaname = result['versions']
+            get_latest_version_summary = ('', 0)
+            for current_version in dataset_versions_only_permaname:
+                current_version_number = int(current_version['name'])
+                if current_version_number > int(get_latest_version_summary[1]):
+                    get_latest_version_summary = (current_version['id'], current_version['name'])
+
+            get_latest_dataset_version_api_endpoint = "/api/dataset/" + dataset_permaname +\
+                                                      "/" + get_latest_version_summary[1]
+            result = self.request_get(api_endpoint=get_latest_dataset_version_api_endpoint)
+            dataset_json = result["dataset"]
+            dataset_version_json = result["datasetVersion"]
             dataset_id = dataset_json["id"]
         else:
             get_dataset_with_id_api_endpoint = "/api/dataset/" + dataset_id + "/last"
