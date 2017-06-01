@@ -335,7 +335,6 @@ class Taiga2Client:
             dataset_id = dataset_json["id"]
         elif dataset_permaname and not dataset_version:
             # We retrieve the latest dataset version
-            import pdb; pdb.set_trace()
             get_latest_dataset_version_id_api_endpoint = "/api/dataset/" + dataset_permaname
             result = self.request_get(api_endpoint=get_latest_dataset_version_id_api_endpoint)
             dataset_versions_only_permaname = result['versions']
