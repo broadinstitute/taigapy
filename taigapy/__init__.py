@@ -118,7 +118,6 @@ class Taiga2Client:
 
         if force:
             params['force'] = 'Y'
-        print(params)
 
         api_endpoint = "/api/datafile"
         return self.request_get(api_endpoint, params)
