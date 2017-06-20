@@ -57,3 +57,9 @@ def test_name_version_file_as_id_input(tmpdir):
     # df5 = c.get(id="avana-1-0-83e3.2/cell_line_info") # bug found? this dataset doesnt work
     df5 = c.get(id="taigr-data-40f2.1/non-utf8-table")
     assert df5 is not None
+
+def test_period_in_file_name(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+    c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    df6 = c.get(id="calico-t1-log-viability-30de.1/pcal_t1sec_log2viab_dose2_2.5um")
+    assert df6 is not None
