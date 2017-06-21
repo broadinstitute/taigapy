@@ -218,6 +218,7 @@ class Taiga2Client:
 
         # We add every temp_datafile in the session
         new_datafile_api_endpoint = "/api/datafile/" + new_session_id
+
         for upload_file_path, format in upload_file_path_dict.iteritems():
             upload_file_object = UploadFile(prefix=full_prefix, file_path=upload_file_path, format=format)
             print("Uploading {}...".format(upload_file_object.file_name))
@@ -258,7 +259,7 @@ class Taiga2Client:
                 print("\n\t While processing {}, we got this error {}".format(upload_file_object.file_name,
                                                                               task_status.message))
 
-            return new_session_id
+        return new_session_id
 
     # TODO: Add the creation of a folder, given a path relative to home ('~')
     def create_dataset(self, dataset_name=None, dataset_description=None,
@@ -396,6 +397,7 @@ class Taiga2Client:
                 print("\tKEEP: " + datafile["name"] + " - " + datafile["type"])
 
         new_dataset_version_api_endpoint = "/api/datasetVersion"
+
         new_dataset_version_id = self.request_post(api_endpoint=new_dataset_version_api_endpoint,
                                                    data=new_dataset_version_params)
 

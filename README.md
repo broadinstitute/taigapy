@@ -66,8 +66,7 @@ from taigapy import TaigaClient
 c = TaigaClient(token_path=myTxtWithTokenInside)
 c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 'format'},
                  dataset_description="Force Keep",
-                 force_keep=True,
-                 folder_id="387b86f711ad4600972bfeea23d011bb")
+                 force_keep=True)
 ```
 
 - Update a dataset with new files, removing all previous files, in a specific folder:
@@ -78,8 +77,7 @@ from taigapy import TaigaClient
 c = TaigaClient(token_path=myTxtWithTokenInside)
 c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Force Remove",
-                 force_remove=True,
-                 folder_id="387b86f711ad4600972bfeea23d011bb")
+                 force_remove=True)
 ```
 
 - Update a dataset with new files, based on its permaname and version
@@ -90,8 +88,7 @@ from taigapy import TaigaClient
 c = TaigaClient(token_path=myTxtWithTokenInside)
 c.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
                  upload_file_path_dict={'file_updated_or_new_path': 'format'},
-                 dataset_description="Update a specific version",
-                 folder_id="387b86f711ad4600972bfeea23d011bb")
+                 dataset_description="Update a specific version")
 ```
 
 - Update a dataset with new files, based on its permaname only (will update from the latest version)
@@ -102,8 +99,7 @@ from taigapy import TaigaClient
 c = TaigaClient(token_path=myTxtWithTokenInside)
 c.update_dataset(dataset_permaname=dataset_permaname,
                  upload_file_path_dict={'file_updated_or_new_path': 'format'},
-                 dataset_description="Update from latest",
-                 folder_id="387b86f711ad4600972bfeea23d011bb")
+                 dataset_description="Update from latest")
 ```
 
 Formats available currently are:
