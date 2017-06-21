@@ -8,5 +8,5 @@ setup(
     author="Philip Montgomery",
     author_email="pmontgom@broadinstitute.org",
     long_description=open('README.md').read(),
-    install_requires=['requests', 'pandas']
+    install_requires=['requests', 'pandas', 'boto3']
     )

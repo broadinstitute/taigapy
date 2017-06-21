@@ -92,14 +92,14 @@ class Taiga2Client:
         if id is not None:
             if '.' in id:
                 assert version is None
-                name, version = id.split('.')
+                name, version = id.split('.', 1)
                 assert name
                 params['dataset_permaname'] = name
                 assert version
 
                 if '/' in version:
                     assert file is None
-                    version, file = version.split('/')
+                    version, file = version.split('/', 1)
                     assert file
                     params['datafile_name'] = file
                 params['version'] = version
@@ -118,7 +118,6 @@ class Taiga2Client:
 
         if force:
             params['force'] = 'Y'
-        print(params)
 
         api_endpoint = "/api/datafile"
         return self.request_get(api_endpoint, params)
