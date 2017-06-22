@@ -27,10 +27,89 @@ df = c.get(name='taigr-data-40f2', version=1, file="tiny_table")
 df = c.get(id='achilles-v2-4-6.4')
 
 # the file can also be specified in the id using name.version/file
-# not supported in taigr (as of 052417)
 # id/file (as in 6d9a6104-e2f8-45cf-9002-df3bcedcb80b/tiny_table) is also not supported in either
 df = c.get(id='taigr-data-40f2.1/tiny_table')
 
 ```
+
+You can also upload data into taiga (see below for available formats). Example:
+
+- Create a new dataset in folder public (you can find the folder_id in the url of Taiga web)
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+
+# Create a new dataset in public
+c.create_dataset(dataset_name='My Dataset Name',
+    dataset_description='My Dataset Description',
+    upload_file_path_dict={'file_one_path': 'format'}, folder_id='public')
+```
+
+- Update a dataset with new files, interactively, in public folder (default)
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
+                 dataset_description="Interactive test")
+
+```
+
+- Update a dataset with new files, keeping all previous files, in a specific folder:
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 'format'},
+                 dataset_description="Force Keep",
+                 force_keep=True)
+```
+
+- Update a dataset with new files, removing all previous files, in a specific folder:
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
+                 dataset_description="Force Remove",
+                 force_remove=True)
+```
+
+- Update a dataset with new files, based on its permaname and version
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+c.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
+                 upload_file_path_dict={'file_updated_or_new_path': 'format'},
+                 dataset_description="Update a specific version")
+```
+
+- Update a dataset with new files, based on its permaname only (will update from the latest version)
+
+```python
+from taigapy import TaigaClient
+
+c = TaigaClient(token_path=myTxtWithTokenInside)
+c.update_dataset(dataset_permaname=dataset_permaname,
+                 upload_file_path_dict={'file_updated_or_new_path': 'format'},
+                 dataset_description="Update from latest")
+```
+
+Formats available currently are:
+
+- NumericMatrixCSV
+- NumericMatrixTSV
+- TableCSV
+- TableTSV
+- GCT
+- Raw
+
 
 Confluence: https://confluence.broadinstitute.org/display/CPDS/Taiga
