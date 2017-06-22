@@ -17,6 +17,10 @@ def test_get(tmpdir):
     df1 = c.get(name='depcon-binary-context-matrix', version=1)
     assert df1 is not None
     assert get_cached_count() == 1
+    # verify that we got a pandas object indexable by row and col names
+    assert df.loc["MDAMB453_BREAST", "breast"] == 1.0
+    assert df.loc["MDAMB453_BREAST", "rhabdoid"] == 0.0
+    
     #
     # df2 = c.get(name='depcon-binary-context-matrix', version=3)
     # assert df2 is not None

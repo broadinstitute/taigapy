@@ -48,7 +48,7 @@ class Taiga1Client:
             assert r.status_code == 200
 
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
-                print("read...")
+                #print("read...")
                 for chunk in r.iter_content(chunk_size=100000):
                     fd.write(chunk)
             os.rename(fd.name, local_file)
@@ -56,8 +56,7 @@ class Taiga1Client:
 
     def get(self, id=None, name=None, version=None):
         local_file = self.download_to_cache(id, name, version)
-        return pandas.read_csv(local_file)
-
+        return pandas.read_csv(local_file, index_col=0)
 
 
 
@@ -117,7 +116,7 @@ class Taiga2Client:
 
         if force:
             params['force'] = 'Y'
-        print(params)
+        #print(params)
         r = requests.get(self.url + "/api/datafile", stream=True, params=params, headers=dict(Authorization="Bearer "+self.token))
         if r.status_code == 404:
             return None
@@ -125,6 +124,14 @@ class Taiga2Client:
             raise Exception("Bad status code: {}".format(r.status_code))
 
         return r.json()
+
+    def _get_data_file_type(self, dataset_id, version, filename):
+        r = requests.get(self.url + "/api/dataset/"+dataset_id+"/"+str(version), headers=dict(Authorization="Bearer "+self.token))
+        assert r.status_code == 200
+        metadata = r.json()
+        #print("metadata", metadata)
+        type_by_name = dict([ (datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles'] ])
+        return type_by_name[filename]
 
     def _dl_file(self, id, name, version, file, force, format, destination):
         first_attempt = True
@@ -158,7 +165,7 @@ class Taiga2Client:
             for block in r.iter_content(1024*100):
                 handle.write(block)
 
-    def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
+    def _resolve_and_download(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
         # returns a file in the cache with the data
         if id is None:
             assert name is not None, "id or name must be specified"
@@ -166,6 +173,8 @@ class Taiga2Client:
         metadata = self._get_data_file_json(id, name, version, file, force, "metadata")
         if metadata is None:
             return None
+        
+        #print("metadata", metadata)
 
         data_id = metadata['dataset_version_id']
         data_name = metadata['dataset_permaname']
@@ -177,6 +186,8 @@ class Taiga2Client:
         assert data_version is not None
         assert data_file is not None
 
+        #print("join", [self.cache_dir, data_id, data_file, format])
+        
         local_file = os.path.join(self.cache_dir, data_id + "_" + data_file + "." +format)
         if not os.path.exists(local_file):
             if not os.path.exists(self.cache_dir):
@@ -187,11 +198,19 @@ class Taiga2Client:
 
                 self._dl_file(data_id, None, None, data_file, False, format, fd.name)
             os.rename(fd.name, local_file)
+        return data_id, data_name, data_version, data_file, local_file    
+
+    def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
+        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file, force, format)
         return local_file
 
     def get(self, id=None, name=None, version=None, file=None, force=False):
         # return a pandas dataframe with the data
-        local_file = self.download_to_cache(id, name, version, file, force)
-        return pandas.read_csv(local_file)
+        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file, force, format='csv')
+        type = self._get_data_file_type(data_name, data_version, data_file)
+        if type == "Columnar":
+            return pandas.read_csv(local_file)
+        else:
+            return pandas.read_csv(local_file, index_col=0)
 
 TaigaClient = Taiga2Client
