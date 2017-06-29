@@ -199,14 +199,14 @@ class Taiga2Client:
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file, force, format)
         return local_file
 
-    def get(self, id=None, name=None, version=None, file=None, force=False):
+    def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
         # return a pandas dataframe with the data
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file, force, format='csv')
         type = self._get_data_file_type(data_name, data_version, data_file)
         if type == "Columnar":
-            return pandas.read_csv(local_file)
+            return pandas.read_csv(local_file, encoding=encoding)
         else:
-            return pandas.read_csv(local_file, index_col=0)
+            return pandas.read_csv(local_file, index_col=0, encoding=encoding)
 
     # <editor-fold desc="Upload">
 
