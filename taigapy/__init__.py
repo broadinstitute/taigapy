@@ -184,14 +184,14 @@ class Taiga2Client:
         assert data_file is not None
 
         local_file = os.path.join(self.cache_dir, data_id + "_" + data_file + "." + format)
-        if not os.path.exists(local_file):
+        if not os.path.exists(local_file) or force:
             if not os.path.exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
 
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
                 #            def _dl_file(self, id, name, version, file, force, destination):
 
-                self._dl_file(data_id, None, None, data_file, False, format, fd.name)
+                self._dl_file(data_id, None, None, data_file, force, format, fd.name)
             os.rename(fd.name, local_file)
         return data_id, data_name, data_version, data_file, local_file    
 
