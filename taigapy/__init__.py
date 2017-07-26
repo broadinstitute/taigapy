@@ -86,7 +86,8 @@ class Taiga2Client:
             return None
         return r.text
 
-    def _get_data_file_json(self, id, name, version, file, force, format):
+    def _get_params_dict(self, id, name, version, file, force=None, format=None):
+        """Parse the params into a dict we can use for GET/POST requests"""
         params = dict(format=format)
 
         if id is not None:
@@ -119,8 +120,21 @@ class Taiga2Client:
         if force:
             params['force'] = 'Y'
 
+        return params
+
+    def _get_data_file_json(self, id, name, version, file, force, format):
+        params = self._get_params_dict(id=id, name=name, version=version,
+                                  file=file, force=force, format=format)
+
         api_endpoint = "/api/datafile"
         return self.request_get(api_endpoint, params)
+
+    def _get_data_file_summary(self, id, name, version, file):
+        """Get the summary of a datafile"""
+        params = self._get_params_dict(id=id, name=name, version=version, file=file)
+
+        api_endpoint = "/api/datafile/short_summary"
+        return self.request_get(api_endpoint=api_endpoint, params=params)
 
     def _dl_file(self, id, name, version, file, force, format, destination):
         first_attempt = True
@@ -189,6 +203,19 @@ class Taiga2Client:
         # return a pandas dataframe with the data
         local_file = self.download_to_cache(id, name, version, file, force)
         return pandas.read_csv(local_file)
+
+    def get_short_summary(self, id=None, name=None, version=None, file=None):
+        """Get the short summary of a datafile, given the the id/file or name/version/file"""
+        if id:
+            assert file is not None, "dataset id must be provided with a specific file"
+        if name:
+            assert version and file is not None,\
+                "Permaname must be provided with a specific version and a specific file"
+        assert id or name is not None, "Either id or name should be provided, with the corresponding params"
+
+        short_summary = self._get_data_file_summary(id=id, name=name, version=version, file=file)
+
+        return short_summary
 
     # <editor-fold desc="Upload">
 
