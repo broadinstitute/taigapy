@@ -1,6 +1,24 @@
 # taigapy
 Library for reading from taiga in python
 
+## Token set up
+
+First, you need to get your authorization token so the client library can make requests on your behalf.   Go to:
+
+https://cds.team/taiga/token/
+
+And click on the "Copy" button to copy your token. Paste the token into a file named `~/.taiga/token`
+
+## Installing Taigapy
+
+run 
+
+```
+pip install taigapy
+```
+
+## Running Taigapy
+
 run
 
 ```
@@ -12,7 +30,7 @@ You can then fetch from taiga in python.  Example:
 ```
 from taigapy import TaigaClient
 
-c = TaigaClient(cache_dir=cache_dir)
+c = TaigaClient()
 
 # fetch by ID
 df = c.get(id='6d9a6104-e2f8-45cf-9002-df3bcedcb80b')
@@ -39,7 +57,7 @@ You can also upload data into taiga (see below for available formats). Example:
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient(token_path=myTxtWithTokenInside)
+c = TaigaClient()
 
 # Create a new dataset in public
 c.create_dataset(dataset_name='My Dataset Name',
@@ -52,7 +70,7 @@ c.create_dataset(dataset_name='My Dataset Name',
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient(token_path=myTxtWithTokenInside)
+c = TaigaClient()
 c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Interactive test")
 
@@ -63,7 +81,7 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient(token_path=myTxtWithTokenInside)
+c = TaigaClient()
 c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 'format'},
                  dataset_description="Force Keep",
                  force_keep=True)
@@ -74,7 +92,7 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient(token_path=myTxtWithTokenInside)
+c = TaigaClient()
 c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Force Remove",
                  force_remove=True)
@@ -85,7 +103,7 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient(token_path=myTxtWithTokenInside)
+c = TaigaClient()
 c.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
                  upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Update a specific version")
@@ -96,11 +114,13 @@ c.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient(token_path=myTxtWithTokenInside)
+c = TaigaClient()
 c.update_dataset(dataset_permaname=dataset_permaname,
                  upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Update from latest")
 ```
+
+### Available formats
 
 Formats available currently are:
 
