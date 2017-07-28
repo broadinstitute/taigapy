@@ -52,7 +52,7 @@ class Taiga1Client:
             assert r.status_code == 200
 
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
-                #print("read...")
+                # print("read...")
                 for chunk in r.iter_content(chunk_size=100000):
                     fd.write(chunk)
             os.rename(fd.name, local_file)
@@ -65,6 +65,12 @@ class Taiga1Client:
 
 class Taiga2Client:
     def __init__(self, url="https://cds.team/taiga", cache_dir="~/.taiga", token_path=None):
+        self.formats = ["NumericMatrixCSV",
+                        "NumericMatrixTSV",
+                        "TableCSV",
+                        "TableTSV",
+                        "GCT",
+                        "Raw", ]
         self.url = url
         self.cache_dir = os.path.expanduser(cache_dir)
         if token_path is None:
@@ -124,7 +130,7 @@ class Taiga2Client:
 
     def _get_data_file_json(self, id, name, version, file, force, format):
         params = self._get_params_dict(id=id, name=name, version=version,
-                                  file=file, force=force, format=format)
+                                       file=file, force=force, format=format)
 
         api_endpoint = "/api/datafile"
         return self.request_get(api_endpoint, params)
@@ -137,11 +143,13 @@ class Taiga2Client:
         return self.request_get(api_endpoint=api_endpoint, params=params)
 
     def _get_data_file_type(self, dataset_id, version, filename):
-        r = requests.get(self.url + "/api/dataset/"+dataset_id+"/"+str(version), headers=dict(Authorization="Bearer "+self.token))
+        r = requests.get(self.url + "/api/dataset/" + dataset_id + "/" + str(version),
+                         headers=dict(Authorization="Bearer " + self.token))
         assert r.status_code == 200
         metadata = r.json()
-        #print("metadata", metadata)
-        type_by_name = dict([ (datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles'] ])
+        # print("metadata", metadata)
+        type_by_name = dict(
+            [(datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles']])
         return type_by_name[filename]
 
     def _dl_file(self, id, name, version, file, force, format, destination):
@@ -185,7 +193,7 @@ class Taiga2Client:
         if metadata is None:
             return None
 
-        #print("metadata", metadata)
+        # print("metadata", metadata)
 
         data_id = metadata['dataset_version_id']
         data_name = metadata['dataset_permaname']
@@ -210,12 +218,14 @@ class Taiga2Client:
         return data_id, data_name, data_version, data_file, local_file
 
     def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
-        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file, force, format)
+        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
+                                                                                             force, format)
         return local_file
 
     def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
         # return a pandas dataframe with the data
-        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file, force, format='csv')
+        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
+                                                                                             force, format='csv')
         type = self._get_data_file_type(data_name, data_version, data_file)
         if type == "Columnar":
             return pandas.read_csv(local_file, encoding=encoding)
@@ -227,7 +237,7 @@ class Taiga2Client:
         if id:
             assert file is not None, "dataset id must be provided with a specific file"
         if name:
-            assert version and file is not None,\
+            assert version and file is not None, \
                 "Permaname must be provided with a specific version and a specific file"
         assert id or name is not None, "Either id or name should be provided, with the corresponding params"
 
@@ -263,7 +273,7 @@ class Taiga2Client:
         # We add every temp_datafile in the session
         new_datafile_api_endpoint = "/api/datafile/" + new_session_id
 
-        for upload_file_path, format in upload_file_path_dict.iteritems():
+        for upload_file_path, format in upload_file_path_dict.items():
             upload_file_object = UploadFile(prefix=full_prefix, file_path=upload_file_path, format=format)
             print("Uploading {}...".format(upload_file_object.file_name))
 
@@ -318,6 +328,7 @@ class Taiga2Client:
         :return dataset_id: str
         """
         assert len(upload_file_path_dict) != 0
+        import pdb; pdb.set_trace()
         if folder_id is None:
             folder_id = 'public'
             user_continue = raw_input(
@@ -338,8 +349,8 @@ class Taiga2Client:
         }
         dataset_id = self.request_post(api_endpoint=create_dataset_api_endpoint, data=data_create_dataset)
         print(
-            "\nCongratulations! Your dataset `{}` has been created in the public folder with the id {}. You can directly access to it with this url: {}\n"
-                .format(dataset_name, dataset_id, self.url + "/dataset/" + dataset_id))
+            "\nCongratulations! Your dataset `{}` has been created in the {} folder with the id {}. You can directly access to it with this url: {}\n"
+                .format(dataset_name, folder_id, dataset_id, self.url + "/dataset/" + dataset_id))
 
         return dataset_id
 
@@ -389,7 +400,7 @@ class Taiga2Client:
                 if current_version_number > int(get_latest_version_summary[1]):
                     get_latest_version_summary = (current_version['id'], current_version['name'])
 
-            get_latest_dataset_version_api_endpoint = "/api/dataset/" + dataset_permaname +\
+            get_latest_dataset_version_api_endpoint = "/api/dataset/" + dataset_permaname + \
                                                       "/" + get_latest_version_summary[1]
             result = self.request_get(api_endpoint=get_latest_dataset_version_api_endpoint)
             dataset_json = result["dataset"]
@@ -433,7 +444,7 @@ class Taiga2Client:
         new_dataset_version_params['datafileIds'] = keep_datafile_id_list
 
         print("Creating the new version with these files:")
-        for new_file_path, format in upload_file_path_dict.iteritems():
+        for new_file_path, format in upload_file_path_dict.items():
             new_file_name = UploadFile.get_file_name(UploadFile.drop_extension(new_file_path))
             print("\tNEW: " + new_file_name + " - " + format)
         for datafile in datafiles:
