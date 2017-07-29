@@ -232,6 +232,12 @@ class Taiga2Client:
         else:
             return pandas.read_csv(local_file, index_col=0, encoding=encoding)
 
+    def get_local(self, format, id=None, name=None, version=None, file=None, force=False, encoding=None):
+        """Returns the path of the file into the cache"""
+        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
+                                                                                             force, format=format)
+        return local_file
+
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
         if id:
@@ -328,7 +334,6 @@ class Taiga2Client:
         :return dataset_id: str
         """
         assert len(upload_file_path_dict) != 0
-        import pdb; pdb.set_trace()
         if folder_id is None:
             folder_id = 'public'
             user_continue = raw_input(
