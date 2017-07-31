@@ -17,7 +17,7 @@ run
 pip install taigapy
 ```
 
-## Running Taigapy
+## Running Taigapy via Python interpreter (see below for command line execution)
 
 run
 
@@ -131,5 +131,26 @@ Formats available currently are:
 - GCT
 - Raw
 
+## Running Taigapy via Command line
+
+Run `python -m taigapy -h` to have an up to date help.
+
+### Create a new dataset
+
+`python -m taigapy create -n dataset_name -f {'file_path_one': 'format', ...}`
+
+### Update an existing dataset 
+
+`python -m taigapy update -p dataset_permaname -v dataset_version -f {'file_path_one': 'format', ...}`
+
+### Get a dataset from Taiga
+
+`python -m taigapy get -p dataset_permaname -v dataset_version -f file_name -t format`
+
+[Important] Please choose a format available for this specific file in taiga Web UI
+
+
+
+## More Taigapy information:
 
 Confluence: https://confluence.broadinstitute.org/display/CPDS/Taiga

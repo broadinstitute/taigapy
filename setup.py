@@ -7,7 +7,7 @@ if sys.version_info < (3, 5):
 
 setup(
     name='taigapy',
-    version='2.0.0',
+    version='2.1.0',
     packages=find_packages(),
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
     author="Philip Montgomery",
