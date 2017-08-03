@@ -152,6 +152,37 @@ class Taiga2Client:
             [(datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles']])
         return type_by_name[filename]
 
+    def _get_allowed_conversion_type_from_dataset_version(self, file, id=None, name=None, version=None):
+        # Get the id and version id of name/version
+        if not id:
+            # Need to get the dataset version from id
+            assert name, "If not id is given, we need the permaname of the dataset and the version"
+            assert version, "If name if given, we need also the version to get the id of the dataset version"
+            api_endpoint_get_dataset_version_id = "/api/dataset/{datasetId}".format(datasetId=name)
+            request = self.request_get(api_endpoint=api_endpoint_get_dataset_version_id)
+
+            versions = request['versions']
+            for dataset_version in versions:
+                if dataset_version['name'] == version:
+                    id = dataset_version['id']
+        # else:
+
+        assert file, "We need the file name to get the conversion type"
+        api_endpoint = "/api/dataset/{datasetId}/{datasetVersionId}".format(datasetId=None,
+                                                                            datasetVersionId=id)
+
+        result = self.request_get(api_endpoint=api_endpoint)
+
+        # Get the file
+        full_dataset_version_datafiles = result['datasetVersion']['datafiles']
+
+        # Get the allowed conversion type
+        for datafile in full_dataset_version_datafiles:
+            if datafile['name'] == file:
+                return datafile['allowed_conversion_type']
+
+        return Exception("Error...check the file name?")
+
     def _dl_file(self, id, name, version, file, force, format, destination):
         first_attempt = True
         prev_status = None
@@ -217,12 +248,19 @@ class Taiga2Client:
             os.rename(fd.name, local_file)
         return data_id, data_name, data_version, data_file, local_file
 
-    def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
+    def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="raw"):
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
                                                                                              force, format)
         return local_file
 
     def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
+        # We first check if we can convert to a csv
+        allowed_conversion_type = self._get_allowed_conversion_type_from_dataset_version(
+            id=id, name=name, version=version, file=file)
+        for conv_type in allowed_conversion_type:
+            if conv_type == 'raw':
+                raise Exception("The file is a Raw one, please use instead `get_local` with the same parameters")
+
         # return a pandas dataframe with the data
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
                                                                                              force, format='csv')
@@ -232,7 +270,7 @@ class Taiga2Client:
         else:
             return pandas.read_csv(local_file, index_col=0, encoding=encoding)
 
-    def get_local(self, format, id=None, name=None, version=None, file=None, force=False, encoding=None):
+    def get_local(self, format="raw", id=None, name=None, version=None, file=None, force=False, encoding=None):
         """Returns the path of the file into the cache"""
         local_file = self.download_to_cache(id, name, version, file,
                                             force, format=format)
