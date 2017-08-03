@@ -234,8 +234,8 @@ class Taiga2Client:
 
     def get_local(self, format, id=None, name=None, version=None, file=None, force=False, encoding=None):
         """Returns the path of the file into the cache"""
-        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
-                                                                                             force, format=format)
+        local_file = self.download_to_cache(id, name, version, file,
+                                            force, format=format)
         return local_file
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
