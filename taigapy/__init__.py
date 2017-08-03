@@ -4,6 +4,7 @@ import pandas
 import os
 import tempfile
 import time
+import sys
 
 from taigapy.UploadFile import UploadFile
 
@@ -81,6 +82,7 @@ class Taiga2Client:
             self.token = r.readline().strip()
 
     def get_dataset_id_by_name(self, name, md5=None, version=None):
+        """Deprecated"""
         params = dict(fetch="id", name=name)
         if md5 is not None:
             params['md5'] = md5
@@ -92,23 +94,29 @@ class Taiga2Client:
             return None
         return r.text
 
+    def _untangle_dataset_id_with_version(self, id):
+        """File can be optional in the id"""
+        name, version = id.split('.', 1)
+        assert name
+        assert version
+
+        if '/' in version:
+            version, file = version.split('/', 1)
+            assert file
+        else:
+            file = None
+
+        return name, version, file
+
     def _get_params_dict(self, id, name, version, file, force=None, format=None):
         """Parse the params into a dict we can use for GET/POST requests"""
         params = dict(format=format)
 
         if id is not None:
             if '.' in id:
-                assert version is None
-                name, version = id.split('.', 1)
-                assert name
+                name, version, file = self._untangle_dataset_id_with_version(id)
                 params['dataset_permaname'] = name
-                assert version
-
-                if '/' in version:
-                    assert file is None
-                    version, file = version.split('/', 1)
-                    assert file
-                    params['datafile_name'] = file
+                params['datafile_name'] = file
                 params['version'] = version
 
             else:
@@ -152,22 +160,42 @@ class Taiga2Client:
             [(datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles']])
         return type_by_name[filename]
 
+    def _get_dataset_version_id_from_permaname_version(self, name, version):
+        assert name, "If not id is given, we need the permaname of the dataset and the version"
+        assert version, "If name if given, we need also the version to get the id of the dataset version"
+        api_endpoint_get_dataset_version_id = "/api/dataset/{datasetId}".format(datasetId=name)
+        request = self.request_get(api_endpoint=api_endpoint_get_dataset_version_id)
+
+        id = None
+
+        versions = request['versions']
+        for dataset_version in versions:
+            if dataset_version['name'] == str(version):
+                id = dataset_version['id']
+
+        if not id:
+            raise Exception("The version {} does not exist in the dataset permaname {}".format(version, name))
+
+        return id
+
     def _get_allowed_conversion_type_from_dataset_version(self, file, id=None, name=None, version=None):
         # Get the id and version id of name/version
         if not id:
             # Need to get the dataset version from id
-            assert name, "If not id is given, we need the permaname of the dataset and the version"
-            assert version, "If name if given, we need also the version to get the id of the dataset version"
-            api_endpoint_get_dataset_version_id = "/api/dataset/{datasetId}".format(datasetId=name)
-            request = self.request_get(api_endpoint=api_endpoint_get_dataset_version_id)
-
-            versions = request['versions']
-            for dataset_version in versions:
-                if dataset_version['name'] == version:
-                    id = dataset_version['id']
+            id = self._get_dataset_version_id_from_permaname_version(name=name, version=version)
         # else:
+        else:
+            if '.' in id:
+                # TODO: Check also if file already filled out
+                # We need to check if we have a dataset id with version or a dataset version id
+                name, version, file = self._untangle_dataset_id_with_version(id)
+                assert name, "Id {} passed does not match any dataset".format(id)
+                assert version, "No version found for this id {}".format(id)
+                try:
+                    id = self._get_dataset_version_id_from_permaname_version(name, version)
+                except:
+                    print(sys.exc_info()[0])
 
-        assert file, "We need the file name to get the conversion type"
         api_endpoint = "/api/dataset/{datasetId}/{datasetVersionId}".format(datasetId=None,
                                                                             datasetVersionId=id)
 
@@ -177,9 +205,12 @@ class Taiga2Client:
         full_dataset_version_datafiles = result['datasetVersion']['datafiles']
 
         # Get the allowed conversion type
-        for datafile in full_dataset_version_datafiles:
-            if datafile['name'] == file:
-                return datafile['allowed_conversion_type']
+        if not file:
+            return full_dataset_version_datafiles[0]['allowed_conversion_type']
+        else:
+            for datafile in full_dataset_version_datafiles:
+                if datafile['name'] == file:
+                    return datafile['allowed_conversion_type']
 
         return Exception("Error...check the file name?")
 
@@ -224,8 +255,6 @@ class Taiga2Client:
         if metadata is None:
             return None
 
-        # print("metadata", metadata)
-
         data_id = metadata['dataset_version_id']
         data_name = metadata['dataset_permaname']
         data_version = metadata['dataset_version']
@@ -254,6 +283,7 @@ class Taiga2Client:
         return local_file
 
     def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
+        """Resolve and download a (converted if needed) csv file. Throw an exception if we ask for a raw file"""
         # We first check if we can convert to a csv
         allowed_conversion_type = self._get_allowed_conversion_type_from_dataset_version(
             id=id, name=name, version=version, file=file)
