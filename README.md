@@ -32,9 +32,6 @@ from taigapy import TaigaClient
 
 c = TaigaClient()
 
-
-
-
 # fetch by ID a full dataset
 df = c.get(id='6d9a6104-e2f8-45cf-9002-df3bcedcb80b')
 
@@ -43,7 +40,7 @@ df1 = c.get(name='achilles-v2-4-6', version=4)
 
 # fetch a specific data file
 # If Raw file, use download_to_cache, which will give you the path of the file
-raw_path = c.get_local(name='taigr-data-40f2', version=1, file="raw_file")
+raw_path = c.get_local(name='taigr-data-40f2', version=3, file="raw_file")
 
 # Else, if CSV convertible
 df = c.get(name='taigr-data-40f2', version=1, file="tiny_table")
