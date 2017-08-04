@@ -253,7 +253,7 @@ class Taiga2Client:
 
         metadata = self._get_data_file_json(id, name, version, file, force, "metadata")
         if metadata is None:
-            return None
+            raise Exception("No data for the given parameters. Please check your inputs are correct.")
 
         data_id = metadata['dataset_version_id']
         data_name = metadata['dataset_permaname']
@@ -289,7 +289,7 @@ class Taiga2Client:
             id=id, name=name, version=version, file=file)
         for conv_type in allowed_conversion_type:
             if conv_type == 'raw':
-                raise Exception("The file is a Raw one, please use instead `get_local` with the same parameters")
+                raise Exception("The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
@@ -299,12 +299,6 @@ class Taiga2Client:
             return pandas.read_csv(local_file, encoding=encoding)
         else:
             return pandas.read_csv(local_file, index_col=0, encoding=encoding)
-
-    def get_local(self, format="raw", id=None, name=None, version=None, file=None, force=False, encoding=None):
-        """Returns the path of the file into the cache"""
-        local_file = self.download_to_cache(id, name, version, file,
-                                            force, format=format)
-        return local_file
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""

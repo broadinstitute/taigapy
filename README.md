@@ -40,7 +40,7 @@ df1 = c.get(name='achilles-v2-4-6', version=4)
 
 # fetch a specific data file
 # If Raw file, use download_to_cache, which will give you the path of the file
-raw_path = c.get_local(name='taigr-data-40f2', version=3, file="raw_file")
+raw_path = c.download_to_cache(name='taigr-data-40f2', version=3, file="raw_file")
 
 # Else, if CSV convertible
 df = c.get(name='taigr-data-40f2', version=1, file="tiny_table")

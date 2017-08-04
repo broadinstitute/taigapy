@@ -24,13 +24,13 @@ def update(args):
 
 def get(args):
     taiga_client = init_taiga(args.token)
-    local_file = taiga_client.get_local(id=args.dataset_id,
-                                        name=args.dataset_permaname,
-                                        version=args.dataset_version,
-                                        file=args.file,
-                                        force=args.force,
-                                        encoding=args.encoding,
-                                        format=args.format)
+    local_file = taiga_client.download_to_cache(id=args.dataset_id,
+                                                name=args.dataset_permaname,
+                                                version=args.dataset_version,
+                                                file=args.file,
+                                                force=args.force,
+                                                encoding=args.encoding,
+                                                format=args.format)
     print("\nDownloaded the file into: {}".format(local_file))
 
 
