@@ -29,7 +29,6 @@ def get(args):
                                                 version=args.dataset_version,
                                                 file=args.file,
                                                 force=args.force,
-                                                encoding=args.encoding,
                                                 format=args.format)
     print("\nDownloaded the file into: {}".format(local_file))
 

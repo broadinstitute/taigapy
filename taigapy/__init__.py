@@ -536,7 +536,7 @@ class Taiga2Client:
                          headers=dict(Authorization="Bearer " + self.token))
 
         if r.status_code == 404:
-            return None
+            raise Exception("Received a not found error. Are you sure about your credentials and/or the data parameters?")
         elif r.status_code != 200:
             raise Exception("Bad status code: {}".format(r.status_code))
 
