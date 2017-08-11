@@ -160,18 +160,22 @@ class Taiga2Client:
             [(datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles']])
         return type_by_name[filename]
 
-    def _get_dataset_version_id_from_permaname_version(self, name, version):
+    def _get_dataset_version_id_from_permaname_version(self, name, version=None):
         assert name, "If not id is given, we need the permaname of the dataset and the version"
-        assert version, "If name if given, we need also the version to get the id of the dataset version"
         api_endpoint_get_dataset_version_id = "/api/dataset/{datasetId}".format(datasetId=name)
         request = self.request_get(api_endpoint=api_endpoint_get_dataset_version_id)
 
         id = None
 
         versions = request['versions']
-        for dataset_version in versions:
-            if dataset_version['name'] == str(version):
-                id = dataset_version['id']
+
+        if version is None:
+            # If no version provided, we fetch the latest version
+            id = versions[-1]['id']
+        else:
+            for dataset_version in versions:
+                if dataset_version['name'] == str(version):
+                    id = dataset_version['id']
 
         if not id:
             raise Exception("The version {} does not exist in the dataset permaname {}".format(version, name))
