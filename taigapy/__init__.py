@@ -8,7 +8,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__="2.1.5"
+__version__="2.2.0"
 
 class Taiga1Client:
     def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):
@@ -151,14 +151,17 @@ class Taiga2Client:
         api_endpoint = "/api/datafile/short_summary"
         return self.request_get(api_endpoint=api_endpoint, params=params)
 
-    def _get_data_file_type(self, dataset_id, version, filename):
+    def get_datafile_types(self, dataset_id, version):
         r = requests.get(self.url + "/api/dataset/" + dataset_id + "/" + str(version),
                          headers=dict(Authorization="Bearer " + self.token))
         assert r.status_code == 200
         metadata = r.json()
-        # print("metadata", metadata)
         type_by_name = dict(
             [(datafile['name'], datafile['type']) for datafile in metadata['datasetVersion']['datafiles']])
+        return type_by_name
+
+    def _get_data_file_type(self, dataset_id, version, filename):
+        type_by_name = self.get_datafile_types(dataset_id, version)
         return type_by_name[filename]
 
     def _get_dataset_version_id_from_permaname_version(self, name, version=None):
