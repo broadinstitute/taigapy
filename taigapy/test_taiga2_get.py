@@ -43,6 +43,14 @@ def test_get_table(tmpdir, taigaClient):
     assert df3 is not None
 
 
+@pytest.mark.parametrize("dataset, format, expected", [
+    ("small-hgnc-2a89.2", "csv", True),
+    ("small-hgnc-2a89", "csv", False),
+])
+def test_is_valid_dataset(tmpdir, taigaClient, dataset, format, expected):
+    assert taigaClient.is_valid_dataset(dataset, format=format) == expected
+
+
 def test_download_hdf5(tmpdir, taigaClient):
     local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='hdf5')
     assert 'hdf5' in local_file
