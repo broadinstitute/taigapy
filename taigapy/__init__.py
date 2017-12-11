@@ -8,7 +8,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__="2.2.0"
+__version__="2.2.1"
 
 class Taiga1Client:
     def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):
@@ -296,6 +296,13 @@ class Taiga2Client:
                 self._dl_file(data_id, None, None, data_file, force, format, fd.name)
             os.rename(fd.name, local_file)
         return data_id, data_name, data_version, data_file, local_file
+
+    def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='raw'):
+        try:
+            self._get_data_file_json(id, name, version, file, force, format)
+            return True
+        except:
+            return False
 
     def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="raw"):
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
