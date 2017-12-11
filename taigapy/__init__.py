@@ -64,9 +64,12 @@ class Taiga1Client:
         local_file = self.download_to_cache(id, name, version)
         return pandas.read_csv(local_file, index_col=0)
 
+# global variable to allow people to globally override the location before initializing client
+# which is often useful in adhoc scripts being submitted onto the cluster.
+DEFAULT_CACHE_DIR=os.path.expanduser("~/.taiga")
 
 class Taiga2Client:
-    def __init__(self, url="https://cds.team/taiga", cache_dir="~/.taiga", token_path=None):
+    def __init__(self, url="https://cds.team/taiga", cache_dir=None, token_path=None):
         self.formats = ["NumericMatrixCSV",
                         "NumericMatrixTSV",
                         "TableCSV",
@@ -74,13 +77,22 @@ class Taiga2Client:
                         "GCT",
                         "Raw", ]
         self.url = url
-        self.cache_dir = os.path.expanduser(cache_dir)
+
+        if cache_dir is None:
+            cache_dir = DEFAULT_CACHE_DIR
+        self.cache_dir = cache_dir
+        
         if token_path is None:
-            token_path = os.path.join(self.cache_dir, "token")
-        if not os.path.exists(token_path):
-            raise Exception("No token file: {}".format(token_path))
+            token_path = self._find_first_existing(["./.taiga-token", os.path.join(self.cache_dir, "token")])
+
         with open(token_path, "rt") as r:
             self.token = r.readline().strip()
+    
+    def _find_first_existing(self, paths):
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        raise Exception("No token file found. Checked the following locations: {}".format(paths))
 
     def get_dataset_id_by_name(self, name, md5=None, version=None):
         """Deprecated"""
