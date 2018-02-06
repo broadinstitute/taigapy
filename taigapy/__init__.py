@@ -8,7 +8,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__="2.2.2"
+__version__="2.3.0"
 
 class Taiga1Client:
     def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):

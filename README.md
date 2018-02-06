@@ -154,6 +154,11 @@ Run `python -m taigapy -h` to have an up to date help.
 [Important] Please choose a format available for this specific file in taiga Web UI
 
 
+## Publish Taigapy on pypi
+
+1. `rm -r dist/`
+2. `python setup.py bdist_wheel --universal`
+3. `twine upload dist/*`
 
 ## More Taigapy information:
 
