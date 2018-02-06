@@ -330,10 +330,10 @@ class Taiga2Client:
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
         if id:
-            assert file is not None, "dataset id must be provided with a specific file"
+            assert file is not None, "Dataset id must be provided with a specific file"
         if name:
-            assert version and file is not None, \
-                "Permaname must be provided with a specific version and a specific file"
+            assert file is not None, \
+                "Dataset permaname must be provided with a specific file"
         assert id or name is not None, "Either id or name should be provided, with the corresponding params"
 
         short_summary = self._get_data_file_summary(id=id, name=name, version=version, file=file)

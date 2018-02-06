@@ -95,3 +95,13 @@ def test_name_version_file_as_id_input(tmpdir, taigaClient):
 def test_period_in_file_name(tmpdir, taigaClient):
     df6 = taigaClient.get(id="calico-t1-log-viability-30de.1/pcal_t1sec_log2viab_dose2_2.5um")
     assert df6 is not None
+
+
+def test_get_short_summary_full(tmpdir, taigaClient: TaigaClient):
+    summary = taigaClient.get_short_summary(name="calico-t1-log-viability-30de", version="1", file="pcal_t1sec_log2viab_dose2_2.5um")
+    assert summary == '576x1119 matrix, 50911 NAs'
+
+
+def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
+    summary = taigaClient.get_short_summary(name="calico-t1-log-viability-30de", file="pcal_t1sec_log2viab_dose2_2.5um")
+    assert summary == '576x1119 matrix, 50911 NAs'
