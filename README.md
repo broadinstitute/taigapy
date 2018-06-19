@@ -1,6 +1,8 @@
 # taigapy
 Library for reading from taiga in python
 
+See [here](https://confluence.broadinstitute.org/display/CPDS/Taiga) for installing taigr, the library for reading from taiga in R
+
 ## Token set up
 
 First, you need to get your authorization token so the client library can make requests on your behalf.   Go to:
@@ -11,18 +13,16 @@ And click on the "Copy" button to copy your token. Paste the token into a file n
 
 ## Installing Taigapy
 
-run 
+If you are only using Taigapy and not making modifications to it, run
 
 ```
 pip install taigapy
 ```
 
-## Running Taigapy via Python interpreter (see below for command line execution)
-
-run
+If you are developing Taigapy, check out the repo and run
 
 ```
-python setup.py install
+python setup.py develop
 ```
 
 You can then fetch from taiga in python.  Example:
