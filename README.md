@@ -155,6 +155,7 @@ Run `python -m taigapy -h` to have an up to date help.
 
 
 ## Publish Taigapy on pypi
+`pip install twine` (not to be confused with the interactive fiction software called twine)
 
 1. `rm -r dist/`
 2. `python setup.py bdist_wheel --universal`
@@ -163,3 +164,6 @@ Run `python -m taigapy -h` to have an up to date help.
 ## More Taigapy information:
 
 Confluence: https://confluence.broadinstitute.org/display/CPDS/Taiga
+
+## Running tests:
+`pytest`

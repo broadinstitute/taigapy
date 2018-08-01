@@ -8,7 +8,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__="2.3.0"
+__version__="2.3.1"
 
 class Taiga1Client:
     def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):
@@ -66,7 +66,7 @@ class Taiga1Client:
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
-DEFAULT_CACHE_DIR=os.path.expanduser("~/.taiga")
+DEFAULT_CACHE_DIR="~/.taiga"
 
 class Taiga2Client:
     def __init__(self, url="https://cds.team/taiga", cache_dir=None, token_path=None):
@@ -80,7 +80,7 @@ class Taiga2Client:
 
         if cache_dir is None:
             cache_dir = DEFAULT_CACHE_DIR
-        self.cache_dir = cache_dir
+        self.cache_dir = os.path.expanduser(cache_dir)
         
         if token_path is None:
             token_path = self._find_first_existing(["./.taiga-token", os.path.join(self.cache_dir, "token")])
