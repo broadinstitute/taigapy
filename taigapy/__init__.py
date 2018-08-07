@@ -64,6 +64,7 @@ class Taiga1Client:
         local_file = self.download_to_cache(id, name, version)
         return pandas.read_csv(local_file, index_col=0)
 
+
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR="~/.taiga"
@@ -87,7 +88,7 @@ class Taiga2Client:
 
         with open(token_path, "rt") as r:
             self.token = r.readline().strip()
-    
+
     def _find_first_existing(self, paths):
         for path in paths:
             if os.path.exists(path):
@@ -316,7 +317,8 @@ class Taiga2Client:
             id=id, name=name, version=version, file=file)
         for conv_type in allowed_conversion_type:
             if conv_type == 'raw':
-                raise Exception("The file is a Raw one, please use instead `download_to_cache` with the same parameters")
+                raise Exception(
+                    "The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
@@ -397,7 +399,7 @@ class Taiga2Client:
             task_status = self.request_get(api_endpoint=task_status_api_endpoint)
 
             while (task_status['state'] != 'SUCCESS' and
-                           task_status['state'] != 'FAILURE'):
+                   task_status['state'] != 'FAILURE'):
                 print("\t {}".format(task_status['message']))
                 time.sleep(1)
                 task_status = self.request_get(api_endpoint=task_status_api_endpoint)
@@ -425,8 +427,12 @@ class Taiga2Client:
         assert len(upload_file_path_dict) != 0
         if folder_id is None:
             folder_id = 'public'
-            user_continue = raw_input(
-                "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) ")
+            prompt = "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) "
+            try:
+                user_continue = raw_input(prompt)
+            except NameError:
+                user_continue = input(prompt)
+
             if user_continue != 'y':
                 return
 
@@ -511,7 +517,12 @@ class Taiga2Client:
             # We will be interactive at asking which files they want to keep or remove
             print("Now choosing the datasets you would want to keep or remove:")
             for datafile in datafiles:
-                keep_answer = raw_input("\tKeep " + datafile['name'] + " ? (y/n) ")
+                prompt = "\tKeep " + datafile['name'] + " ? (y/n) "
+                try:
+                    keep_answer = raw_input(prompt)
+                except NameError:
+                    keep_answer = input(prompt)
+
                 if keep_answer == 'y':
                     # Add to the keep list
                     keep_datafile_id_list.append(datafile['id'])
@@ -563,7 +574,8 @@ class Taiga2Client:
                          headers=dict(Authorization="Bearer " + self.token))
 
         if r.status_code == 404:
-            raise Exception("Received a not found error. Are you sure about your credentials and/or the data parameters?")
+            raise Exception(
+                "Received a not found error. Are you sure about your credentials and/or the data parameters?")
         elif r.status_code != 200:
             raise Exception("Bad status code: {}".format(r.status_code))
 
