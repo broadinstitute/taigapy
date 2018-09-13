@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys
 
-install_requires=['requests', 'pandas', 'boto3']
+install_requires=['requests', 'pandas', 'boto3', 'colorful']
 if sys.version_info < (3, 5):
     install_requires.append('enum34')
 

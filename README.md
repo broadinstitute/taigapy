@@ -27,7 +27,7 @@ python setup.py develop
 
 You can then fetch from taiga in python.  Example:
 
-```
+```python
 from taigapy import TaigaClient
 
 c = TaigaClient()
