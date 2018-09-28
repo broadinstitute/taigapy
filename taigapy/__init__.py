@@ -9,7 +9,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__ = "2.4.1"
+__version__ = "2.4.2"
 
 class Taiga1Client:
     def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):
@@ -187,8 +187,9 @@ class Taiga2Client:
         id = None
 
         versions = request['versions']
+        import pdb; pdb.set_trace()
         # Sort versions to get the latest at the end
-        versions = sorted(versions, key=lambda x: x['name'])
+        versions = sorted(versions, key=lambda x: int(x['name']))
 
         if version is None:
             # If no version provided, we fetch the latest version
