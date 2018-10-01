@@ -187,7 +187,7 @@ class Taiga2Client:
         id = None
 
         versions = request['versions']
-        import pdb; pdb.set_trace()
+        
         # Sort versions to get the latest at the end
         versions = sorted(versions, key=lambda x: int(x['name']))
 
