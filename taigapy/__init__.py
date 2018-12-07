@@ -588,7 +588,7 @@ class Taiga2Client:
 
         if r.status_code == 404:
             raise Exception(
-                "Received a not found error. Are you sure about your credentials and/or the data parameters?")
+                "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(params))
         elif r.status_code != 200:
             raise Exception("Bad status code: {}".format(r.status_code))
 
