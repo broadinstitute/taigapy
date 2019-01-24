@@ -17,8 +17,8 @@ setup(
     version=version,
     packages=find_packages(),
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
-    author="Philip Montgomery",
-    author_email="pmontgom@broadinstitute.org",
+    author="Remi Marenco",
+    author_email="rmarenco@broadinstitute.org",
     long_description=open('README.md').read(),
     install_requires=install_requires
     )

@@ -9,7 +9,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__ = "2.4.2"
+__version__ = "2.4.3"
 
 class Taiga1Client:
     def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):
@@ -187,7 +187,7 @@ class Taiga2Client:
         id = None
 
         versions = request['versions']
-        
+
         # Sort versions to get the latest at the end
         versions = sorted(versions, key=lambda x: int(x['name']))
 
@@ -272,7 +272,8 @@ class Taiga2Client:
             for block in r.iter_content(1024 * 100):
                 handle.write(block)
 
-    def _resolve_and_download(self, id=None, name=None, version=None, file=None, force=False, format="csv"):
+    def _resolve_and_download(self, id=None, name=None, version=None,
+                              file=None, force=False, format="csv", encoding=None):
         # returns a file in the cache with the data
         if id is None:
             assert name is not None, "id or name must be specified"
@@ -300,8 +301,12 @@ class Taiga2Client:
             print(colorful.orange(
                 "\t{}".format(data_reason_state)))
 
-        local_file = os.path.join(self.cache_dir, data_id + "_" + data_file + "." + format)
-        if not os.path.exists(local_file) or force:
+        partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
+        local_file = os.path.join(partial_file_path + "." + format)
+        pickled_local_file = os.path.join(partial_file_path + '.pkl')
+        final_local_file = None
+
+        if not os.path.exists(local_file) or os.path.exists(pickled_local_file) or force:
             if not os.path.exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
 
@@ -309,8 +314,36 @@ class Taiga2Client:
                 #            def _dl_file(self, id, name, version, file, force, destination):
 
                 self._dl_file(data_id, None, None, data_file, force, format, fd.name)
+
+                # Due to increase of the size of CSV file, we are now doing a specific case to store also the csv as pickle
+                # TODO: Instead of storing twice, because we have to dl from taiga as csv format, we could find another way to save time?
+                if format == 'csv':
+                    # If not Columnar CSV type, then specify the index column (matrix usually with first column)
+                    type = self._get_data_file_type(data_name, data_version, data_file)
+                    if type == "Columnar":
+                        df = pandas.read_csv(fd.name, encoding=encoding)
+                    else:
+                        df = pandas.read_csv(fd.name, index_col=0, encoding=encoding)
+
+                    print("Received the file, now converting to pickle for faster reading")
+                    df.to_pickle(pickled_local_file)
+
+                    final_local_file = pickled_local_file
+                else:
+                    final_local_file = local_file
+
+            # We still rename the tmp if the user need the native format
+            # TODO: Could remove the native format instead of keeping it. Otherwise x2 space
             os.rename(fd.name, local_file)
-        return data_id, data_name, data_version, data_file, local_file
+        else:
+            # If we have found files matching the dataset, then we decide about final_local_file
+            if os.path.exists(pickled_local_file):
+                final_local_file = pickled_local_file
+            else:
+                final_local_file = local_file
+
+        assert final_local_file is not None, "Issue with assigning the local file in _resolve_and_download"
+        return data_id, data_name, data_version, data_file, final_local_file
 
     def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='raw'):
         try:
@@ -336,12 +369,9 @@ class Taiga2Client:
 
         # return a pandas dataframe with the data
         data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
-                                                                                             force, format='csv')
-        type = self._get_data_file_type(data_name, data_version, data_file)
-        if type == "Columnar":
-            return pandas.read_csv(local_file, encoding=encoding)
-        else:
-            return pandas.read_csv(local_file, index_col=0, encoding=encoding)
+                                                                                             force, format='csv',
+                                                                                             encoding=encoding)
+        return pandas.read_pickle(local_file)
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""

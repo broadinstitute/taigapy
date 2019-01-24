@@ -6,6 +6,9 @@ from taigapy import Taiga2Client as TaigaClient
 token_path = os.path.expanduser("~/.taiga/token")
 
 
+def get_cached_count(cache_dir):
+    return len(os.listdir(cache_dir))
+
 @pytest.fixture(scope="session")
 def taigaClient(tmpdir_factory):
     cache_dir = str(tmpdir_factory.getbasetemp().join("cache"))
@@ -16,17 +19,16 @@ def taigaClient(tmpdir_factory):
 def test_get(tmpdir):
     cache_dir = str(tmpdir.join("cache"))
 
-    def get_cached_count():
-        return len(os.listdir(cache_dir))
-
     c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     df = c.get(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
     assert df is not None
-    assert get_cached_count() == 1
+    # Changing get_cached_count to accept more than one file, since pickling now creates 2 files
+    assert get_cached_count(cache_dir) >= 1
 
     df1 = c.get(name='depcon-binary-context-matrix', version=1)
     assert df1 is not None
-    assert get_cached_count() == 1
+    # Same as above: Changing get_cached_count to accept more than one file, since pickling now creates 2 files
+    assert get_cached_count(cache_dir) >= 1
     # verify that we got a pandas object indexable by row and col names
     assert df.loc["MDAMB453_BREAST", "breast"] == 1.0
     assert df.loc["MDAMB453_BREAST", "rhabdoid"] == 0.0
@@ -105,3 +107,35 @@ def test_get_short_summary_full(tmpdir, taigaClient: TaigaClient):
 def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
     summary = taigaClient.get_short_summary(name="calico-t1-log-viability-30de", file="pcal_t1sec_log2viab_dose2_2.5um")
     assert summary == '576x1119 matrix, 50911 NAs'
+
+
+def test_no_pickle_hdf5(tmpdir):
+    """
+    :param tmpdir:
+    :param taigaClient:
+    :return:
+    This test make sure pickling in cache is working only for CSV files. It should not pickle HDF5.
+    """
+    cache_dir = str(tmpdir.join("cache"))
+    taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+
+    # Test HDF5 leads to only one file
+    local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='hdf5')
+    assert os.path.exists(local_file)
+    assert get_cached_count(cache_dir) == 1
+
+
+def test_no_pickle_hdf5(tmpdir):
+    """
+    :param tmpdir:
+    :param taigaClient:
+    :return:
+    This test make sure pickling in cache is working for CSV files
+    """
+    cache_dir = str(tmpdir.join("cache"))
+    taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+
+    # Test CSV leads to two files (CSV file downloaded + pickle)
+    local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='csv')
+    assert os.path.exists(local_file)
+    assert get_cached_count(cache_dir) == 2
