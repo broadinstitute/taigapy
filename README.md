@@ -5,11 +5,11 @@ See [here](https://confluence.broadinstitute.org/display/CPDS/Taiga) for install
 
 ## Token set up
 
-First, you need to get your authorization token so the client library can make requests on your behalf.   Go to:
-
-https://cds.team/taiga/token/
-
-And click on the "Copy" button to copy your token. Paste the token into a file named `~/.taiga/token`
+First, you need to get your authorization token so the client library can make requests on your behalf. Go to https://cds.team/taiga/token/ and click on the "Copy" button to copy your token. Paste your token in a file at `~/.taiga/token`.
+```
+mkdir ~/.taiga/
+echo YOUR_TOKEN_HERE > ~/.taiga/token
+```
 
 ## Installing Taigapy
 
