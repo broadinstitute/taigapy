@@ -46,10 +46,14 @@ def test_get_table(tmpdir, taigaClient):
 @pytest.mark.parametrize("dataset, format, expected", [
     ("small-hgnc-2a89.2", "csv", True),
     ("small-hgnc-2a89", "csv", False),
+    ("small-hgnc-2a89.2", "raw", False),
+    ("small-hgnc-2a89.2", None, True),
 ])
 def test_is_valid_dataset(tmpdir, taigaClient, dataset, format, expected):
-    assert taigaClient.is_valid_dataset(dataset, format=format) == expected
-
+    if format:
+        assert taigaClient.is_valid_dataset(dataset, format=format) == expected
+    else:
+        assert taigaClient.is_valid_dataset(dataset) == expected
 
 def test_download_hdf5(tmpdir, taigaClient):
     local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='hdf5')
