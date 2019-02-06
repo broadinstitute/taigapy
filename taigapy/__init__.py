@@ -11,61 +11,6 @@ from taigapy.UploadFile import UploadFile
 
 __version__ = "2.4.4"
 
-class Taiga1Client:
-    def __init__(self, url="http://taiga.broadinstitute.org", user_key=None, cache_dir="~/.taigapy"):
-        self.url = url
-        self.user_key = user_key
-        self.cache_dir = os.path.expanduser(cache_dir)
-
-    def get_dataset_id_by_name(self, name, md5=None, version=None):
-        params = dict(fetch="id", name=name)
-        if md5 is not None:
-            params['md5'] = md5
-        if version is not None:
-            params['version'] = str(version)
-
-        r = requests.get(self.url + "/rest/v0/namedDataset", params=params)
-        if r.status_code == 404:
-            return None
-        return r.text
-
-    def download_to_cache(self, id=None, name=None, version=None, format="csv"):
-        if id is None:
-            assert name is not None, "id or name must be specified"
-            id = self.get_dataset_id_by_name(name, version=version)
-            if id is None:
-                return None
-
-        local_file = os.path.join(self.cache_dir, id + "." + format)
-        if not os.path.exists(local_file):
-            if not os.path.exists(self.cache_dir):
-                os.makedirs(self.cache_dir)
-
-            if format == "csv":
-                format = "tabular_csv"
-
-            r = requests.get(self.url + "/rest/v0/datasets/" + id + "?format=" + format, stream=True)
-            if r.status_code == 404:
-                return None
-
-            if r.status_code != 200 and format == "tabular_csv":
-                # hack: If this couldn't be fetched as tabular_csv try just csv
-                r = requests.get(self.url + "/rest/v0/datasets/" + id + "?format=csv", stream=True)
-
-            assert r.status_code == 200
-
-            with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
-                # print("read...")
-                for chunk in r.iter_content(chunk_size=100000):
-                    fd.write(chunk)
-            os.rename(fd.name, local_file)
-        return local_file
-
-    def get(self, id=None, name=None, version=None):
-        local_file = self.download_to_cache(id, name, version)
-        return pandas.read_csv(local_file, index_col=0)
-
-
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR = "~/.taiga"
