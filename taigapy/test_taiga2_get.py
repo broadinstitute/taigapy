@@ -113,33 +113,41 @@ def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
     assert summary == '576x1119 matrix, 50911 NAs'
 
 
-def test_no_pickle_hdf5(tmpdir):
+def test_pickled_get(tmpdir):
     """
-    :param tmpdir:
-    :param taigaClient:
-    :return:
-    This test make sure pickling in cache is working only for CSV files. It should not pickle HDF5.
+    Test that .get puts a single pickled file in the cache
     """
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
+    assert get_cached_count(cache_dir) == 1
+    assert os.listdir(cache_dir)[0].endswith('.pkl')
 
-    # Test HDF5 leads to only one file
-    local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='hdf5')
-    assert os.path.exists(local_file)
+
+def test_pickled_get_with_existing_unpickled_file(tmpdir):
+    '''
+    Test that if there is an existing unpickled file,
+        a pickled file is created
+        and the existing unpickled file is not deleted
+    '''
+    cache_dir = str(tmpdir.join("cache"))
+    taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='csv')
     assert get_cached_count(cache_dir) == 1
 
+    taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
+    assert get_cached_count(cache_dir) == 2
+    assert {filename.split('.')[1] for filename in os.listdir(cache_dir)} == {'csv', 'pkl'}
 
-def test_no_pickle_hdf5(tmpdir):
-    """
-    :param tmpdir:
-    :param taigaClient:
-    :return:
-    This test make sure pickling in cache is working for CSV files
-    """
+
+def test_no_pickle_download_to_cache(tmpdir):
+    '''
+    Test that download_to_cache downloads a non-pickled file
+    '''
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
 
-    # Test CSV leads to two files (CSV file downloaded + pickle)
     local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='csv')
     assert os.path.exists(local_file)
-    assert get_cached_count(cache_dir) == 2
+    assert local_file.endswith('.csv')
+    assert get_cached_count(cache_dir) == 1

@@ -185,7 +185,39 @@ class Taiga2Client:
 
         return Exception("Error...check the file name?")
 
-    def _dl_file(self, id, name, version, file, force, format, destination):
+    def _validate_file_for_donwload(self, id, name, version, file, force):
+        if id is None:
+            assert name is not None, "id or name must be specified"
+
+        metadata = self._get_data_file_json(id, name, version, file, force, "metadata")
+        if metadata is None:
+            raise Exception("No data for the given parameters. Please check your inputs are correct.")
+
+        data_id = metadata['dataset_version_id']
+        data_name = metadata['dataset_permaname']
+        data_version = metadata['dataset_version']
+        data_file = metadata["datafile_name"]
+        data_state = metadata["state"]
+        data_reason_state = metadata["reason_state"]
+
+        assert data_id is not None
+        assert data_name is not None
+        assert data_version is not None
+        assert data_file is not None
+
+        # TODO: Add enum to manage deprecation/approval/deletion
+        if data_state == 'Deprecated':
+            print(colorful.orange(
+                "WARNING: This version is deprecated. Please use with caution, and see the reason below:"))
+            print(colorful.orange(
+                "\t{}".format(data_reason_state)))
+
+        return data_id, data_name, data_version, data_file
+
+    def _download_to_file_object(self, id, name, version, file, force, format, destination):
+        '''
+        :param file: a python file-like object, e.g. a tempfile
+        '''
         first_attempt = True
         prev_status = None
         delay_between_polls = 1
@@ -217,90 +249,60 @@ class Taiga2Client:
             for block in r.iter_content(1024 * 100):
                 handle.write(block)
 
-    def _resolve_and_download(self, id=None, name=None, version=None,
-                              file=None, force=False, format="csv", encoding=None):
-        # returns a file in the cache with the data
-        if id is None:
-            assert name is not None, "id or name must be specified"
-
-        metadata = self._get_data_file_json(id, name, version, file, force, "metadata")
-        if metadata is None:
-            raise Exception("No data for the given parameters. Please check your inputs are correct.")
-
-        data_id = metadata['dataset_version_id']
-        data_name = metadata['dataset_permaname']
-        data_version = metadata['dataset_version']
-        data_file = metadata["datafile_name"]
-        data_state = metadata["state"]
-        data_reason_state = metadata["reason_state"]
-
-        assert data_id is not None
-        assert data_name is not None
-        assert data_version is not None
-        assert data_file is not None
-
-        # TODO: Add enum to manage deprecation/approval/deletion
-        if data_state == 'Deprecated':
-            print(colorful.orange(
-                "WARNING: This version is deprecated. Please use with caution, and see below the reason:"))
-            print(colorful.orange(
-                "\t{}".format(data_reason_state)))
-
-        partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
-        local_file = os.path.join(partial_file_path + "." + format)
-        pickled_local_file = os.path.join(partial_file_path + '.pkl')
-        final_local_file = None
-
-        if not os.path.exists(local_file) or os.path.exists(pickled_local_file) or force:
+    def _download_to_local_file(self, data_id, data_file, dest, force, format):
+        '''
+        :param dest: string, local path of file to download if not present
+        '''
+        if not os.path.exists(dest) or force:
             if not os.path.exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
 
             with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
-                #            def _dl_file(self, id, name, version, file, force, destination):
+                self._download_to_file_object(data_id, None, None, data_file, force, format, fd.name)
+            os.rename(fd.name, dest)
 
-                self._dl_file(data_id, None, None, data_file, force, format, fd.name)
-
-                # Due to increase of the size of CSV file, we are now doing a specific case to store also the csv as pickle
-                # TODO: Instead of storing twice, because we have to dl from taiga as csv format, we could find another way to save time?
-                if format == 'csv':
-                    # If not Columnar CSV type, then specify the index column (matrix usually with first column)
-                    type = self._get_data_file_type(data_name, data_version, data_file)
-                    if type == "Columnar":
-                        df = pandas.read_csv(fd.name, encoding=encoding)
-                    else:
-                        df = pandas.read_csv(fd.name, index_col=0, encoding=encoding)
-
-                    print("Received the file, now converting to pickle for faster reading")
-                    df.to_pickle(pickled_local_file)
-
-                    final_local_file = pickled_local_file
-                else:
-                    final_local_file = local_file
-
-            # We still rename the tmp if the user need the native format
-            # TODO: Could remove the native format instead of keeping it. Otherwise x2 space
-            os.rename(fd.name, local_file)
+    def _pickle_csv(self, data_name, data_version, data_file, src, dest, encoding):
+        type = self._get_data_file_type(data_name, data_version, data_file)
+        if type == "Columnar":
+            df = pandas.read_csv(src, encoding=encoding)
         else:
-            # If we have found files matching the dataset, then we decide about final_local_file
-            if os.path.exists(pickled_local_file):
-                final_local_file = pickled_local_file
+            df = pandas.read_csv(src, index_col=0, encoding=encoding)
+        df.to_pickle(dest)
+
+
+    def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
+        # returns a file in the cache with the data
+        format = "csv"
+        data_id, data_name, data_version, data_file = self._validate_file_for_donwload(id, name, version, file, force)
+        partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
+
+        pickled_file = os.path.join(partial_file_path + '.pkl')
+        if not os.path.exists(pickled_file):
+            unpickled_file = os.path.join(partial_file_path + "." + format)
+            keep_unpickled_file = False
+
+            if not os.path.exists(unpickled_file):
+                self._download_to_local_file(data_id, data_file, unpickled_file, force, format)
             else:
-                final_local_file = local_file
+                # don't want to obliterate the local file for files deliberately downloaded by download_to_cache
+                keep_unpickled_file = True
 
-        assert final_local_file is not None, "Issue with assigning the local file in _resolve_and_download"
-        return data_id, data_name, data_version, data_file, final_local_file
+            self._pickle_csv(data_name, data_version, data_file, unpickled_file, pickled_file, encoding)
 
-    def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='metadata'):
-        try:
-            self._get_data_file_json(id, name, version, file, force, format)
-            return True
-        except:
-            return False
+            if not keep_unpickled_file:
+                os.remove(unpickled_file)
+
+        return pickled_file
 
     def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="raw"):
-        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
-                                                                                             force, format)
-        return local_file
+        '''
+        Downloads a taiga file of any format, if not already present, and returns the path to the file
+        This file is not pickled
+        '''
+        data_id, data_name, data_version, data_file = self._validate_file_for_donwload(id, name, version, file, force)
+        file_path = os.path.join(self.cache_dir, data_id + "_" + data_file+ "." + format)
+        self._download_to_local_file(data_id, data_file, file_path, force, format)
+        return file_path
 
     def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
         """Resolve and download a (converted if needed) csv file. Throw an exception if we ask for a raw file"""
@@ -313,10 +315,16 @@ class Taiga2Client:
                     "The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
-        data_id, data_name, data_version, data_file, local_file = self._resolve_and_download(id, name, version, file,
-                                                                                             force, format='csv',
-                                                                                             encoding=encoding)
+        local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
         return pandas.read_pickle(local_file)
+
+    def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='metadata'):
+        try:
+            self._get_data_file_json(id, name, version, file, force, format)
+            return True
+        except:
+            return False
+
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
