@@ -8,8 +8,9 @@ import time
 import sys
 
 from taigapy.UploadFile import UploadFile
+from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception
 
-__version__ = "2.5.2"
+__version__ = "2.5.3"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -128,7 +129,6 @@ class Taiga2Client:
         assert name, "If not id is given, we need the permaname of the dataset and the version"
         api_endpoint_get_dataset_version_id = "/api/dataset/{datasetId}".format(datasetId=name)
         request = self.request_get(api_endpoint=api_endpoint_get_dataset_version_id)
-
         id = None
 
         versions = request['versions']
@@ -315,7 +315,9 @@ class Taiga2Client:
         try:
             self._get_data_file_json(id, name, version, file, force, format)
             return True
-        except:
+        # If one wants to be more precise, Taiga404Exception is also available
+        # TODO: Currently Taiga returns a 500 when receiving a wrong format for datafile. We should change this to not confuse errors meaning
+        except TaigaHttpException:
             return False
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
@@ -563,10 +565,10 @@ class Taiga2Client:
                          headers=dict(Authorization="Bearer " + self.token))
 
         if r.status_code == 404:
-            raise Exception(
+            raise Taiga404Exception(
                 "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(params))
         elif r.status_code != 200:
-            raise Exception("Bad status code: {}".format(r.status_code))
+            raise TaigaHttpException("Bad status code: {}".format(r.status_code))
 
         return r.json()
 
