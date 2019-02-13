@@ -11,7 +11,7 @@ import progressbar
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception
 
-__version__ = "2.5.6"
+__version__ = "2.5.8"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -273,7 +273,7 @@ class Taiga2Client:
                 # total can be slightly superior to content_length
                 if content_length == progressbar.UnknownLength or total <= content_length:
                     bar.update(total)
-            bar.update(content_length)
+            bar.finish()
 
     def _download_to_local_file(self, data_id, data_file, dest, force, format):
         '''
