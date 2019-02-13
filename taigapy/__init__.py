@@ -6,11 +6,12 @@ import os
 import tempfile
 import time
 import sys
+import progressbar
 
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception
 
-__version__ = "2.5.3"
+__version__ = "2.5.4"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -242,12 +243,34 @@ class Taiga2Client:
         urls = response['urls']
         assert len(urls) == 1
         r = requests.get(urls[0], stream=True)
+
+        content_length = r.headers.get('Content-Length', None)
+        if not content_length:
+            content_length = progressbar.UnknownLength
+        else:
+            content_length = int(content_length)
+
+        widgets = [
+            progressbar.Bar(left="[", right="]"),
+            progressbar.Percentage(), " | ",
+            progressbar.FileTransferSpeed(), " | ",
+            progressbar.DataSize(), " / ",
+            progressbar.DataSize(variable="max_value"), " | ",
+            progressbar.ETA()
+        ]
+        bar = progressbar.ProgressBar(max_value=content_length, widgets=widgets)
         with open(destination, 'wb') as handle:
             if not r.ok:
                 raise Exception("Error fetching {}".format(urls[0]))
 
-            for block in r.iter_content(1024 * 100):
+            # Stream by chunk of 100Kb
+            chunk_size = 1024 * 100
+            total = 0
+            for block in r.iter_content(chunk_size):
                 handle.write(block)
+
+                total += chunk_size
+                bar.update(total)
 
     def _download_to_local_file(self, data_id, data_file, dest, force, format):
         '''
@@ -270,7 +293,8 @@ class Taiga2Client:
             df = pandas.read_csv(src, index_col=0, encoding=encoding)
         df.to_pickle(dest)
 
-    def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
+    def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False,
+                                          encoding=None):
         """Returns a file in the cache with the data"""
         format = "csv"
         data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
@@ -293,7 +317,7 @@ class Taiga2Client:
         This file is not pickled
         '''
         data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
-        file_path = os.path.join(self.cache_dir, data_id + "_" + data_file+ "." + format)
+        file_path = os.path.join(self.cache_dir, data_id + "_" + data_file + "." + format)
         self._download_to_local_file(data_id, data_file, file_path, force, format)
         return file_path
 
@@ -566,7 +590,8 @@ class Taiga2Client:
 
         if r.status_code == 404:
             raise Taiga404Exception(
-                "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(params))
+                "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(
+                    params))
         elif r.status_code != 200:
             raise TaigaHttpException("Bad status code: {}".format(r.status_code))
 
