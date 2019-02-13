@@ -9,7 +9,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__ = "2.5.1"
+__version__ = "2.5.2"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -279,18 +279,11 @@ class Taiga2Client:
         pickled_file = os.path.join(partial_file_path + '.pkl')
         if not os.path.exists(pickled_file):
             unpickled_file = os.path.join(partial_file_path + "." + format)
-            keep_unpickled_file = False
 
             if not os.path.exists(unpickled_file):
                 self._download_to_local_file(data_id, data_file, unpickled_file, force, format)
-            else:
-                # don't want to obliterate the local file for files deliberately downloaded by download_to_cache
-                keep_unpickled_file = True
 
             self._pickle_csv(data_name, data_version, data_file, unpickled_file, pickled_file, encoding)
-
-            if not keep_unpickled_file:
-                os.remove(unpickled_file)
 
         return pickled_file
 

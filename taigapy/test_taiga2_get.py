@@ -115,13 +115,13 @@ def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
 
 def test_pickled_get(tmpdir):
     """
-    Test that .get puts a single pickled file in the cache
+    Test that .get has the native format (csv) + the pickle
     """
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
-    assert get_cached_count(cache_dir) == 1
-    assert os.listdir(cache_dir)[0].endswith('.pkl')
+    assert get_cached_count(cache_dir) == 2
+    assert any(file.endswith('.pkl') for file in os.listdir(cache_dir))
 
 
 def test_pickled_get_with_existing_unpickled_file(tmpdir):
