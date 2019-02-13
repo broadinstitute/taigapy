@@ -185,7 +185,7 @@ class Taiga2Client:
 
         return Exception("Error...check the file name?")
 
-    def _validate_file_for_donwload(self, id, name, version, file, force):
+    def _validate_file_for_download(self, id, name, version, file, force):
         if id is None:
             assert name is not None, "id or name must be specified"
 
@@ -263,17 +263,17 @@ class Taiga2Client:
 
     def _pickle_csv(self, data_name, data_version, data_file, src, dest, encoding):
         type = self._get_data_file_type(data_name, data_version, data_file)
+        # We could have a Columnar or a Matrix
         if type == "Columnar":
             df = pandas.read_csv(src, encoding=encoding)
         else:
             df = pandas.read_csv(src, index_col=0, encoding=encoding)
         df.to_pickle(dest)
 
-
     def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
-        # returns a file in the cache with the data
+        """Returns a file in the cache with the data"""
         format = "csv"
-        data_id, data_name, data_version, data_file = self._validate_file_for_donwload(id, name, version, file, force)
+        data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
         partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
 
         pickled_file = os.path.join(partial_file_path + '.pkl')
@@ -299,7 +299,7 @@ class Taiga2Client:
         Downloads a taiga file of any format, if not already present, and returns the path to the file
         This file is not pickled
         '''
-        data_id, data_name, data_version, data_file = self._validate_file_for_donwload(id, name, version, file, force)
+        data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
         file_path = os.path.join(self.cache_dir, data_id + "_" + data_file+ "." + format)
         self._download_to_local_file(data_id, data_file, file_path, force, format)
         return file_path
@@ -324,7 +324,6 @@ class Taiga2Client:
             return True
         except:
             return False
-
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
@@ -594,3 +593,4 @@ class Taiga2Client:
 
 
 TaigaClient = Taiga2Client
+default_tc = TaigaClient()

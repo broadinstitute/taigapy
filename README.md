@@ -31,27 +31,27 @@ You can then fetch from taiga in python.  Example:
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
+tc = TaigaClient() # These two steps could be merged in one with `from taigapy import default_tc as tc`
 
 # fetch by ID a full dataset
-df = c.get(id='6d9a6104-e2f8-45cf-9002-df3bcedcb80b')
+df = tc.get(id='6d9a6104-e2f8-45cf-9002-df3bcedcb80b')
 
 # fetch by name a full version of a dataset
-df1 = c.get(name='achilles-v2-4-6', version=4)
+df1 = tc.get(name='achilles-v2-4-6', version=4)
 
 # fetch a specific data file
 # If Raw file, use download_to_cache, which will give you the path of the file
-raw_path = c.download_to_cache(name='taigr-data-40f2', version=3, file="raw_file")
+raw_path = tc.download_to_cache(name='taigr-data-40f2', version=3, file="raw_file")
 
 # Else, if CSV convertible
-df = c.get(name='taigr-data-40f2', version=1, file="tiny_table")
+df = tc.get(name='taigr-data-40f2', version=1, file="tiny_table")
 
 # name and version can serve as the id using name.version
-df = c.get(id='achilles-v2-4-6.4')
+df = tc.get(id='achilles-v2-4-6.4')
 
 # the file can also be specified in the id using name.version/file
 # id/file (as in 6d9a6104-e2f8-45cf-9002-df3bcedcb80b/tiny_table) is also not supported in either
-df = c.get(id='taigr-data-40f2.1/tiny_table')
+df = tc.get(id='taigr-data-40f2.1/tiny_table')
 
 ```
 
@@ -62,10 +62,10 @@ You can also upload data into taiga (see below for available formats). Example:
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
+tc = TaigaClient()
 
 # Create a new dataset in public
-c.create_dataset(dataset_name='My Dataset Name',
+tc.create_dataset(dataset_name='My Dataset Name',
     dataset_description='My Dataset Description',
     upload_file_path_dict={'file_one_path': 'format'}, folder_id='public')
 ```
@@ -75,8 +75,8 @@ c.create_dataset(dataset_name='My Dataset Name',
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
-c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
+tc = TaigaClient()
+tc.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Interactive test")
 
 ```
@@ -86,8 +86,8 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
-c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 'format'},
+tc = TaigaClient()
+tc.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 'format'},
                  dataset_description="Force Keep",
                  force_keep=True)
 ```
@@ -97,8 +97,8 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
-c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
+tc = TaigaClient()
+tc.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Force Remove",
                  force_remove=True)
 ```
@@ -108,8 +108,8 @@ c.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
-c.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
+tc = TaigaClient()
+tc.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
                  upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Update a specific version")
 ```
@@ -119,8 +119,8 @@ c.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
 ```python
 from taigapy import TaigaClient
 
-c = TaigaClient()
-c.update_dataset(dataset_permaname=dataset_permaname,
+tc = TaigaClient()
+tc.update_dataset(dataset_permaname=dataset_permaname,
                  upload_file_path_dict={'file_updated_or_new_path': 'format'},
                  dataset_description="Update from latest")
 ```
