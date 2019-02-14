@@ -250,15 +250,8 @@ class Taiga2Client:
         else:
             content_length = int(content_length)
 
-        widgets = [
-            progressbar.Bar(left="[", right="]"),
-            progressbar.Percentage(), " | ",
-            progressbar.FileTransferSpeed(), " | ",
-            progressbar.DataSize(), " / ",
-            progressbar.DataSize(variable="max_value"), " | ",
-            progressbar.ETA()
-        ]
-        bar = progressbar.ProgressBar(max_value=content_length, widgets=widgets)
+        bar = self._progressbar_init(max_value=content_length)
+
         with open(destination, 'wb') as handle:
             if not r.ok:
                 raise Exception("Error fetching {}".format(urls[0]))
@@ -274,6 +267,24 @@ class Taiga2Client:
                 if content_length == progressbar.UnknownLength or total <= content_length:
                     bar.update(total)
             bar.finish()
+
+    def _progressbar_init(self, max_value):
+        """
+        Initialize the progressbar object with the max_value passed as parameter
+        :param max_value: int
+        :return: ProgressBar
+        """
+
+        widgets = [
+            progressbar.Bar(left="[", right="]"),
+            progressbar.Percentage(), " | ",
+            progressbar.FileTransferSpeed(), " | ",
+            progressbar.DataSize(), " / ",
+            progressbar.DataSize(variable="max_value"), " | ",
+            progressbar.ETA()
+        ]
+        bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
+        return bar
 
     def _download_to_local_file(self, data_id, data_file, dest, force, format):
         '''
