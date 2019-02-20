@@ -11,7 +11,7 @@ import progressbar
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception
 
-__version__ = "2.5.9"
+__version__ = "2.5.91"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -184,7 +184,7 @@ class Taiga2Client:
                 if datafile['name'] == file:
                     return datafile['allowed_conversion_type']
 
-        raise Exception("Error...check the file name?")
+        raise Taiga404Exception("Datafile not found...check the file name?")
 
     def _validate_file_for_download(self, id, name, version, file, force):
         if id is None:
