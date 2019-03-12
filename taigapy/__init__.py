@@ -12,7 +12,7 @@ import progressbar
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException
 
-__version__ = "2.5.91"
+__version__ = "2.6.0"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
