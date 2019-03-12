@@ -1,5 +1,6 @@
 import boto3
 import colorful
+import glob
 import requests
 import pandas
 import os
@@ -213,6 +214,18 @@ class Taiga2Client:
             print(colorful.orange(
                 "\t{}".format(data_reason_state)))
         elif data_state == 'Deleted':
+            # We found a dataset version in deleted mode. Delete also the cache files
+            partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
+            # remove all files with the pattern patial_file_path
+            import pdb; pdb.set_trace()
+            pattern_all_extensions = partial_file_path + '.*'
+            file_list = glob.glob(pattern_all_extensions)
+            for file_path in file_list:
+                try:
+                    os.remove(file_path)
+                except:
+                    print("Error while deleting file: {}".format(file_path))
+
             raise TaigaDeletedVersionException()
 
         return data_id, data_name, data_version, data_file
