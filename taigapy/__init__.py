@@ -9,7 +9,7 @@ import sys
 import progressbar
 
 from taigapy.UploadFile import UploadFile
-from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception
+from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException
 
 __version__ = "2.5.91"
 
@@ -212,6 +212,8 @@ class Taiga2Client:
                 "WARNING: This version is deprecated. Please use with caution, and see the reason below:"))
             print(colorful.orange(
                 "\t{}".format(data_reason_state)))
+        elif data_state == 'Deleted':
+            raise TaigaDeletedVersionException()
 
         return data_id, data_name, data_version, data_file
 
@@ -311,7 +313,15 @@ class Taiga2Client:
                                           encoding=None):
         """Returns a file in the cache with the data"""
         format = "csv"
-        data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
+
+        try:
+            data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
+        except TaigaDeletedVersionException as tdve:
+            # We don't handle the delete exception here, we just continue to raise it. This code is here to
+            # underline that this exception can happen under _validate_file_for_download and if we want to do something
+            # specific here
+            raise tdve
+
         partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
 
         pickled_file = os.path.join(partial_file_path + '.pkl')
@@ -346,7 +356,14 @@ class Taiga2Client:
                     "The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
-        local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
+        try:
+            local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
+        except TaigaDeletedVersionException as tdve:
+            print(colorful.red(
+                "This version is deleted. The data is not available anymore. Contact the maintainer of the dataset."
+            ))
+            return None
+
         return pandas.read_pickle(local_file)
 
     def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='metadata'):
