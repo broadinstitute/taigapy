@@ -217,7 +217,6 @@ class Taiga2Client:
             # We found a dataset version in deleted mode. Delete also the cache files
             partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
             # remove all files with the pattern patial_file_path
-            import pdb; pdb.set_trace()
             pattern_all_extensions = partial_file_path + '.*'
             file_list = glob.glob(pattern_all_extensions)
             for file_path in file_list:

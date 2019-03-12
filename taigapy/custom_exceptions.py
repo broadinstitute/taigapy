@@ -8,4 +8,5 @@ class Taiga404Exception(TaigaHttpException):
 
 
 class TaigaDeletedVersionException(TaigaHttpException):
+    """Exception to retrieve a deleted dataset version"""
     pass
