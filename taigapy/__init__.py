@@ -12,7 +12,7 @@ import progressbar
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException
 
-__version__ = "2.6.0"
+__version__ = "2.6.1"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -221,7 +221,12 @@ class Taiga2Client:
             file_list = glob.glob(pattern_all_extensions)
             for file_path in file_list:
                 try:
-                    os.remove(file_path)
+                    # Double check we are removing only the files that are in the cache folder
+                    if self.cache_dir in file_path and data_id in file_path and data_file in file_path:
+                        os.remove(file_path)
+                    else:
+                        print("The file {} shouldn't be present in the deletion process. "
+                              "Please contact the administrator of taigapy".format(file_path))
                 except:
                     print("Error while deleting file: {}".format(file_path))
 
