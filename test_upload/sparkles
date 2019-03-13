@@ -1,0 +1,9 @@
+[config]
+default_url_prefix=gs://broad-achilles-pipeline/sparkles
+project=broad-achilles
+default_image=us.gcr.io/broad-achilles/achilles-pipeline:latest_prod
+machine_type=n1-highmem-16
+zones=us-central1-c
+default_resource_cpu=2
+default_resource_memory=100000M
+account=achilles-pipeline@broad-achilles.iam.gserviceaccount.com

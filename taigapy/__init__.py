@@ -10,7 +10,7 @@ import sys
 import progressbar
 
 from taigapy.UploadFile import UploadFile
-from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException
+from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
 
 __version__ = "2.6.1"
 
@@ -362,14 +362,25 @@ class Taiga2Client:
         self._download_to_local_file(data_id, data_file, file_path, force, format)
         return file_path
 
-    def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
-        """Resolve and download a (converted if needed) csv file. Throw an exception if we ask for a raw file"""
+    def get(self, id: str=None, name: str=None, version: int=None,
+            file: str=None, force: bool=False, encoding: str=None) -> pandas.DataFrame:
+        """
+        Resolve and download (converted if needed) csv file(s). Output a dictionary if no files specified
+        :param id: Id of the datasetVersion (not the dataset)
+        :param name: Permaname of the dataset. Usually of the form `dataset_name_from_user-xxxx` with xxxx being the 4 characters of a uuid
+        :param version: Version of the dataset to get the datafile from
+        :param file: Dataset file name
+        :param force: Boolean to force kicking off the conversion again from Taiga
+        :param encoding: Encoding compatible with the parameter of read_csv of pandas (https://docs.python.org/3/library/codecs.html#standard-encodings)
+        :return: Pandas dataframe of the data
+        """
+        # TODO: Explain the accepted format for encoding
         # We first check if we can convert to a csv
         allowed_conversion_type = self._get_allowed_conversion_type_from_dataset_version(
             id=id, name=name, version=version, file=file)
         for conv_type in allowed_conversion_type:
             if conv_type == 'raw':
-                raise Exception(
+                raise TaigaRawTypeException(
                     "The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
@@ -382,6 +393,48 @@ class Taiga2Client:
             return None
 
         return pandas.read_pickle(local_file)
+
+    def _get_all_file_names(self, name=None, version=None):
+        """Retrieve the name of the files contained in a version of a dataset"""
+        assert name is not None, "name has to be set"
+
+        # Get the dataset version ID
+        # Get the dataset info and the dataset version info
+        # TODO: We are reusing this multiple times (_get_allowed_conversion_type_from_dataset_version) => extract in a function
+        id = self._get_dataset_version_id_from_permaname_version(name=name, version=version)
+
+        api_endpoint = "/api/dataset/{datasetId}/{datasetVersionId}".format(datasetId=None,
+                                                                            datasetVersionId=id)
+
+        result = self.request_get(api_endpoint=api_endpoint)
+
+        # Get the file
+        full_dataset_version_datafiles = result['datasetVersion']['datafiles']
+
+        return full_dataset_version_datafiles
+
+    def get_all(self, name=None, version=None) -> dict:
+        """
+        Return all the files from a specific version of a dataset
+        :param name:
+        :param version:
+        :return:
+        """
+        dict_data_holder = {}
+
+        # TODO: Handle the name containing the version inside
+        file_data_s = self._get_all_file_names(name, version)
+
+        # DL each file
+        for file_data in file_data_s:
+            file_name = file_data['name']
+            try:
+                data = self.get(name=name, version=version, file=file_name)
+            except TaigaRawTypeException as trte:
+                data = self.download_to_cache(name=name, version=version, file=file_name)
+            dict_data_holder[file_name] = data
+
+        return dict_data_holder
 
     def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='metadata'):
         try:

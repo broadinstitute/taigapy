@@ -10,3 +10,8 @@ class Taiga404Exception(TaigaHttpException):
 class TaigaDeletedVersionException(TaigaHttpException):
     """Exception to retrieve a deleted dataset version"""
     pass
+
+
+class TaigaRawTypeException(Exception):
+    """Exception when we are trying to get a file from a Table or Matrix format, whereas it is Raw data"""
+    pass

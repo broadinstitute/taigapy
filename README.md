@@ -26,7 +26,19 @@ If you are developing Taigapy, check out the repo and run
 python setup.py develop
 ```
 
-You can then fetch from taiga in python.  Example:
+## Use Taigapy
+
+You can now fetch from taiga in python.  
+
+### Main methods
+
+#### Download
+
+- If you need a specific file (table or matrix) from a specific dataset version, use `.get` method
+- If you need all the files from a specific dataset version, use `.get_all` method
+- If you need a raw file, we will give you the path to it with `.download_to_cache` method since we don't know what the format of your file is
+
+Example:
 
 ```python
 from taigapy import TaigaClient
@@ -55,7 +67,13 @@ df = tc.get(id='taigr-data-40f2.1/tiny_table')
 
 ```
 
-You can also upload data into taiga (see below for available formats). Example:
+#### Upload
+
+You can also upload data into taiga (see below for available formats). Methods are:
+- Create a dataset with `create_dataset`
+- Update a dataset with `update_dataset`
+
+Example:
 
 - Create a new dataset in folder public (you can find the folder_id in the url of Taiga web)
 
