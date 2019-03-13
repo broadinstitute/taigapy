@@ -161,7 +161,7 @@ def test_no_pickle_download_to_cache(tmpdir):
     {'name': 'test-get-all-76f8'}
 ])
 def test_get_all(tmpdir, taigaClient: TaigaClient, parameters):
-    """Test if get without specifying a file returns properly a dict with the dataframes in them"""
+    """Test if get without specifying a file returns properly a dict with the dataframes/raw data in them"""
     all_files = taigaClient.get_all(**parameters)
 
     assert isinstance(all_files, dict)
