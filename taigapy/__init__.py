@@ -9,7 +9,7 @@ import sys
 
 from taigapy.UploadFile import UploadFile
 
-__version__ = "2.4.4"
+__version__ = "2.5.0"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -578,19 +578,62 @@ class Taiga2Client:
 
         return r.json()
 
-    def request_post(self, api_endpoint, data):
+    def request_post(self, api_endpoint, data, standard_reponse_handling=True):
         assert data is not None
 
+        print("hitting", self.url + api_endpoint)
         r = requests.post(self.url + api_endpoint, json=data,
                           headers=dict(Authorization="Bearer " + self.token))
 
-        if r.status_code == 404:
-            return None
-        elif r.status_code != 200:
-            raise Exception("Bad status code: {}".format(r.status_code))
+        if standard_reponse_handling:
+            if r.status_code == 404:
+                return None
+            elif r.status_code != 200:
+                raise Exception("Bad status code: {}".format(r.status_code))
 
-        return r.json()
+            return r.json()
+        else:
+            return r
         # </editor-fold>
 
+    def create_virtual_dataset(self, name, description, aliases, folder_id):
+        "aliases should be a list of tuples of the form (name, datafile id)"
+        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
+    
+        r = self.request_post(api_endpoint="/api/virtual", data={
+            "name": name,
+            "description": description,
+            "files": files,
+            "folderId": folder_id
+        }, standard_reponse_handling=False)
+        
+        assert r.status_code == 200, "Got status: {}".format(r.status_code)
+        return r.json()
+        
+    def create_virtual_dataset_version(self, dataset_id, aliases, description=None):
+        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
+        data = {"files": files}
+        if description is not None:
+            data['description'] = description
+        
+        r = self.request_post("/api/virtual/{}".format(dataset_id), data,  standard_reponse_handling=False)
+        assert r.status_code == 200, "Got status: {}".format(r.status_code)
+        return r.json()
+        
+    def _get_virtual_dataset_aliases(self, dataset_id):
+        dataset_version = self.request_get("/api/dataset/{}/last".format(dataset_id))
+        m = {}
+        for datafile in dataset_version['datafiles']:
+            m[datafile['name']] = datafile['underlying_file_id']
+        return m
+    
+    def update_virtual_dataset(self, dataset_id, new_aliases=[], names_to_drop=[]):
+        mapping = self._get_virtual_dataset_aliases(dataset_id)
+        for name, datafile in new_aliases:
+            mapping[name] = datafile
+        for name in names_to_drop:
+            del mapping[name]
+        
+        return self.create_virtual_dataset_version(dataset_id, list(mapping.items()))
 
 TaigaClient = Taiga2Client
