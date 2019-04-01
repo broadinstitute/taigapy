@@ -9,6 +9,7 @@ token_path = os.path.expanduser("~/.taiga/token")
 def get_cached_count(cache_dir):
     return len(os.listdir(cache_dir))
 
+
 @pytest.fixture(scope="session")
 def taigaClient(tmpdir_factory):
     cache_dir = str(tmpdir_factory.getbasetemp().join("cache"))
@@ -57,6 +58,7 @@ def test_is_valid_dataset(tmpdir, taigaClient, dataset, format, expected):
     else:
         assert taigaClient.is_valid_dataset(dataset) == expected
 
+
 def test_download_hdf5(tmpdir, taigaClient):
     local_file = taigaClient.download_to_cache(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7', format='hdf5')
     assert 'hdf5' in local_file
@@ -104,7 +106,8 @@ def test_period_in_file_name(tmpdir, taigaClient):
 
 
 def test_get_short_summary_full(tmpdir, taigaClient: TaigaClient):
-    summary = taigaClient.get_short_summary(name="calico-t1-log-viability-30de", version="1", file="pcal_t1sec_log2viab_dose2_2.5um")
+    summary = taigaClient.get_short_summary(name="calico-t1-log-viability-30de", version="1",
+                                            file="pcal_t1sec_log2viab_dose2_2.5um")
     assert summary == '576x1119 matrix, 50911 NAs'
 
 
@@ -115,13 +118,13 @@ def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
 
 def test_pickled_get(tmpdir):
     """
-    Test that .get puts a single pickled file in the cache
+    Test that .get has the native format (csv) + the pickle
     """
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
-    assert get_cached_count(cache_dir) == 1
-    assert os.listdir(cache_dir)[0].endswith('.pkl')
+    assert get_cached_count(cache_dir) == 2
+    assert any(file.endswith('.pkl') for file in os.listdir(cache_dir))
 
 
 def test_pickled_get_with_existing_unpickled_file(tmpdir):
@@ -151,3 +154,17 @@ def test_no_pickle_download_to_cache(tmpdir):
     assert os.path.exists(local_file)
     assert local_file.endswith('.csv')
     assert get_cached_count(cache_dir) == 1
+
+
+@pytest.mark.parametrize("parameters", [
+    {'name': 'test-get-all-76f8', 'version': 1},
+    {'name': 'test-get-all-76f8'}
+])
+def test_get_all(tmpdir, taigaClient: TaigaClient, parameters):
+    """Test if get without specifying a file returns properly a dict with the dataframes/raw data in them"""
+    all_files = taigaClient.get_all(**parameters)
+
+    assert isinstance(all_files, dict)
+    assert 'sparkles' in all_files
+    assert 'master-cell-line-export_v108-masterfile-2018-09-17' in all_files
+    assert 'test_matrix' in all_files
