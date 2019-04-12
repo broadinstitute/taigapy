@@ -686,7 +686,8 @@ class Taiga2Client:
 
     # <editor-fold desc="Utilities">
     def request_get(self, api_endpoint, params=None):
-        r = requests.get(self.url + api_endpoint, stream=True, params=params,
+        url = self.url + api_endpoint
+        r = requests.get(url, stream=True, params=params,
                          headers=dict(Authorization="Bearer " + self.token))
 
         if r.status_code == 404:
@@ -747,7 +748,10 @@ class Taiga2Client:
             m[datafile['name']] = datafile['underlying_file_id']
         return m
     
-    def update_virtual_dataset(self, dataset_id, new_aliases=[], names_to_drop=[]):
+    def update_virtual_dataset(self, dataset_id_or_permaname_id, new_aliases=[], names_to_drop=[]):
+        dataset = self.request_get("/api/dataset/{}".format(dataset_id_or_permaname_id))
+        dataset_id = dataset['id']
+
         mapping = self._get_virtual_dataset_aliases(dataset_id)
         for name, datafile in new_aliases:
             mapping[name] = datafile
