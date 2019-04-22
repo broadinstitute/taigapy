@@ -176,6 +176,8 @@ Run `python -m taigapy -h` to have an up to date help.
 ## Publish Taigapy on pypi
 `pip install twine` (not to be confused with the interactive fiction software called twine)
 
+Execute: `publish_new_taigapy_pypi.sh` which will do the following:
+
 1. `rm -r dist/`
 2. `python setup.py bdist_wheel --universal`
 3. `twine upload dist/*`
