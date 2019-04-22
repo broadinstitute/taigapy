@@ -1,15 +1,18 @@
 import boto3
 import colorful
+import glob
 import requests
 import pandas
 import os
 import tempfile
 import time
 import sys
+import progressbar
 
 from taigapy.UploadFile import UploadFile
+from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
 
-__version__ = "2.4.5"
+__version__ = "2.8.0"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -128,7 +131,6 @@ class Taiga2Client:
         assert name, "If not id is given, we need the permaname of the dataset and the version"
         api_endpoint_get_dataset_version_id = "/api/dataset/{datasetId}".format(datasetId=name)
         request = self.request_get(api_endpoint=api_endpoint_get_dataset_version_id)
-
         id = None
 
         versions = request['versions']
@@ -183,9 +185,9 @@ class Taiga2Client:
                 if datafile['name'] == file:
                     return datafile['allowed_conversion_type']
 
-        return Exception("Error...check the file name?")
+        raise Taiga404Exception("Datafile not found...check the file name?")
 
-    def _validate_file_for_donwload(self, id, name, version, file, force):
+    def _validate_file_for_download(self, id, name, version, file, force):
         if id is None:
             assert name is not None, "id or name must be specified"
 
@@ -211,6 +213,24 @@ class Taiga2Client:
                 "WARNING: This version is deprecated. Please use with caution, and see the reason below:"))
             print(colorful.orange(
                 "\t{}".format(data_reason_state)))
+        elif data_state == 'Deleted':
+            # We found a dataset version in deleted mode. Delete also the cache files
+            partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
+            # remove all files with the pattern patial_file_path
+            pattern_all_extensions = partial_file_path + '.*'
+            file_list = glob.glob(pattern_all_extensions)
+            for file_path in file_list:
+                try:
+                    # Double check we are removing only the files that are in the cache folder
+                    if self.cache_dir in file_path and data_id in file_path and data_file in file_path:
+                        os.remove(file_path)
+                    else:
+                        print("The file {} shouldn't be present in the deletion process. "
+                              "Please contact the administrator of taigapy".format(file_path))
+                except:
+                    print("Error while deleting file: {}".format(file_path))
+
+            raise TaigaDeletedVersionException()
 
         return data_id, data_name, data_version, data_file
 
@@ -242,12 +262,48 @@ class Taiga2Client:
         urls = response['urls']
         assert len(urls) == 1
         r = requests.get(urls[0], stream=True)
+
+        content_length = r.headers.get('Content-Length', None)
+        if not content_length:
+            content_length = progressbar.UnknownLength
+        else:
+            content_length = int(content_length)
+
+        bar = self._progressbar_init(max_value=content_length)
+
         with open(destination, 'wb') as handle:
             if not r.ok:
                 raise Exception("Error fetching {}".format(urls[0]))
 
-            for block in r.iter_content(1024 * 100):
+            # Stream by chunk of 100Kb
+            chunk_size = 1024 * 100
+            total = 0
+            for block in r.iter_content(chunk_size):
                 handle.write(block)
+
+                total += chunk_size
+                # total can be slightly superior to content_length
+                if content_length == progressbar.UnknownLength or total <= content_length:
+                    bar.update(total)
+            bar.finish()
+
+    def _progressbar_init(self, max_value):
+        """
+        Initialize the progressbar object with the max_value passed as parameter
+        :param max_value: int
+        :return: ProgressBar
+        """
+
+        widgets = [
+            progressbar.Bar(left="[", right="]"),
+            progressbar.Percentage(), " | ",
+            progressbar.FileTransferSpeed(), " | ",
+            progressbar.DataSize(), " / ",
+            progressbar.DataSize(variable="max_value"), " | ",
+            progressbar.ETA()
+        ]
+        bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
+        return bar
 
     def _download_to_local_file(self, data_id, data_file, dest, force, format):
         '''
@@ -263,34 +319,36 @@ class Taiga2Client:
 
     def _pickle_csv(self, data_name, data_version, data_file, src, dest, encoding):
         type = self._get_data_file_type(data_name, data_version, data_file)
+        # We could have a Columnar or a Matrix
         if type == "Columnar":
             df = pandas.read_csv(src, encoding=encoding)
         else:
             df = pandas.read_csv(src, index_col=0, encoding=encoding)
         df.to_pickle(dest)
 
-
-    def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
-        # returns a file in the cache with the data
+    def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False,
+                                          encoding=None):
+        """Returns a file in the cache with the data"""
         format = "csv"
-        data_id, data_name, data_version, data_file = self._validate_file_for_donwload(id, name, version, file, force)
+
+        try:
+            data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
+        except TaigaDeletedVersionException as tdve:
+            # We don't handle the delete exception here, we just continue to raise it. This code is here to
+            # underline that this exception can happen under _validate_file_for_download and if we want to do something
+            # specific here
+            raise tdve
+
         partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
 
         pickled_file = os.path.join(partial_file_path + '.pkl')
         if not os.path.exists(pickled_file):
             unpickled_file = os.path.join(partial_file_path + "." + format)
-            keep_unpickled_file = False
 
             if not os.path.exists(unpickled_file):
                 self._download_to_local_file(data_id, data_file, unpickled_file, force, format)
-            else:
-                # don't want to obliterate the local file for files deliberately downloaded by download_to_cache
-                keep_unpickled_file = True
 
             self._pickle_csv(data_name, data_version, data_file, unpickled_file, pickled_file, encoding)
-
-            if not keep_unpickled_file:
-                os.remove(unpickled_file)
 
         return pickled_file
 
@@ -299,32 +357,93 @@ class Taiga2Client:
         Downloads a taiga file of any format, if not already present, and returns the path to the file
         This file is not pickled
         '''
-        data_id, data_name, data_version, data_file = self._validate_file_for_donwload(id, name, version, file, force)
-        file_path = os.path.join(self.cache_dir, data_id + "_" + data_file+ "." + format)
+        data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
+        file_path = os.path.join(self.cache_dir, data_id + "_" + data_file + "." + format)
         self._download_to_local_file(data_id, data_file, file_path, force, format)
         return file_path
 
-    def get(self, id=None, name=None, version=None, file=None, force=False, encoding=None):
-        """Resolve and download a (converted if needed) csv file. Throw an exception if we ask for a raw file"""
+    def get(self, id: str=None, name: str=None, version: int=None,
+            file: str=None, force: bool=False, encoding: str=None) -> pandas.DataFrame:
+        """
+        Resolve and download (converted if needed) csv file(s). Output a dictionary if no files specified
+        :param id: Id of the datasetVersion (not the dataset)
+        :param name: Permaname of the dataset. Usually of the form `dataset_name_from_user-xxxx` with xxxx being the 4 characters of a uuid
+        :param version: Version of the dataset to get the datafile from
+        :param file: Dataset file name
+        :param force: Boolean to force kicking off the conversion again from Taiga
+        :param encoding: Encoding compatible with the parameter of read_csv of pandas (https://docs.python.org/3/library/codecs.html#standard-encodings)
+        :return: Pandas dataframe of the data
+        """
+        # TODO: Explain the accepted format for encoding
         # We first check if we can convert to a csv
         allowed_conversion_type = self._get_allowed_conversion_type_from_dataset_version(
             id=id, name=name, version=version, file=file)
         for conv_type in allowed_conversion_type:
             if conv_type == 'raw':
-                raise Exception(
+                raise TaigaRawTypeException(
                     "The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
-        local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
+        try:
+            local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
+        except TaigaDeletedVersionException as tdve:
+            print(colorful.red(
+                "This version is deleted. The data is not available anymore. Contact the maintainer of the dataset."
+            ))
+            return None
+
         return pandas.read_pickle(local_file)
+
+    def _get_all_file_names(self, name=None, version=None):
+        """Retrieve the name of the files contained in a version of a dataset"""
+        assert name is not None, "name has to be set"
+
+        # Get the dataset version ID
+        # Get the dataset info and the dataset version info
+        # TODO: We are reusing this multiple times (_get_allowed_conversion_type_from_dataset_version) => extract in a function
+        id = self._get_dataset_version_id_from_permaname_version(name=name, version=version)
+
+        api_endpoint = "/api/dataset/{datasetId}/{datasetVersionId}".format(datasetId=None,
+                                                                            datasetVersionId=id)
+
+        result = self.request_get(api_endpoint=api_endpoint)
+
+        # Get the file
+        full_dataset_version_datafiles = result['datasetVersion']['datafiles']
+
+        return full_dataset_version_datafiles
+
+    def get_all(self, name=None, version=None) -> dict:
+        """
+        Return all the files from a specific version of a dataset
+        :param name:
+        :param version:
+        :return:
+        """
+        dict_data_holder = {}
+
+        # TODO: Handle the name containing the version inside
+        file_data_s = self._get_all_file_names(name, version)
+
+        # DL each file
+        for file_data in file_data_s:
+            file_name = file_data['name']
+            try:
+                data = self.get(name=name, version=version, file=file_name)
+            except TaigaRawTypeException as trte:
+                data = self.download_to_cache(name=name, version=version, file=file_name)
+            dict_data_holder[file_name] = data
+
+        return dict_data_holder
 
     def is_valid_dataset(self, id=None, name=None, version=None, file=None, force=False, format='metadata'):
         try:
             self._get_data_file_json(id, name, version, file, force, format)
             return True
-        except:
+        # If one wants to be more precise, Taiga404Exception is also available
+        # TODO: Currently Taiga returns a 500 when receiving a wrong format for datafile. We should change this to not confuse errors meaning
+        except TaigaHttpException:
             return False
-
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
@@ -571,26 +690,76 @@ class Taiga2Client:
                          headers=dict(Authorization="Bearer " + self.token))
 
         if r.status_code == 404:
-            raise Exception(
-                "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(params))
+            raise Taiga404Exception(
+                "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(
+                    params))
         elif r.status_code != 200:
-            raise Exception("Bad status code: {}".format(r.status_code))
+            raise TaigaHttpException("Bad status code: {}".format(r.status_code))
 
         return r.json()
 
-    def request_post(self, api_endpoint, data):
+    def request_post(self, api_endpoint, data, standard_reponse_handling=True):
         assert data is not None
 
+        print("hitting", self.url + api_endpoint)
         r = requests.post(self.url + api_endpoint, json=data,
                           headers=dict(Authorization="Bearer " + self.token))
 
-        if r.status_code == 404:
-            return None
-        elif r.status_code != 200:
-            raise Exception("Bad status code: {}".format(r.status_code))
+        if standard_reponse_handling:
+            if r.status_code == 404:
+                return None
+            elif r.status_code != 200:
+                raise Exception("Bad status code: {}".format(r.status_code))
 
-        return r.json()
+            return r.json()
+        else:
+            return r
         # </editor-fold>
 
+    def create_virtual_dataset(self, name, description, aliases, folder_id):
+        "aliases should be a list of tuples of the form (name, datafile id)"
+        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
+    
+        r = self.request_post(api_endpoint="/api/virtual", data={
+            "name": name,
+            "description": description,
+            "files": files,
+            "folderId": folder_id
+        }, standard_reponse_handling=False)
+        
+        assert r.status_code == 200, "Got status: {}".format(r.status_code)
+        return r.json()
+        
+    def create_virtual_dataset_version(self, dataset_id, aliases, description=None):
+        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
+        data = {"files": files}
+        if description is not None:
+            data['description'] = description
+        
+        r = self.request_post("/api/virtual/{}".format(dataset_id), data,  standard_reponse_handling=False)
+        assert r.status_code == 200, "Got status: {}".format(r.status_code)
+        return r.json()
+        
+    def _get_virtual_dataset_aliases(self, dataset_id):
+        dataset_version = self.request_get("/api/dataset/{}/last".format(dataset_id))
+        m = {}
+        for datafile in dataset_version['datafiles']:
+            m[datafile['name']] = datafile['underlying_file_id']
+        return m
+    
+    def update_virtual_dataset(self, dataset_id, new_aliases=[], names_to_drop=[]):
+        mapping = self._get_virtual_dataset_aliases(dataset_id)
+        for name, datafile in new_aliases:
+            mapping[name] = datafile
+        for name in names_to_drop:
+            del mapping[name]
+        
+        return self.create_virtual_dataset_version(dataset_id, list(mapping.items()))
 
 TaigaClient = Taiga2Client
+
+try:
+    default_tc = TaigaClient()
+except Exception as e:
+    print("default_tc could not be set for this reason: {}".format(e))
+    print("You can import TaigaClient and add your custom options if you would want to customize it to your settings")
