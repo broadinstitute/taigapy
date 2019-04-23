@@ -392,7 +392,12 @@ class Taiga2Client:
             ))
             return None
 
-        return pandas.read_pickle(local_file)
+        try:
+            return pandas.read_pickle(local_file)        
+        except Exception as ex:
+            print(colorful.red("Got exception \"{}\" reading {} from cache. Will fetch file from Taiga again".format(ex, local_file)))
+            return None
+            
 
     def _get_all_file_names(self, name=None, version=None):
         """Retrieve the name of the files contained in a version of a dataset"""
