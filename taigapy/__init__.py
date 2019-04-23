@@ -12,7 +12,7 @@ import progressbar
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
 
-__version__ = "2.8.1"
+__version__ = "2.9.0"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -384,20 +384,22 @@ class Taiga2Client:
                     "The file is a Raw one, please use instead `download_to_cache` with the same parameters")
 
         # return a pandas dataframe with the data
-        try:
-            local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
-        except TaigaDeletedVersionException as tdve:
-            print(colorful.red(
-                "This version is deleted. The data is not available anymore. Contact the maintainer of the dataset."
-            ))
-            return None
+        for attempt in range(3):
+            try:
+                local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
+            except TaigaDeletedVersionException as tdve:
+                print(colorful.red(
+                    "This version is deleted. The data is not available anymore. Contact the maintainer of the dataset."
+                ))
+                return None
 
-        try:
-            return pandas.read_pickle(local_file)        
-        except Exception as ex:
-            print(colorful.red("Got exception \"{}\" reading {} from cache. Will fetch file from Taiga again".format(ex, local_file)))
-            return None
-            
+            try:
+                return pandas.read_pickle(local_file)
+            except Exception as ex:
+                print(colorful.red("Got exception \"{}\" reading {} from cache. Will remove to force fetch file from Taiga again".format(ex, local_file)))
+                os.unlink(local_file)
+
+        raise Exeception("Failed to fetch file multiple times")            
 
     def _get_all_file_names(self, name=None, version=None):
         """Retrieve the name of the files contained in a version of a dataset"""
