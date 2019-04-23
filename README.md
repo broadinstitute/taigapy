@@ -143,6 +143,22 @@ tc.update_dataset(dataset_permaname=dataset_permaname,
                  dataset_description="Update from latest")
 ```
 
+#### Virtual dataset creation and update
+Requires version 2.8.1 of taigapy
+
+```python
+from taigapy import TaigaClient
+tc = TaigaClient()
+tc.update_virtual_dataset('internal-19q2-9504', new_aliases=[('CCLE_gene_cn', 'segmented-cn-wes-prioritzed-7fe1.25/CCLE_internal_19q2_gene_cn')])
+
+
+To create a virtual dataset:
+tc.create_virtual_dataset(name="internal_19Q2", description="The DepMap internal 19Q2 release", aliases=[
+    ("CCLE_gene_cn", "segmented-cn-wes-prioritzed-7fe1.24/CCLE_internal_19q2_gene_cn"),
+    ("CCLE_segmented_cn", "segmented-cn-wes-prioritzed-7fe1.24/CCLE_internal_19q2_segmented_cn")
+], folder_id="21eeb52951984bfa9219b2c251c27df3")
+```
+
 ### Available formats
 
 Formats available currently are:
