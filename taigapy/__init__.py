@@ -12,7 +12,7 @@ import progressbar
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
 
-__version__ = "2.9.0"
+__version__ = "2.9.1"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -726,8 +726,16 @@ class Taiga2Client:
 
     def create_virtual_dataset(self, name, description, aliases, folder_id):
         "aliases should be a list of tuples of the form (name, datafile id)"
-        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
-    
+        files = []
+        invalid_aliases = []
+        for name, datafile in aliases:
+            if self.is_valid_dataset(datafile):
+                files.append(dict(name=name, datafile=datafile))
+            else:
+                invalid_aliases.append(datafile)
+        if len(invalid_aliases) > 0:
+            raise AssertionError('Invalid taiga ids: {}'.format(invalid_aliases))
+
         r = self.request_post(api_endpoint="/api/virtual", data={
             "name": name,
             "description": description,
@@ -759,12 +767,26 @@ class Taiga2Client:
         dataset = self.request_get("/api/dataset/{}".format(dataset_id_or_permaname_id))
         dataset_id = dataset['id']
 
+        invalid_new_aliases = []
+        invalid_names_to_drop = []
+
         mapping = self._get_virtual_dataset_aliases(dataset_id)
         for name, datafile in new_aliases:
-            mapping[name] = datafile
+            if self.is_valid_dataset(datafile):
+                mapping[name] = datafile
+            else:
+                invalid_new_aliases.append(datafile)
         for name in names_to_drop:
-            del mapping[name]
+            if name in mapping:
+                del mapping[name]
+            else:
+                invalid_names_to_drop.append(name)
         
+        if len(invalid_new_aliases) > 0:
+            raise AssertionError('Invalid taiga ids: {}'.format(invalid_new_aliases))
+        if len(invalid_names_to_drop) > 0:
+            raise AssertionError('Invalid names: {}'.format(invalid_names_to_drop))
+
         return self.create_virtual_dataset_version(dataset_id, list(mapping.items()))
 
 TaigaClient = Taiga2Client
