@@ -248,7 +248,7 @@ class Taiga2Client:
 
             if response.get("urls", None) is None:
                 if first_attempt:
-                    print("Taiga needs to convert data to rds before we can fetch it.  Waiting...\n")
+                    print("Taiga needs to convert data before we can fetch it.  Waiting...\n")
                 else:
                     if prev_status != response['status']:
                         print("Status: {}".format(response['status']))
