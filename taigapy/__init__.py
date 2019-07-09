@@ -467,7 +467,7 @@ class Taiga2Client:
 
     # <editor-fold desc="Upload">
 
-    def upload_session_files(self, upload_file_path_dict):
+    def upload_session_files(self, upload_file_path_dict, add_taiga_ids):
         # We first create a new session, and fetch its id
         new_session_api_endpoint = "/api/upload_session"
 
@@ -493,6 +493,17 @@ class Taiga2Client:
         # We add every temp_datafile in the session
         new_datafile_api_endpoint = "/api/datafile/" + new_session_id
 
+        for alias, taiga_id in add_taiga_ids:
+            data_create_upload_session_file = {
+                'filename': alias,
+                'filetype': 'virtual',
+                'existingTaigaId': taiga_id
+            }
+
+            # we don't need to poll the status. it was successful as long as we don't get an exception thrown
+            self.request_post(api_endpoint=new_datafile_api_endpoint,
+                                                data=data_create_upload_session_file)
+
         for upload_file_path, format in upload_file_path_dict.items():
             upload_file_object = UploadFile(prefix=full_prefix, file_path=upload_file_path, format=format)
             print("Uploading {}...".format(upload_file_object.file_name))
@@ -503,14 +514,14 @@ class Taiga2Client:
             S3UploadedData = s3_client.get_object(Bucket=bucket, Key=upload_file_object.prefix_and_file_name)
 
             # We now organize the conversion and the reupload
-            data_create_upload_session_file = dict()
             data_create_upload_session_file = {
-                'location': '',
-                'eTag': S3UploadedData['ETag'],
-                'bucket': str(bucket),
-                'key': str(upload_file_object.prefix_and_file_name),
                 'filename': upload_file_object.file_name,
-                'filetype': upload_file_object.format.name
+                'filetype': 's3',
+                's3Upload': {
+                    'format': upload_file_object.format.name,
+                    'bucket': str(bucket),
+                    'key': str(upload_file_object.prefix_and_file_name)
+                }
             }
 
             current_task_id = self.request_post(api_endpoint=new_datafile_api_endpoint,
@@ -537,14 +548,14 @@ class Taiga2Client:
 
     # TODO: Add the creation of a folder, given a path relative to home ('~')
     def create_dataset(self, dataset_name=None, dataset_description=None,
-                       upload_file_path_dict=None, folder_id=None):
+                       upload_file_path_dict=None, add_taiga_ids=(), folder_id=None):
         # TODO: Add the folder id to put the files into
         """Upload multiples files to Taiga, by default in the Public folder
 
         :param dataset_name: str
         :param dataset_description: str
         :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
-
+        :param add_taiga_ids: Tuple[str, str] => first the alias and the second, the taiga ID in the format "dataset.version/file"
         :return dataset_id: str
         """
         assert len(upload_file_path_dict) != 0
@@ -559,7 +570,7 @@ class Taiga2Client:
             if user_continue != 'y':
                 return
 
-        new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict)
+        new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict, add_taiga_ids=add_taiga_ids)
 
         # We create the dataset since all files have been uploaded
         create_dataset_api_endpoint = '/api/dataset'
@@ -578,9 +589,8 @@ class Taiga2Client:
         return dataset_id
 
     def update_dataset(self, dataset_id=None, dataset_permaname=None, dataset_version=None, dataset_description=None,
-                       upload_file_path_dict=None, force_keep=False, force_remove=False):
-        """Create a new version of the dataset. By default will be interactive. Use force_keep or force_remove to
-        keep/remove the previous files. If using dataset_id, will get the latest dataset version and create a new one
+                       upload_file_path_dict=None, add_taiga_ids=()):
+        """Create a new version of the dataset. If using dataset_id, will get the latest dataset version and create a new one
         from it.
 
         :param dataset_id: str => Id of a dataset, don't use with dataset_permaname/dataset_version
@@ -588,21 +598,16 @@ class Taiga2Client:
         :param dataset_version: int => version of a dataset. Use with dataset_permaname
         :param dataset_description: str
         :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
-        :param force_keep: boolean
-        :param force_remove: boolean
+        :param add_taiga_ids: Tuple[str, str] => first the alias and the second, the taiga ID in the format "dataset.version/file"
 
         :return new_dataset_version_id:
         """
         assert (not dataset_id and dataset_permaname) or \
                (dataset_id and not dataset_permaname and not dataset_version)
-        assert ((force_keep and not force_remove) or \
-                (force_remove and not force_keep) or \
-                (not force_keep and not force_remove))
         assert len(upload_file_path_dict) != 0
 
         dataset_json = None
         dataset_version_json = None
-        keep_datafile_id_list = []
 
         if dataset_permaname and dataset_version:
             # We retrieve the dataset version given
@@ -636,29 +641,7 @@ class Taiga2Client:
 
         datafiles = dataset_version_json['datafiles']
 
-        if not force_keep and not force_remove:
-            # We will be interactive at asking which files they want to keep or remove
-            print("Now choosing the datasets you would want to keep or remove:")
-            for datafile in datafiles:
-                prompt = "\tKeep " + datafile['name'] + " ? (y/n) "
-                try:
-                    keep_answer = raw_input(prompt)
-                except NameError:
-                    keep_answer = input(prompt)
-
-                if keep_answer == 'y':
-                    # Add to the keep list
-                    keep_datafile_id_list.append(datafile['id'])
-                else:
-                    print("\tNot keeping " + datafile['name'])
-
-        if force_keep and not force_remove:
-            keep_datafile_id_list = [datafile['id'] for datafile in datafiles]
-
-        if force_remove and not force_keep:
-            keep_datafile_id_list = []
-
-        new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict)
+        new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict, add_taiga_ids=add_taiga_ids)
 
         new_dataset_version_params = dict()
         new_dataset_version_params['sessionId'] = new_session_id
@@ -668,16 +651,6 @@ class Taiga2Client:
             new_dataset_version_params['newDescription'] = dataset_description
         else:
             new_dataset_version_params['newDescription'] = dataset_version_json['description']
-
-        new_dataset_version_params['datafileIds'] = keep_datafile_id_list
-
-        print("Creating the new version with these files:")
-        for new_file_path, format in upload_file_path_dict.items():
-            new_file_name = UploadFile.get_file_name(UploadFile.drop_extension(new_file_path))
-            print("\tNEW: " + new_file_name + " - " + format)
-        for datafile in datafiles:
-            if datafile['id'] in keep_datafile_id_list:
-                print("\tKEEP: " + datafile["name"] + " - " + datafile["type"])
 
         new_dataset_version_api_endpoint = "/api/datasetVersion"
 
@@ -723,49 +696,6 @@ class Taiga2Client:
         else:
             return r
         # </editor-fold>
-
-    def create_virtual_dataset(self, name, description, aliases, folder_id):
-        "aliases should be a list of tuples of the form (name, datafile id)"
-        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
-    
-        r = self.request_post(api_endpoint="/api/virtual", data={
-            "name": name,
-            "description": description,
-            "files": files,
-            "folderId": folder_id
-        }, standard_reponse_handling=False)
-        
-        assert r.status_code == 200, "Got status: {}".format(r.status_code)
-        return r.json()
-        
-    def create_virtual_dataset_version(self, dataset_id, aliases, description=None):
-        files = [ dict(name=name, datafile=datafile) for name, datafile in aliases ]
-        data = {"files": files}
-        if description is not None:
-            data['description'] = description
-        
-        r = self.request_post("/api/virtual/{}".format(dataset_id), data,  standard_reponse_handling=False)
-        assert r.status_code == 200, "Got status: {}".format(r.status_code)
-        return r.json()
-        
-    def _get_virtual_dataset_aliases(self, dataset_id):
-        dataset_version = self.request_get("/api/dataset/{}/last".format(dataset_id))
-        m = {}
-        for datafile in dataset_version['datafiles']:
-            m[datafile['name']] = datafile['underlying_file_id']
-        return m
-    
-    def update_virtual_dataset(self, dataset_id_or_permaname_id, new_aliases=[], names_to_drop=[]):
-        dataset = self.request_get("/api/dataset/{}".format(dataset_id_or_permaname_id))
-        dataset_id = dataset['id']
-
-        mapping = self._get_virtual_dataset_aliases(dataset_id)
-        for name, datafile in new_aliases:
-            mapping[name] = datafile
-        for name in names_to_drop:
-            del mapping[name]
-        
-        return self.create_virtual_dataset_version(dataset_id, list(mapping.items()))
 
 TaigaClient = Taiga2Client
 
