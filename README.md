@@ -149,14 +149,23 @@ Requires version 2.8.1 of taigapy
 ```python
 from taigapy import TaigaClient
 tc = TaigaClient()
-tc.update_virtual_dataset('internal-19q2-9504', new_aliases=[('CCLE_gene_cn', 'segmented-cn-wes-prioritzed-7fe1.25/CCLE_internal_19q2_gene_cn')])
 
-
-To create a virtual dataset:
+# To create a virtual dataset
 tc.create_virtual_dataset(name="internal_19Q2", description="The DepMap internal 19Q2 release", aliases=[
     ("CCLE_gene_cn", "segmented-cn-wes-prioritzed-7fe1.24/CCLE_internal_19q2_gene_cn"),
     ("CCLE_segmented_cn", "segmented-cn-wes-prioritzed-7fe1.24/CCLE_internal_19q2_segmented_cn")
 ], folder_id="21eeb52951984bfa9219b2c251c27df3")
+
+# To add to a virtual dataset
+tc.update_virtual_dataset('internal-19q2-9504', new_aliases=[
+        ('CCLE_gene_cn', 'segmented-cn-wes-prioritzed-7fe1.25/CCLE_internal_19q2_gene_cn')
+    ]
+)
+
+# To remove from a virtual dataset
+# can simultaneously be provided with new_aliases
+tc.update_virtual_dataset('internal-19q2-9504', names_to_drop=['CCLE_gene_cn'])
+
 ```
 
 ### Available formats
