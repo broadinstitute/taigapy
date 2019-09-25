@@ -1,13 +1,14 @@
 import boto3
 import colorful
+import feather
 import glob
-import requests
-import pandas
 import os
-import tempfile
-import time
-import sys
+import pandas
 import progressbar
+import requests
+import sys
+import time
+from typing import Union
 
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
@@ -44,6 +45,13 @@ class Taiga2Client:
             if os.path.exists(path):
                 return path
         raise Exception("No token file found. Checked the following locations: {}".format(paths))
+
+    def get_cache_partial_file_path(self, data_id: str, data_file: str) -> str:
+        """
+        Get the path (without file extension) of the file in the cache corresponding
+        to dataset id `data_id` and file name `data_file`.
+        """
+        return os.path.join(self.cache_dir, data_id + "_" + data_file)
 
     def get_dataset_id_by_name(self, name, md5=None, version=None):
         """Deprecated"""
@@ -215,7 +223,7 @@ class Taiga2Client:
                 "\t{}".format(data_reason_state)))
         elif data_state == 'Deleted':
             # We found a dataset version in deleted mode. Delete also the cache files
-            partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
+            partial_file_path = self.get_cache_partial_file_path(data_id, data_file)
             # remove all files with the pattern patial_file_path
             pattern_all_extensions = partial_file_path + '.*'
             file_list = glob.glob(pattern_all_extensions)
@@ -234,46 +242,80 @@ class Taiga2Client:
 
         return data_id, data_name, data_version, data_file
 
-    def _download_to_file_object(self, id, name, version, file, force, format, destination):
-        '''
-        :param file: a python file-like object, e.g. a tempfile
-        '''
+    def _get_file_download_url(
+        self,
+        datafile_id: str,
+        dataset_name: str,
+        dataset_version: Union[str, int],
+        datafile_name: str,
+        force_convert: bool,
+        file_format: str,
+        quiet: bool,
+    ) -> str:
+        """Get the url to download a file and prints conversion status.
+        
+        If `quiet=True`, skips printing conversion status."""
         first_attempt = True
         prev_status = None
         delay_between_polls = 1
         waiting_for_conversion = True
         while waiting_for_conversion:
-            response = self._get_data_file_json(id, name, version, file, force, format)
-            force = False
+            response = self._get_data_file_json(
+                datafile_id,
+                dataset_name,
+                dataset_version,
+                datafile_name,
+                force_convert,
+                file_format,
+            )
+            force_convert = False
 
             if response.get("urls", None) is None:
-                if first_attempt:
-                    print("Taiga needs to convert data before we can fetch it.  Waiting...\n")
-                else:
-                    if prev_status != response['status']:
-                        print("Status: {}".format(response['status']))
+                if not quiet:
+                    if first_attempt:
+                        print(
+                            "Taiga needs to convert data before we can fetch it.  Waiting...\n"
+                        )
+                    else:
+                        if prev_status != response["status"]:
+                            print("Status: {}".format(response["status"]))
 
-                prev_status = response['status']
+                prev_status = response["status"]
                 first_attempt = False
                 time.sleep(delay_between_polls)
             else:
                 waiting_for_conversion = False
 
-        urls = response['urls']
+        urls = response["urls"]
         assert len(urls) == 1
-        r = requests.get(urls[0], stream=True)
+        return urls[0]
 
-        content_length = r.headers.get('Content-Length', None)
-        if not content_length:
-            content_length = progressbar.UnknownLength
-        else:
-            content_length = int(content_length)
+    def _download_to_file_object(
+        self,
+        id: str,
+        name: str,
+        version: Union[str, int],
+        file: str,
+        force: bool,
+        format: str,
+        destination: str,
+        quiet: bool,
+    ):
+        url = self._get_file_download_url(id, name, version, file, force, format, quiet)
+        r = requests.get(url, stream=True)
 
-        bar = self._progressbar_init(max_value=content_length)
+        if not quiet:
+            content_length = r.headers.get('Content-Length', None)
+            if not content_length:
+                content_length = progressbar.UnknownLength
+            else:
+                content_length = int(content_length)
+
+            bar = self._progressbar_init(max_value=content_length)
 
         with open(destination, 'wb') as handle:
             if not r.ok:
-                raise Exception("Error fetching {}".format(urls[0]))
+                raise Exception("Error fetching {}".format(url))
 
             # Stream by chunk of 100Kb
             chunk_size = 1024 * 100
@@ -283,9 +325,10 @@ class Taiga2Client:
 
                 total += chunk_size
                 # total can be slightly superior to content_length
-                if content_length == progressbar.UnknownLength or total <= content_length:
+                if not quiet and (content_length == progressbar.UnknownLength or total <= content_length):
                     bar.update(total)
-            bar.finish()
+            if not quiet:
+                bar.finish()
 
     def _progressbar_init(self, max_value):
         """
@@ -305,52 +348,40 @@ class Taiga2Client:
         bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
         return bar
 
-    def _download_to_local_file(self, data_id, data_file, dest, force, format):
-        '''
-        :param dest: string, local path of file to download if not present
-        '''
-        if not os.path.exists(dest) or force:
-            if not os.path.exists(self.cache_dir):
-                os.makedirs(self.cache_dir)
+    def _download_to_local_file(
+        self,
+        datafile_id: str,
+        datafile_name: str,
+        force_fetch: bool,
+        dest: str,
+        force_convert: bool,
+        file_format: str,
+        quiet: bool,
+    ):
+        """
+        Downloads a Taiga file to `dest` if it does not exist, or if `force_fetch=True`
+        or `force_convert=True`.
+        
+        If `force_convert=True`, will tell Taiga to convert the file to `file_format`
+        regardless of conversion status.
+        """
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
-            with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".tmpdl", delete=False) as fd:
-                self._download_to_file_object(data_id, None, None, data_file, force, format, fd.name)
-            os.rename(fd.name, dest)
+        if os.path.exists(dest) and (force_fetch or force_convert):
+            os.remove(dest)
 
-    def _pickle_csv(self, data_name, data_version, data_file, src, dest, encoding):
-        type = self._get_data_file_type(data_name, data_version, data_file)
-        # We could have a Columnar or a Matrix
-        if type == "Columnar":
-            df = pandas.read_csv(src, encoding=encoding)
-        else:
-            df = pandas.read_csv(src, index_col=0, encoding=encoding)
-        df.to_pickle(dest)
-
-    def _resolve_and_download_pickled_csv(self, id=None, name=None, version=None, file=None, force=False,
-                                          encoding=None):
-        """Returns a file in the cache with the data"""
-        format = "csv"
-
-        try:
-            data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
-        except TaigaDeletedVersionException as tdve:
-            # We don't handle the delete exception here, we just continue to raise it. This code is here to
-            # underline that this exception can happen under _validate_file_for_download and if we want to do something
-            # specific here
-            raise tdve
-
-        partial_file_path = os.path.join(self.cache_dir, data_id + "_" + data_file)
-
-        pickled_file = os.path.join(partial_file_path + '.pkl')
-        if not os.path.exists(pickled_file):
-            unpickled_file = os.path.join(partial_file_path + "." + format)
-
-            if not os.path.exists(unpickled_file):
-                self._download_to_local_file(data_id, data_file, unpickled_file, force, format)
-
-            self._pickle_csv(data_name, data_version, data_file, unpickled_file, pickled_file, encoding)
-
-        return pickled_file
+        if not os.path.exists(dest):
+            self._download_to_file_object(
+                datafile_id,
+                None,
+                None,
+                datafile_name,
+                force_convert,
+                file_format,
+                dest,
+                quiet,
+            )
 
     def download_to_cache(self, id=None, name=None, version=None, file=None, force=False, format="raw"):
         '''
@@ -359,8 +390,84 @@ class Taiga2Client:
         '''
         data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
         file_path = os.path.join(self.cache_dir, data_id + "_" + data_file + "." + format)
-        self._download_to_local_file(data_id, data_file, file_path, force, format)
+        self._download_to_local_file(data_id, data_file, False, file_path, force, format, False)
         return file_path
+
+    @staticmethod
+    def read_feather_to_df(path: str, data_file_type: str) -> pandas.DataFrame:
+        """Reads and returns a Pandas DataFrame from a Feather file at `path`.
+
+        If `data_file_type` is "HDF5", we convert the first column to an index.
+        """
+        df = feather.read_dataframe(path)
+        if data_file_type == "HDF5":
+            df.set_index(df.columns[0], inplace=True)
+            df.index.name = None
+        return df
+    
+    def download_to_cache_for_fetch(
+        self,
+        datafile_id: str=None,
+        dataset_name: str=None,
+        dataset_version: Union[str, int]=None,
+        datafile_name: str=None,
+        force_fetch: bool=False,
+        force_convert: bool=False,
+        file_format: str="raw",
+        quiet: bool=False,
+    ) -> str:
+        data_id, data_name, data_version, data_file = self._validate_file_for_download(
+            datafile_id, dataset_name, dataset_version, datafile_name, force_convert
+        )
+        data_file_type = self._get_data_file_type(data_name, data_version, data_file)
+
+        partial_path = self.get_cache_partial_file_path(data_id, data_file)
+        file_path = partial_path if file_format == "raw" else "{}.feather".format(partial_path)
+        temp_path = "{}.csv".format(partial_path)
+
+        if os.path.exists(file_path):
+            if force_fetch or force_convert:
+                os.remove(file_path)
+            else:
+                return file_path, data_file_type
+
+        remove_temp_file = not os.path.exists(temp_path)
+        if os.path.exists(temp_path) and (force_fetch or force_convert):
+            os.remove(temp_path)
+
+        # If file_format is "raw", download file to cache and return path
+        if file_format == "raw":
+            self._download_to_local_file(
+                data_id,
+                data_file,
+                force_fetch,
+                partial_path,
+                force_convert,
+                file_format,
+                quiet,
+            )
+            return partial_path, data_file_type
+
+        # Otherwise, first download the file as a CSV
+        self._download_to_local_file(
+            data_id,
+            data_file,
+            force_fetch,
+            temp_path,
+            force_convert,
+            "csv",
+            quiet,
+        )
+
+        # Then read that csv into a Pandas DataFrame and write that to a feather file
+        df = pandas.read_csv(temp_path)
+        feather.write_dataframe(df, file_path)
+
+        # And finally, delete the CSV file if it didn't already exist
+        if remove_temp_file:
+            os.remove(temp_path)
+
+        return file_path, data_file_type
 
     def get(self, id: str=None, name: str=None, version: int=None,
             file: str=None, force: bool=False, encoding: str=None) -> pandas.DataFrame:
@@ -386,7 +493,14 @@ class Taiga2Client:
         # return a pandas dataframe with the data
         for attempt in range(3):
             try:
-                local_file = self._resolve_and_download_pickled_csv(id, name, version, file, force, encoding=encoding)
+                local_file, data_file_type = self.download_to_cache_for_fetch(
+                    datafile_id=id,
+                    dataset_name=name,
+                    dataset_version=version,
+                    datafile_name=file,
+                    force_convert=force,
+                    file_format="feather",
+                )
             except TaigaDeletedVersionException as tdve:
                 print(colorful.red(
                     "This version is deleted. The data is not available anymore. Contact the maintainer of the dataset."
@@ -394,12 +508,12 @@ class Taiga2Client:
                 return None
 
             try:
-                return pandas.read_pickle(local_file)
+                return Taiga2Client.read_feather_to_df(local_file, data_file_type)
             except Exception as ex:
                 print(colorful.red("Got exception \"{}\" reading {} from cache. Will remove to force fetch file from Taiga again".format(ex, local_file)))
                 os.unlink(local_file)
 
-        raise Exeception("Failed to fetch file multiple times")            
+        raise Exception("Failed to fetch file multiple times")            
 
     def _get_all_file_names(self, name=None, version=None):
         """Retrieve the name of the files contained in a version of a dataset"""

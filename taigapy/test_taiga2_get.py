@@ -117,22 +117,22 @@ def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
     assert summary == '576x1119 matrix, 50911 NAs'
 
 
-def test_pickled_get(tmpdir):
+def test_feather_get(tmpdir):
     """
-    Test that .get has the native format (csv) + the pickle
+    Test that .get has feather format
     """
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
-    assert get_cached_count(cache_dir) == 2
-    assert any(file.endswith('.pkl') for file in os.listdir(cache_dir))
+    assert get_cached_count(cache_dir) == 1
+    assert os.listdir(cache_dir)[0].endswith('.feather')
 
 
-def test_pickled_get_with_existing_unpickled_file(tmpdir):
+def test_feather_get_with_existing_csv_file(tmpdir):
     '''
-    Test that if there is an existing unpickled file,
-        a pickled file is created
-        and the existing unpickled file is not deleted
+    Test that if there is an existing csv file,
+        a feather file is created
+        and the existing csv file is not deleted
     '''
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
@@ -141,7 +141,7 @@ def test_pickled_get_with_existing_unpickled_file(tmpdir):
 
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
     assert get_cached_count(cache_dir) == 2
-    assert {filename.split('.')[1] for filename in os.listdir(cache_dir)} == {'csv', 'pkl'}
+    assert {filename.split('.')[1] for filename in os.listdir(cache_dir)} == {'csv', 'feather'}
 
 
 def test_no_pickle_download_to_cache(tmpdir):
@@ -156,14 +156,14 @@ def test_no_pickle_download_to_cache(tmpdir):
     assert local_file.endswith('.csv')
     assert get_cached_count(cache_dir) == 1
 
-def test_corrupted_pickle(tmpdir):
+def test_corrupted_feather(tmpdir):
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     df1 = taigaClient.get(id='b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
 
     # corrupt the file by truncating it
     # first find the file...
-    cache_files = [os.path.join(cache_dir, x) for x in os.listdir(cache_dir) if x.endswith('pkl')]
+    cache_files = [os.path.join(cache_dir, x) for x in os.listdir(cache_dir) if x.endswith('feather')]
     assert len(cache_files) == 1
     cache_file = cache_files[0]
     
@@ -197,6 +197,7 @@ def test_corrupted_pickle(tmpdir):
 #    assert 'master-cell-line-export_v108-masterfile-2018-09-17' in all_files
 #    assert 'test_matrix' in all_files
 
+@pytest.mark.skip(reason="Not yet implemented")
 def test_create_virtual_dataset_invalid_aliases(tmpdir):
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
@@ -205,6 +206,7 @@ def test_create_virtual_dataset_invalid_aliases(tmpdir):
             ("CCLE_gene_cn", "some_invalid_taiga_id"),
         ], folder_id="test")
 
+@pytest.mark.skip(reason="Not yet implemented")
 def test_update_virtual_dataset_invalid_aliases(tmpdir):
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
