@@ -197,6 +197,73 @@ Run `python -m taigapy -h` to have an up to date help.
 
 [Important] Please choose a format available for this specific file in taiga Web UI
 
+## `taigaclient`
+
+A command-line script, `taigaclient`, is also available. It is installed with the `taigapy` package, and it currently supports downloading files to the cache via the `fetch` command and getting metadata about a dataset via the `dataset-meta` command.
+
+### Usage
+```
+usage: taigaclient [-h] [--taiga-url TAIGA_URL] [--data-dir DATA_DIR]
+                   {fetch,dataset-meta} ...
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --taiga-url TAIGA_URL
+                        Override default Taiga url (https://cds.team/taiga)
+  --data-dir DATA_DIR   Path to where token file lives and cached downloaded
+                        files
+
+commands:
+  {fetch,dataset-meta}
+    fetch               Download a Taiga file into the cache directory
+    dataset-meta        Fetch the metadata about a dataset.
+```
+
+#### `fetch`
+```
+usage: taigaclient fetch [-h] [--name NAME] [--version VERSION] [--file FILE]
+                         [--force-fetch] [--quiet] [--force-convert]
+                         [--format {raw,feather}]
+                         [--write-filename WRITE_FILENAME]
+                         [data_file_id]
+
+positional arguments:
+  data_file_id          Taiga ID or datafile ID. If not set, NAME must be set
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --name NAME           Dataset name. Must be set if data_file_id is not set.
+  --version VERSION     Dataset version
+  --file FILE           Datafile name
+  --force-fetch         If set, will bypass local cache and try to redownload
+                        from Taiga
+  --quiet               If set, do not print progress
+  --force-convert       Ask Taiga to convert this file again (Implies --force-
+                        fetch)
+  --format {raw,feather}
+                        Format to store file. If Taiga file is a raw file,
+                        choose raw. Otherwise, the default is feather.
+  --write-filename WRITE_FILENAME
+                        If set, will write the full path and Taiga file type
+                        of the cached file to WRITE_FILENAME. Otherwise, will
+                        write to stdout
+```
+
+#### `dataset-meta`
+```
+usage: taigaclient dataset-meta [-h] [--version VERSION]
+                                [--write-filename WRITE_FILENAME]
+                                dataset_name
+
+positional arguments:
+  dataset_name          Dataset name
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --version VERSION     Dataset version
+  --write-filename WRITE_FILENAME
+                        Path to JSON file to write metadata
+```
 
 ## Publish Taigapy on pypi
 `pip install twine` (not to be confused with the interactive fiction software called twine)

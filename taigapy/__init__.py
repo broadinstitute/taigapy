@@ -15,7 +15,9 @@ from typing import Union
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
 
-__version__ = "2.10.0"
+__version__ = "2.11.0"
+
+DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
@@ -45,7 +47,7 @@ PANDAS_DTYPE_MAP = {
 }
 
 class Taiga2Client:
-    def __init__(self, url="https://cds.team/taiga", cache_dir=None, token_path=None):
+    def __init__(self, url=DEFAULT_TAIGA_URL, cache_dir=None, token_path=None):
         self.formats = ["NumericMatrixCSV",
                         "NumericMatrixTSV",
                         "TableCSV",

@@ -20,5 +20,6 @@ setup(
     author="Remi Marenco",
     author_email="rmarenco@broadinstitute.org",
     long_description=open('README.md').read(),
+    scripts=["bin/taigaclient"],
     install_requires=install_requires
     )
