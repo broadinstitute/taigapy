@@ -116,6 +116,16 @@ def test_get_short_summary_without_version(tmpdir, taigaClient: TaigaClient):
     summary = taigaClient.get_short_summary(name="calico-t1-log-viability-30de", file="pcal_t1sec_log2viab_dose2_2.5um")
     assert summary == '576x1119 matrix, 50911 NAs'
 
+def test_get_dataset_metadata(tmpdir, taigaClient: TaigaClient):
+    metadata = taigaClient.get_dataset_metadata("taigr-data-40f2")
+    assert type(metadata) == dict
+    assert "description" in metadata
+    assert "datasetVersion" not in metadata
+
+def test_get_dataset_metadata_with_version(tmpdir, taigaClient: TaigaClient):
+    metadata = taigaClient.get_dataset_metadata("taigr-data-40f2", version=1)
+    assert type(metadata) == dict
+    assert "datasetVersion" in metadata
 
 def test_feather_get(tmpdir):
     """

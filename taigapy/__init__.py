@@ -146,6 +146,16 @@ class Taiga2Client:
         api_endpoint = "/api/datafile/short_summary"
         return self.request_get(api_endpoint=api_endpoint, params=params)
 
+    def get_dataset_metadata(self, dataset_id: str, version: Union[str, int]=None) -> dict:
+        """Get metadata about a dataset"""
+        url = self.url + "/api/dataset/" + dataset_id
+        if version is not None:
+            url += "/" + str(version)
+
+        r = requests.get(url, headers=dict(Authorization="Bearer " + self.token))
+        assert r.status_code == 200
+        return r.json()
+
     def get_datafile_types(self, dataset_id, version):
         r = requests.get(self.url + "/api/dataset/" + dataset_id + "/" + str(version),
                          headers=dict(Authorization="Bearer " + self.token))
