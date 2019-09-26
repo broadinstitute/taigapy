@@ -1,7 +1,9 @@
 import boto3
 import colorful
+import datetime
 import feather
 import glob
+import numpy
 import os
 import pandas
 import progressbar
@@ -19,6 +21,28 @@ __version__ = "2.10.0"
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR = "~/.taiga"
 
+# Map from pandas.api.types.infer_dtype values to dtypes
+PANDAS_DTYPE_MAP = {
+    "string": numpy.str,
+    "unicode": numpy.unicode,
+    "bytes": numpy.byte,
+    "floating": numpy.floating,
+    "integer": numpy.int,
+    "mixed-integer": numpy.str,
+    "mixed-integer-float": numpy.str,
+    "decimal": numpy.float,
+    "complex": numpy.complex,
+    "categorical": "category",
+    "boolean": numpy.bool,
+    "datetime64": numpy.datetime64,
+    "datetime": datetime.datetime,
+    "date": datetime.date,
+    "timedelta64": numpy.timedelta64,
+    "timedelta": datetime.timedelta,
+    "time": datetime.time,
+    "period": "period",
+    "mixed": numpy.str,
+}
 
 class Taiga2Client:
     def __init__(self, url="https://cds.team/taiga", cache_dir=None, token_path=None):
@@ -415,6 +439,7 @@ class Taiga2Client:
         force_convert: bool=False,
         file_format: str="raw",
         quiet: bool=False,
+        encoding: str=None
     ) -> str:
         data_id, data_name, data_version, data_file = self._validate_file_for_download(
             datafile_id, dataset_name, dataset_version, datafile_name, force_convert
@@ -460,7 +485,10 @@ class Taiga2Client:
         )
 
         # Then read that csv into a Pandas DataFrame and write that to a feather file
-        df = pandas.read_csv(temp_path)
+        df = pandas.read_csv(temp_path, encoding=encoding)
+        # Infer types because Feather does not handle object type
+        inferred_types = df.apply(lambda x: pandas.api.types.infer_dtype(x.values, skipna=True))
+        df = df.astype(inferred_types.map(PANDAS_DTYPE_MAP).to_dict())
         feather.write_dataframe(df, file_path)
 
         # And finally, delete the CSV file if it didn't already exist
@@ -500,6 +528,7 @@ class Taiga2Client:
                     datafile_name=file,
                     force_convert=force,
                     file_format="feather",
+                    encoding=encoding
                 )
             except TaigaDeletedVersionException as tdve:
                 print(colorful.red(
