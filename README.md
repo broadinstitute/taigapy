@@ -179,6 +179,10 @@ Formats available currently are:
 - GCT
 - Raw
 
+### Offline mode
+
+If you are not connected to Taiga but you have a file in your cache, you can get the file from your cache if you call `get` with `id` in the `dataset_permaname.dataset_version/datafile_name` form, or if you provide `name`, and `version`, and `file`.
+
 ## Running Taigapy via Command line
 
 Run `python -m taigapy -h` to have an up to date help.
@@ -219,7 +223,7 @@ commands:
     dataset-meta        Fetch the metadata about a dataset.
 ```
 
-#### `fetch`
+#### fetch
 ```
 usage: taigaclient fetch [-h] [--name NAME] [--version VERSION] [--file FILE]
                          [--force-fetch] [--quiet] [--force-convert]
@@ -249,7 +253,7 @@ optional arguments:
                         write to stdout
 ```
 
-#### `dataset-meta`
+#### dataset-meta
 ```
 usage: taigaclient dataset-meta [-h] [--version VERSION]
                                 [--write-filename WRITE_FILENAME]

@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 import argparse
+import colorful
 import json
 import os
 from taigapy import TaigaClient, DEFAULT_TAIGA_URL
+from taigapy.custom_exceptions import (
+    TaigaDeletedVersionException,
+    TaigaClientConnectionException,
+)
 
 
 def _get_taiga_client(args: argparse.Namespace):
@@ -27,20 +32,25 @@ def fetch(args):
 
     tc = _get_taiga_client(args)
 
-    filename, datafile_type = tc.download_to_cache_for_fetch(
-        datafile_id=args.data_file_id,
-        dataset_name=args.name,
-        dataset_version=args.version,
-        datafile_name=args.file,
-        force_fetch=args.force_fetch,
-        force_convert=args.force_convert,
-        file_format=args.format,
-        quiet=args.quiet,
-        encoding="utf8",
-    )
-
-    if datafile_type == "HDF5":
-        datafile_type = "Matrix"
+    try:
+        filename, datafile_type = tc.download_to_cache_for_fetch(
+            datafile_id=args.data_file_id,
+            dataset_name=args.name,
+            dataset_version=args.version,
+            datafile_name=args.file,
+            force_fetch=args.force_fetch,
+            force_convert=args.force_convert,
+            file_format=args.format,
+            quiet=args.quiet,
+            encoding="utf8",
+        )
+    except (
+        TaigaDeletedVersionException,
+        TaigaClientConnectionException,
+        ValueError,
+    ) as e:
+        print(colorful.red(str(e)))
+        return None
 
     d = {"filename": filename, "datafile_type": datafile_type}
 

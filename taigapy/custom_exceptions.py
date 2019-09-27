@@ -15,3 +15,7 @@ class TaigaDeletedVersionException(TaigaHttpException):
 class TaigaRawTypeException(Exception):
     """Exception when we are trying to get a file from a Table or Matrix format, whereas it is Raw data"""
     pass
+
+class TaigaClientConnectionException(Exception):
+    """Exception when we are unable to connect to Taiga"""
+    pass

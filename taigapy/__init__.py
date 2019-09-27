@@ -3,6 +3,7 @@ import colorful
 import datetime
 import feather
 import glob
+import json
 import numpy
 import os
 import pandas
@@ -13,9 +14,15 @@ import time
 from typing import Union
 
 from taigapy.UploadFile import UploadFile
-from taigapy.custom_exceptions import TaigaHttpException, Taiga404Exception, TaigaDeletedVersionException, TaigaRawTypeException
+from taigapy.custom_exceptions import (
+    TaigaHttpException,
+    Taiga404Exception,
+    TaigaDeletedVersionException,
+    TaigaRawTypeException,
+    TaigaClientConnectionException,
+)
 
-__version__ = "2.11.0"
+__version__ = "2.12.0"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -72,12 +79,31 @@ class Taiga2Client:
                 return path
         raise Exception("No token file found. Checked the following locations: {}".format(paths))
 
-    def get_cache_partial_file_path(self, data_id: str, data_file: str) -> str:
+    def _get_cache_partial_file_path(
+        self, dataset_name: str, dataset_version: Union[str, int], datafile_name: str
+    ) -> str:
         """
         Get the path (without file extension) of the file in the cache corresponding
         to dataset id `data_id` and file name `data_file`.
         """
-        return os.path.join(self.cache_dir, data_id + "_" + data_file)
+        return os.path.join(
+            self.cache_dir, f"{dataset_name}_v{dataset_version}_{datafile_name}"
+        )
+
+    def _get_cache_file_paths(
+        self,
+        dataset_name: str,
+        dataset_version: Union[str, int],
+        datafile_name: str,
+        file_format=str,
+    ):
+        partial_path = self._get_cache_partial_file_path(
+            dataset_name, dataset_version, datafile_name
+        )
+        file_path = f"{partial_path}.{file_format}"
+        temp_path = f"{partial_path}.csv"
+        feather_extra_path = f"{partial_path}.featherextra"
+        return file_path, temp_path, feather_extra_path
 
     def get_dataset_id_by_name(self, name, md5=None, version=None):
         """Deprecated"""
@@ -259,7 +285,7 @@ class Taiga2Client:
                 "\t{}".format(data_reason_state)))
         elif data_state == 'Deleted':
             # We found a dataset version in deleted mode. Delete also the cache files
-            partial_file_path = self.get_cache_partial_file_path(data_id, data_file)
+            partial_file_path = self._get_cache_partial_file_path(data_name, data_version, data_file)
             # remove all files with the pattern patial_file_path
             pattern_all_extensions = partial_file_path + '.*'
             file_list = glob.glob(pattern_all_extensions)
@@ -274,7 +300,7 @@ class Taiga2Client:
                 except:
                     print("Error while deleting file: {}".format(file_path))
 
-            raise TaigaDeletedVersionException()
+            raise TaigaDeletedVersionException("This version is deleted. The data is not available anymore. Contact the maintainer of the dataset.")
 
         return data_id, data_name, data_version, data_file
 
@@ -425,22 +451,118 @@ class Taiga2Client:
         This file is not pickled
         '''
         data_id, data_name, data_version, data_file = self._validate_file_for_download(id, name, version, file, force)
-        file_path = os.path.join(self.cache_dir, data_id + "_" + data_file + "." + format)
+        file_path, _, _ = self._get_cache_file_paths(data_name, data_version, data_file, format)
         self._download_to_local_file(data_id, data_file, False, file_path, force, format, False)
         return file_path
 
     @staticmethod
-    def read_feather_to_df(path: str, data_file_type: str) -> pandas.DataFrame:
+    def read_feather_to_df(path: str, datafile_type: str) -> pandas.DataFrame:
         """Reads and returns a Pandas DataFrame from a Feather file at `path`.
 
-        If `data_file_type` is "HDF5", we convert the first column to an index.
+        If `datafile_type` is "HDF5", we convert the first column to an index.
         """
         df = feather.read_dataframe(path)
-        if data_file_type == "HDF5":
+        if datafile_type == "HDF5":
             df.set_index(df.columns[0], inplace=True)
             df.index.name = None
         return df
-    
+
+    def _is_connected(self):
+        try:
+            requests.get(self.url)
+            return True
+        except requests.ConnectionError:
+            return False
+
+    @staticmethod
+    def _get_existing_file_and_datafile_type(file_format: str, file_path: str, feather_extra_path: str):
+        if file_format == "raw":
+            return file_path, "Raw"
+
+        with open(feather_extra_path, "r") as f:
+            feather_extra = json.load(f)
+            datafile_type = feather_extra["datafile_type"]
+        return file_path, datafile_type
+
+
+    def _handle_download_to_cache_for_fetch_unconnected(
+        self,
+        datafile_id: str,
+        dataset_name: str,
+        dataset_version: Union[str, int],
+        datafile_name: str,
+        force_fetch: bool,
+        force_convert: bool,
+        file_format: str,
+        quiet: bool,
+        encoding: str,
+    ):
+        """Handles downloading/fetching from cache when there is no connection. Behaves
+        as follows:
+
+        If `force_fetch=True` or `force_convert=True`, raise an error, since we cannot
+        get the file from Taiga without a connection.
+
+        If `datafile_id` is of the form `DATASET_NAME.DATASET_VERSION/DATAFILE_NAME`,
+        or if `dataset_name`, `dataset_version`, and `datafile_name` are all set, check
+        the cache for existance. If it exists, return that path name and datafile type.
+        Otherwise, raise an error.
+
+        If we can't get the dataset name and version and the file name, raise an error
+        since we'd have to make a request to Taiga to get them.
+        """
+        if force_fetch or force_convert:
+            raise TaigaClientConnectionException(
+                "ERROR: You are in offline mode. Cannot force fetch or convert."
+            )
+
+        if datafile_id is not None:
+            if "." in datafile_id:
+                dataset_name, dataset_version, maybe_datafile_name = self._untangle_dataset_id_with_version(
+                    datafile_id
+                )
+                if maybe_datafile_name is not None:
+                    datafile_name = maybe_datafile_name
+            else:
+                raise TaigaClientConnectionException(
+                    f"ERROR: You are in offline mode. Cannot determine dataset name and version for cache using datafile id '{datafile_id}'."
+                )
+
+        if dataset_name is None:
+            raise ValueError("ERROR: No dataset name provided")
+        if dataset_version is None:
+            raise ValueError("ERROR: No dataset version provided")
+        if datafile_name is None:
+            raise ValueError("ERROR: No datafile name provided")
+
+        file_path, temp_path, feather_extra_path = self._get_cache_file_paths(
+            dataset_name, dataset_version, datafile_name, file_format
+        )
+
+        if os.path.exists(file_path) and (
+            file_format == "raw" or os.path.exists(feather_extra_path)
+        ):
+            print(
+                colorful.orange(
+                    "WARNING: You are in offline mode, please be aware that you might be out of sync with the state of the dataset version (deprecation)"
+                )
+            )
+            return Taiga2Client._get_existing_file_and_datafile_type(
+                file_format, file_path, feather_extra_path
+            )
+        else:
+            raise TaigaClientConnectionException(
+                "ERROR: You are in offline mode and the file you requested is not in the cache."
+            )
+
+    def _write_feather_extra(self, path: str, feather_extra: dict):
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+
+        with open(path, "w+") as f:
+            json.dump(feather_extra, f)
+            f.close()
+
     def download_to_cache_for_fetch(
         self,
         datafile_id: str=None,
@@ -453,24 +575,40 @@ class Taiga2Client:
         quiet: bool=False,
         encoding: str=None
     ) -> str:
+        if not self._is_connected():
+            return self._handle_download_to_cache_for_fetch_unconnected(
+                datafile_id,
+                dataset_name,
+                dataset_version,
+                datafile_name,
+                force_fetch,
+                force_convert,
+                file_format,
+                quiet,
+                encoding,
+            )
+
         data_id, data_name, data_version, data_file = self._validate_file_for_download(
             datafile_id, dataset_name, dataset_version, datafile_name, force_convert
         )
-        data_file_type = self._get_data_file_type(data_name, data_version, data_file)
 
-        partial_path = self.get_cache_partial_file_path(data_id, data_file)
-        file_path = partial_path if file_format == "raw" else "{}.feather".format(partial_path)
-        temp_path = "{}.csv".format(partial_path)
-
-        if os.path.exists(file_path):
-            if force_fetch or force_convert:
-                os.remove(file_path)
-            else:
-                return file_path, data_file_type
+        file_path, temp_path, feather_extra_path = self._get_cache_file_paths(
+            data_name, data_version, data_file, file_format
+        )
 
         remove_temp_file = not os.path.exists(temp_path)
-        if os.path.exists(temp_path) and (force_fetch or force_convert):
-            os.remove(temp_path)
+
+        if force_fetch or force_convert:
+            for path in [file_path, temp_path, feather_extra_path]:
+                if os.path.exists(path):
+                    os.remove(path)
+
+        if os.path.exists(file_path) and (
+            file_format == "raw" or os.path.exists(feather_extra_path)
+        ):
+            return Taiga2Client._get_existing_file_and_datafile_type(
+                file_format, file_path, feather_extra_path
+            )
 
         # If file_format is "raw", download file to cache and return path
         if file_format == "raw":
@@ -478,12 +616,16 @@ class Taiga2Client:
                 data_id,
                 data_file,
                 force_fetch,
-                partial_path,
+                file_path,
                 force_convert,
                 file_format,
                 quiet,
             )
-            return partial_path, data_file_type
+            return file_path, "Raw"
+
+        datafile_type = self._get_data_file_type(data_name, data_version, data_file)
+        feather_extra = {"datafile_type": datafile_type}
+        self._write_feather_extra(feather_extra_path, feather_extra)
 
         # Otherwise, first download the file as a CSV
         self._download_to_local_file(
@@ -507,7 +649,7 @@ class Taiga2Client:
         if remove_temp_file:
             os.remove(temp_path)
 
-        return file_path, data_file_type
+        return file_path, datafile_type
 
     def get(self, id: str=None, name: str=None, version: int=None,
             file: str=None, force: bool=False, encoding: str=None) -> pandas.DataFrame:
@@ -542,10 +684,12 @@ class Taiga2Client:
                     file_format="feather",
                     encoding=encoding
                 )
-            except TaigaDeletedVersionException as tdve:
-                print(colorful.red(
-                    "This version is deleted. The data is not available anymore. Contact the maintainer of the dataset."
-                ))
+            except (
+                TaigaDeletedVersionException,
+                TaigaClientConnectionException,
+                ValueError,
+            ) as e:
+                print(colorful.red(str(e)))
                 return None
 
             try:

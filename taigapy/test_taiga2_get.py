@@ -129,19 +129,20 @@ def test_get_dataset_metadata_with_version(tmpdir, taigaClient: TaigaClient):
 
 def test_feather_get(tmpdir):
     """
-    Test that .get has feather format
+    Test that .get() call writes a feather file and a featherextra file
     """
     cache_dir = str(tmpdir.join("cache"))
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
-    assert get_cached_count(cache_dir) == 1
-    assert os.listdir(cache_dir)[0].endswith('.feather')
-
+    assert get_cached_count(cache_dir) == 2
+    assert any(path.endswith('.feather') for path in os.listdir(cache_dir))
+    assert any(path.endswith('.featherextra') for path in os.listdir(cache_dir))
 
 def test_feather_get_with_existing_csv_file(tmpdir):
     '''
     Test that if there is an existing csv file,
         a feather file is created
+        a featherextra file is created
         and the existing csv file is not deleted
     '''
     cache_dir = str(tmpdir.join("cache"))
@@ -150,9 +151,8 @@ def test_feather_get_with_existing_csv_file(tmpdir):
     assert get_cached_count(cache_dir) == 1
 
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
-    assert get_cached_count(cache_dir) == 2
-    assert {filename.split('.')[1] for filename in os.listdir(cache_dir)} == {'csv', 'feather'}
-
+    assert get_cached_count(cache_dir) == 3
+    assert {filename.split('.')[-1] for filename in os.listdir(cache_dir)} == {'csv', 'feather', 'featherextra'}
 
 def test_no_pickle_download_to_cache(tmpdir):
     '''
