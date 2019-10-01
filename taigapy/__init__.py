@@ -22,7 +22,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.0"
+__version__ = "2.12.1"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -131,26 +131,47 @@ class Taiga2Client:
             file = None
 
         return name, version, file
+    
+    def _get_dataset_name_version_file(
+        self,
+        dataset_id: str,
+        dataset_name: str,
+        dataset_version: str,
+        datafile_name: str,
+    ):
+        """Get the dataset name, dataset version, and datafile id from dataset id,
+        name, and version and datafile name.
+        
+        Specifically, tries to parse `dataset_id` as 
+        `dataset_name.dataset_version[/datafile_name]`, or returns `dataset_name`,
+        `dataset_version`, and `datafile_name` arguments if not specified in 
+        `dataset_id`.
+        """
+        if dataset_id is not None:
+            if "." in dataset_id:
+                dataset_name, dataset_version, maybe_datafile_name = self._untangle_dataset_id_with_version(
+                    dataset_id
+                )
+                if maybe_datafile_name is not None:
+                    datafile_name = maybe_datafile_name
+        return dataset_name, dataset_version, datafile_name
 
     def _get_params_dict(self, id, name, version, file, force=None, format=None):
         """Parse the params into a dict we can use for GET/POST requests"""
         params = dict(format=format)
 
-        if id is not None:
-            if '.' in id:
-                name, version, file = self._untangle_dataset_id_with_version(id)
-                params['dataset_permaname'] = name
-                params['datafile_name'] = file
-                params['version'] = version
+        name, version, file = self._get_dataset_name_version_file(id, name, version, file)
 
-            else:
-                params['dataset_version_id'] = id
-                assert version is None
-        else:
-            assert name is not None
+        if id is None and name is None:
+            raise Exception("Either id or name should be provided")
+
+        if name is not None:
             params['dataset_permaname'] = name
-            if version is not None:
-                params['version'] = str(version)
+        else:
+            params['dataset_version_id'] = id
+
+        if version is not None:
+            params['version'] = str(version)
 
         if file is not None:
             params['datafile_name'] = file
@@ -176,6 +197,9 @@ class Taiga2Client:
 
     def get_dataset_metadata(self, dataset_id: str, version: Union[str, int]=None) -> dict:
         """Get metadata about a dataset"""
+        if "." in dataset_id:
+            dataset_id, version, _ = self._untangle_dataset_id_with_version(dataset_id)
+
         url = self.url + "/api/dataset/" + dataset_id
         if version is not None:
             url += "/" + str(version)
@@ -227,17 +251,17 @@ class Taiga2Client:
             # Need to get the dataset version from id
             id = self._get_dataset_version_id_from_permaname_version(name=name, version=version)
         # else:
-        else:
-            if '.' in id:
-                # TODO: Check also if file already filled out
-                # We need to check if we have a dataset id with version or a dataset version id
-                name, version, file = self._untangle_dataset_id_with_version(id)
-                assert name, "Id {} passed does not match any dataset".format(id)
-                assert version, "No version found for this id {}".format(id)
-                try:
-                    id = self._get_dataset_version_id_from_permaname_version(name, version)
-                except:
-                    print(sys.exc_info()[0])
+        elif '.' in id:
+            name, version, file = self._get_dataset_name_version_file(id, name, version, file)
+            if not name:
+                raise Exception("Either id or name should be provided")
+            if not version:
+                raise Exception(f"No version found for this id {id}")
+
+            try:
+                id = self._get_dataset_version_id_from_permaname_version(name, version)
+            except:
+                print(sys.exc_info()[0])
 
         api_endpoint = "/api/dataset/{datasetId}/{datasetVersionId}".format(datasetId=None,
                                                                             datasetVersionId=id)
@@ -487,7 +511,7 @@ class Taiga2Client:
 
     def _handle_download_to_cache_for_fetch_unconnected(
         self,
-        datafile_id: str,
+        dataset_id: str,
         dataset_name: str,
         dataset_version: Union[str, int],
         datafile_name: str,
@@ -503,7 +527,7 @@ class Taiga2Client:
         If `force_fetch=True` or `force_convert=True`, raise an error, since we cannot
         get the file from Taiga without a connection.
 
-        If `datafile_id` is of the form `DATASET_NAME.DATASET_VERSION/DATAFILE_NAME`,
+        If `dataset_id` is of the form `DATASET_NAME.DATASET_VERSION/DATAFILE_NAME`,
         or if `dataset_name`, `dataset_version`, and `datafile_name` are all set, check
         the cache for existance. If it exists, return that path name and datafile type.
         Otherwise, raise an error.
@@ -515,18 +539,14 @@ class Taiga2Client:
             raise TaigaClientConnectionException(
                 "ERROR: You are in offline mode. Cannot force fetch or convert."
             )
-
-        if datafile_id is not None:
-            if "." in datafile_id:
-                dataset_name, dataset_version, maybe_datafile_name = self._untangle_dataset_id_with_version(
-                    datafile_id
-                )
-                if maybe_datafile_name is not None:
-                    datafile_name = maybe_datafile_name
-            else:
-                raise TaigaClientConnectionException(
-                    f"ERROR: You are in offline mode. Cannot determine dataset name and version for cache using datafile id '{datafile_id}'."
-                )
+        
+        dataset_name, dataset_version, datafile_name = self._get_dataset_name_version_file(
+            dataset_id, dataset_name, dataset_version, datafile_name
+        )
+        if dataset_id is not None and dataset_name is None:
+            raise TaigaClientConnectionException(
+                f"ERROR: You are in offline mode. Cannot determine dataset name and version for cache using datafile id '{datafile_id}'."
+            )
 
         if dataset_name is None:
             raise ValueError("ERROR: No dataset name provided")
