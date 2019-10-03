@@ -22,7 +22,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.1"
+__version__ = "2.12.2"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -30,28 +30,6 @@ DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR = "~/.taiga"
 
-# Map from pandas.api.types.infer_dtype values to dtypes
-PANDAS_DTYPE_MAP = {
-    "string": numpy.str,
-    "unicode": numpy.unicode,
-    "bytes": numpy.byte,
-    "floating": numpy.floating,
-    "integer": numpy.int,
-    "mixed-integer": numpy.str,
-    "mixed-integer-float": numpy.str,
-    "decimal": numpy.float,
-    "complex": numpy.complex,
-    "categorical": "category",
-    "boolean": numpy.bool,
-    "datetime64": numpy.datetime64,
-    "datetime": datetime.datetime,
-    "date": datetime.date,
-    "timedelta64": numpy.timedelta64,
-    "timedelta": datetime.timedelta,
-    "time": datetime.time,
-    "period": "period",
-    "mixed": numpy.str,
-}
 
 class Taiga2Client:
     def __init__(self, url=DEFAULT_TAIGA_URL, cache_dir=None, token_path=None):
@@ -193,6 +171,12 @@ class Taiga2Client:
         params = self._get_params_dict(id=id, name=name, version=version, file=file)
 
         api_endpoint = "/api/datafile/short_summary"
+        return self.request_get(api_endpoint=api_endpoint, params=params)
+
+    def _get_datafile_column_types(self, id, name, version, file):
+        """Get column types for a Columnar datafile"""
+        params = self._get_params_dict(id=id, name=name, version=version, file=file)
+        api_endpoint = "/api/datafile/column_types"
         return self.request_get(api_endpoint=api_endpoint, params=params)
 
     def get_dataset_metadata(self, dataset_id: str, version: Union[str, int]=None) -> dict:
@@ -660,9 +644,12 @@ class Taiga2Client:
 
         # Then read that csv into a Pandas DataFrame and write that to a feather file
         df = pandas.read_csv(temp_path, encoding=encoding)
-        # Infer types because Feather does not handle object type
-        inferred_types = df.apply(lambda x: pandas.api.types.infer_dtype(x.values, skipna=True))
-        df = df.astype(inferred_types.map(PANDAS_DTYPE_MAP).to_dict())
+        if datafile_type == "Columnar":
+            column_types = self._get_datafile_column_types(
+                data_id, data_name, data_version, data_file
+            )
+            df = df.astype(column_types)
+
         feather.write_dataframe(df, file_path)
 
         # And finally, delete the CSV file if it didn't already exist
