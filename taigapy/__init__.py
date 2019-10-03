@@ -22,7 +22,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.2"
+__version__ = "2.12.3"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -659,7 +659,7 @@ class Taiga2Client:
             column_types = self._get_datafile_column_types(
                 data_id, data_name, data_version, data_file
             )
-            df = df.astype(column_types)
+            df = df.astype(column_types)[df.notnull()]
 
         feather.write_dataframe(df, file_path)
 
