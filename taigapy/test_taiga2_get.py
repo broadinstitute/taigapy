@@ -127,6 +127,13 @@ def test_get_dataset_metadata_with_version(tmpdir, taigaClient: TaigaClient):
     assert type(metadata) == dict
     assert "datasetVersion" in metadata
 
+def test_get_dataset_metadata_with_version_id(tmpdir, taigaClient: TaigaClient):
+    metadata = taigaClient.get_dataset_metadata(version_id="f20ef5fb44794e52867e2e9ff6165822")
+    assert type(metadata) == dict
+
+    dataset_metadata = taigaClient.get_dataset_metadata("taigr-data-40f2", version=1)
+    assert metadata == dataset_metadata["datasetVersion"]
+
 def test_feather_get(tmpdir):
     """
     Test that .get() call writes a feather file and a featherextra file

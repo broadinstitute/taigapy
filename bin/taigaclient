@@ -65,7 +65,9 @@ def fetch(args):
 
 def dataset_meta(args):
     tc = _get_taiga_client(args)
-    metadata = tc.get_dataset_metadata(args.dataset_name, version=args.version)
+    metadata = tc.get_dataset_metadata(
+        args.dataset_name, version=args.version, version_id=args.version_id
+    )
     if args.write_filename is not None:
         with open(args.write_filename, "w+") as f:
             j = json.dump(metadata, f)
@@ -129,10 +131,14 @@ if __name__ == "__main__":
 
     # dataset-meta command parser
     parser_dataset_meta = subparsers.add_parser(
-        "dataset-meta", help="Fetch the metadata about a dataset."
+        "dataset-meta",
+        help="Fetch the metadata about a dataset (or dataset version if version-id is provided).",
     )
-    parser_dataset_meta.add_argument("dataset_name", help="Dataset name")
+    parser_dataset_meta.add_argument(
+        "dataset_name", nargs="?", default=None, help="Dataset name or ID"
+    )
     parser_dataset_meta.add_argument("--version", help="Dataset version")
+    parser_dataset_meta.add_argument("--version-id", help="Dataset version ID")
     parser_dataset_meta.add_argument(
         "--write-filename",
         help="If set, will write the metadata to WRITE_FILENAME. Otherwise, will write to stdout",

@@ -179,14 +179,25 @@ class Taiga2Client:
         api_endpoint = "/api/datafile/column_types"
         return self.request_get(api_endpoint=api_endpoint, params=params)
 
-    def get_dataset_metadata(self, dataset_id: str, version: Union[str, int]=None) -> dict:
+    def get_dataset_metadata(
+        self,
+        dataset_id: str = None,
+        version: Union[str, int] = None,
+        version_id: str = None,
+    ) -> dict:
         """Get metadata about a dataset"""
-        if "." in dataset_id:
+        if dataset_id is None and version_id is None:
+            raise Exception("Dataset name or dataset version ID must be provided")
+
+        if dataset_id is not None and "." in dataset_id:
             dataset_id, version, _ = self._untangle_dataset_id_with_version(dataset_id)
 
-        url = self.url + "/api/dataset/" + dataset_id
-        if version is not None:
-            url += "/" + str(version)
+        if dataset_id is not None:
+            url = self.url + "/api/dataset/" + dataset_id
+            if version is not None:
+                url += "/" + str(version)
+        else:
+            url = self.url + "/api/datasetVersion/" + version_id
 
         r = requests.get(url, headers=dict(Authorization="Bearer " + self.token))
         assert r.status_code == 200
