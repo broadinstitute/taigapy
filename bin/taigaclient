@@ -5,6 +5,7 @@ import json
 import os
 from taigapy import TaigaClient, DEFAULT_TAIGA_URL
 from taigapy.custom_exceptions import (
+    Taiga404Exception,
     TaigaDeletedVersionException,
     TaigaClientConnectionException,
 )
@@ -44,15 +45,15 @@ def fetch(args):
             quiet=args.quiet,
             encoding="utf8",
         )
+        d = {"filename": filename, "datafile_type": datafile_type, "error": False}
     except (
+        Taiga404Exception,
         TaigaDeletedVersionException,
         TaigaClientConnectionException,
         ValueError,
     ) as e:
         print(colorful.red(str(e)))
-        return None
-
-    d = {"filename": filename, "datafile_type": datafile_type}
+        d = {"error": True}
 
     if args.write_filename is not None:
         with open(args.write_filename, "w+") as f:
