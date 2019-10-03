@@ -484,6 +484,8 @@ class Taiga2Client:
         if datafile_type == "HDF5":
             df.set_index(df.columns[0], inplace=True)
             df.index.name = None
+        elif datafile_type == "Columnar":
+            df = df.fillna(numpy.nan)
         return df
 
     def _is_connected(self):
