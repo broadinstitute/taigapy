@@ -1,5 +1,7 @@
 import os
 import pytest
+import numpy as np
+import pandas as pd
 
 from taigapy import Taiga2Client as TaigaClient
 
@@ -197,6 +199,130 @@ def test_corrupted_feather(tmpdir):
 
     # and make sure we get the same result
     assert_frame_equal(df1, df2)
+
+def test_types(tmpdir, taigaClient):
+    df = taigaClient.get("taigr-data-40f2.7/types_table")
+    assert (
+        df.columns.to_list()
+        == [
+            "int_only",
+            "float_only",
+            "string_only",
+            "numeric_string_only",
+            "python_bool_only",
+            "R_full_bool_only",
+            "int_float",
+            "int_float_string",
+            "float_string",
+            "int_empty",
+            "float_empty",
+            "string_empty",
+            "bool_empty",
+            "int_NA",
+            "float_NA",
+            "string_NA",
+            "bool_NA",
+            "int_empty_NA",
+            "float_empty_NA",
+            "string_empty_NA",
+            "bool_empty_NA",
+        ]
+    )
+    assert (
+        df.dtypes.to_list()
+        == [
+            np.int64,
+            np.float64,
+            np.object,
+            np.int64,
+            np.bool,
+            np.bool,
+            np.float64,
+            np.object,
+            np.object,
+            np.float64,
+            np.float64,
+            np.object,
+            np.object,
+            np.float64,
+            np.float64,
+            np.object,
+            np.object,
+            np.float64,
+            np.float64,
+            np.object,
+            np.object,
+        ]
+    )
+    assert [pd.api.types.infer_dtype(df[c], skipna=False) for c in df.columns] == [
+        "integer",
+        "floating",
+        "string",
+        "integer",
+        "boolean",
+        "boolean",
+        "floating",
+        "string",
+        "string",
+        "floating",
+        "floating",
+        "mixed",
+        "mixed",
+        "floating",
+        "floating",
+        "mixed",
+        "mixed",
+        "floating",
+        "floating",
+        "mixed",
+        "mixed",
+    ]
+    assert [pd.api.types.infer_dtype(df[c], skipna=True) for c in df.columns] == [
+        "integer",
+        "floating",
+        "string",
+        "integer",
+        "boolean",
+        "boolean",
+        "floating",
+        "string",
+        "string",
+        "floating",
+        "floating",
+        "string",
+        "boolean",
+        "floating",
+        "floating",
+        "string",
+        "boolean",
+        "floating",
+        "floating",
+        "string",
+        "boolean",
+    ]
+
+    assert (
+        df[
+            [
+                "int_empty",
+                "float_empty",
+                "string_empty",
+                "bool_empty",
+                "int_NA",
+                "float_NA",
+                "string_NA",
+                "bool_NA",
+                "int_empty_NA",
+                "float_empty_NA",
+                "string_empty_NA",
+                "bool_empty_NA",
+            ]
+        ]
+        .loc[2]
+        .isnull()
+        .all()
+    )
+
 
 # commenting out because this test fails and is testing new functionality. I'm unclear if this is a regression or this has never worked because
 # I don't believe anything has changed since this test was initially written.

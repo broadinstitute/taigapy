@@ -1,7 +1,6 @@
 import boto3
 import colorful
 import datetime
-import feather
 import glob
 import json
 import numpy
@@ -480,12 +479,10 @@ class Taiga2Client:
 
         If `datafile_type` is "HDF5", we convert the first column to an index.
         """
-        df = feather.read_dataframe(path)
+        df = pandas.read_feather(path)
         if datafile_type == "HDF5":
             df.set_index(df.columns[0], inplace=True)
             df.index.name = None
-        elif datafile_type == "Columnar":
-            df = df.fillna(numpy.nan)
         return df
 
     def _is_connected(self):
@@ -658,12 +655,8 @@ class Taiga2Client:
         # Then read that csv into a Pandas DataFrame and write that to a feather file
         df = pandas.read_csv(temp_path, encoding=encoding)
         if datafile_type == "Columnar":
-            column_types = self._get_datafile_column_types(
-                data_id, data_name, data_version, data_file
-            )
-            df = df.astype(column_types)[df.notnull()]
-
-        feather.write_dataframe(df, file_path)
+            Taiga2Client.convert_column_types(df)
+        df.to_feather(file_path)
 
         # And finally, delete the CSV file if it didn't already exist
         if remove_temp_file:
@@ -1014,6 +1007,20 @@ class Taiga2Client:
             return r.json()
         else:
             return r
+
+    @staticmethod
+    def convert_column_types(df: pandas.DataFrame):
+        for c in df.columns:
+            if df[c].dtype == numpy.object:
+                if pandas.api.types.infer_dtype(df[c], skipna=True) in [
+                    "integer",
+                    "floating",
+                    "string",
+                    "boolean",
+                ]:
+                    continue
+                df[c] = df[c].apply(lambda v: v if pandas.isnull(v) else str(v))
+
         # </editor-fold>
 
 TaigaClient = Taiga2Client
