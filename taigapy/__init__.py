@@ -64,7 +64,7 @@ class Taiga2Client:
         to dataset id `data_id` and file name `data_file`.
         """
         return os.path.join(
-            self.cache_dir, f"{dataset_name}_v{dataset_version}_{datafile_name}"
+            self.cache_dir, "{}_v{}_{}".format(dataset_name, dataset_version, datafile_name)
         )
 
     def _get_cache_file_paths(
@@ -77,9 +77,9 @@ class Taiga2Client:
         partial_path = self._get_cache_partial_file_path(
             dataset_name, dataset_version, datafile_name
         )
-        file_path = f"{partial_path}.{file_format}"
-        temp_path = f"{partial_path}.csv"
-        feather_extra_path = f"{partial_path}.featherextra"
+        file_path = "{}.{}".format(partial_path, file_format)
+        temp_path = "{}.csv".format(partial_path)
+        feather_extra_path = "{}.featherextra".format(partial_path)
         return file_path, temp_path, feather_extra_path
 
     def get_dataset_id_by_name(self, name, md5=None, version=None):
@@ -250,7 +250,7 @@ class Taiga2Client:
             if not name:
                 raise Exception("Either id or name should be provided")
             if not version:
-                raise Exception(f"No version found for this id {id}")
+                raise Exception("No version found for this id {}".format(id))
 
             try:
                 id = self._get_dataset_version_id_from_permaname_version(name, version)
@@ -539,7 +539,9 @@ class Taiga2Client:
         )
         if dataset_id is not None and dataset_name is None:
             raise TaigaClientConnectionException(
-                f"ERROR: You are in offline mode. Cannot determine dataset name and version for cache using datafile id '{datafile_id}'."
+                "ERROR: You are in offline mode. Cannot determine dataset name and version for cache using datafile id '{}'.".format(
+                    datafile_id
+                )
             )
 
         if dataset_name is None:

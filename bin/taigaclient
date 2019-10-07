@@ -22,7 +22,7 @@ def _get_taiga_client(args: argparse.Namespace):
         cache_dir = os.path.expanduser(args.data_dir)
         token_path = os.path.join(cache_dir, "token")
         if not os.path.exists(token_path):
-            raise Exception(f"No Taiga token found at {args.data_dir}")
+            raise Exception("No Taiga token found at {}".format(args.data_dir))
 
     return TaigaClient(url=url, cache_dir=cache_dir, token_path=token_path)
 
