@@ -21,7 +21,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.3"
+__version__ = "2.12.4"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -903,7 +903,7 @@ class Taiga2Client:
         return dataset_id
 
     def update_dataset(self, dataset_id=None, dataset_permaname=None, dataset_version=None, dataset_description=None,
-                       upload_file_path_dict=None, add_taiga_ids=()):
+                       upload_file_path_dict=None, add_taiga_ids=[]):
         """Create a new version of the dataset. If using dataset_id, will get the latest dataset version and create a new one
         from it.
 
@@ -912,13 +912,13 @@ class Taiga2Client:
         :param dataset_version: int => version of a dataset. Use with dataset_permaname
         :param dataset_description: str
         :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
-        :param add_taiga_ids: Tuple[str, str] => first the alias and the second, the taiga ID in the format "dataset.version/file"
+        :param add_taiga_ids: List[Tuple[str, str]] => first the alias and the second, the taiga ID in the format "dataset.version/file"
 
         :return new_dataset_version_id:
         """
         assert (not dataset_id and dataset_permaname) or \
                (dataset_id and not dataset_permaname and not dataset_version)
-        assert len(upload_file_path_dict) != 0
+        assert len(upload_file_path_dict) != 0 or len(add_taiga_ids) != 0
 
         dataset_json = None
         dataset_version_json = None

@@ -339,26 +339,3 @@ def test_types(tmpdir, taigaClient):
 #    assert 'sparkles' in all_files
 #    assert 'master-cell-line-export_v108-masterfile-2018-09-17' in all_files
 #    assert 'test_matrix' in all_files
-
-@pytest.mark.skip(reason="Not yet implemented")
-def test_create_virtual_dataset_invalid_aliases(tmpdir):
-    cache_dir = str(tmpdir.join("cache"))
-    taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
-    with pytest.raises(AssertionError):
-        taigaClient.create_virtual_dataset(name="virtual test", description="testing taigapy virtual datasets", aliases=[
-            ("CCLE_gene_cn", "some_invalid_taiga_id"),
-        ], folder_id="test")
-
-@pytest.mark.skip(reason="Not yet implemented")
-def test_update_virtual_dataset_invalid_aliases(tmpdir):
-    cache_dir = str(tmpdir.join("cache"))
-    taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
-    test_virtual_dataset = "ccle-gene-cn-56d8" # this is named as if it is a real used thing; it is not
-    with pytest.raises(AssertionError):
-        taigaClient.update_virtual_dataset(test_virtual_dataset, new_aliases=[
-            ("CCLE_gene_cn", "some_invalid_taiga_id"),
-        ])
-    with pytest.raises(AssertionError):
-        taigaClient.update_virtual_dataset(test_virtual_dataset, names_to_drop=[
-            "invalid_name"
-        ])
