@@ -2,6 +2,7 @@ import boto3
 import colorful
 import datetime
 import glob
+import h5py
 import json
 import numpy
 import os
@@ -30,6 +31,15 @@ DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 DEFAULT_CACHE_DIR = "~/.taiga"
 VIRTUAL_UNDERLYING_MAP_FILE = ".virtual-underlying-map"
 
+def read_hdf5(filename):
+    src = h5py.File(filename, "r")
+    try:
+        dim_0 = [x.decode("utf8") for x in src["dim_0"]]
+        dim_1 = [x.decode("utf8") for x in src["dim_1"]]
+        data = numpy.array(src["data"])
+        return pandas.DataFrame(index=dim_0, columns=dim_1, data=data).reset_index()
+    finally:
+        src.close()
 
 class Taiga2Client:
     def __init__(self, url=DEFAULT_TAIGA_URL, cache_dir=None, token_path=None):
@@ -90,7 +100,7 @@ class Taiga2Client:
             dataset_name, dataset_version, datafile_name
         )
         file_path = "{}.{}".format(partial_path, file_format)
-        temp_path = "{}.csv".format(partial_path)
+        temp_path = "{}.tmp".format(partial_path)
         feather_extra_path = "{}.featherextra".format(partial_path)
         return file_path, temp_path, feather_extra_path
 
@@ -104,7 +114,7 @@ class Taiga2Client:
                 underlying_file_map.loc[virtual_file_partial]["underlying"],
             )
             file_path = "{}.{}".format(partial_path, file_format)
-            temp_path = "{}.csv".format(partial_path)
+            temp_path = "{}.tmp".format(partial_path)
             feather_extra_path = "{}.featherextra".format(partial_path)
             return file_path, temp_path, feather_extra_path
         return None, None, None
@@ -679,8 +689,6 @@ class Taiga2Client:
             temp_path = underlying_temp_path
             feather_extra_path = underlying_feather_extra_path
 
-        remove_temp_file = not os.path.exists(temp_path)
-
         if force_fetch or force_convert:
             for path in [file_path, temp_path, feather_extra_path]:
                 if os.path.exists(path):
@@ -734,19 +742,22 @@ class Taiga2Client:
             force_fetch,
             temp_path,
             force_convert,
-            "csv",
+            "csv" if datafile_type == "Columnar" else "hdf5",
             quiet,
         )
 
         # Then read that csv into a Pandas DataFrame and write that to a feather file
-        df = pandas.read_csv(temp_path, encoding=encoding)
+        if datafile_type == "Columnar":
+            df = pandas.read_csv(temp_path, encoding=encoding)
+        else:
+            df = read_hdf5(temp_path)
+
         if datafile_type == "Columnar":
             Taiga2Client.convert_column_types(df)
         df.to_feather(file_path)
 
-        # And finally, delete the CSV file if it didn't already exist
-        if remove_temp_file:
-            os.remove(temp_path)
+        # And finally, delete the temp file
+        os.remove(temp_path)
 
         return file_path, datafile_type
 
