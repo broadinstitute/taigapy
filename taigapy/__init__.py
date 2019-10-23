@@ -28,6 +28,7 @@ DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 # global variable to allow people to globally override the location before initializing client
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR = "~/.taiga"
+VIRTUAL_UNDERLYING_MAP_FILE = ".virtual-underlying-map"
 
 
 class Taiga2Client:
@@ -43,6 +44,17 @@ class Taiga2Client:
         if cache_dir is None:
             cache_dir = DEFAULT_CACHE_DIR
         self.cache_dir = os.path.expanduser(cache_dir)
+
+        if not os.path.exists(self.cache_dir):
+            os.mkdir(self.cache_dir)
+
+        self.virtual_underlying_map_path = os.path.join(
+            self.cache_dir, VIRTUAL_UNDERLYING_MAP_FILE
+        )
+        if not os.path.exists(self.virtual_underlying_map_path):
+            pandas.DataFrame(columns=["virtual", "underlying"]).to_csv(
+                self.virtual_underlying_map_path, index=False
+            )
 
         if token_path is None:
             token_path = self._find_first_existing(["./.taiga-token", os.path.join(self.cache_dir, "token")])
@@ -72,7 +84,7 @@ class Taiga2Client:
         dataset_name: str,
         dataset_version: Union[str, int],
         datafile_name: str,
-        file_format=str,
+        file_format: str,
     ):
         partial_path = self._get_cache_partial_file_path(
             dataset_name, dataset_version, datafile_name
@@ -81,6 +93,42 @@ class Taiga2Client:
         temp_path = "{}.csv".format(partial_path)
         feather_extra_path = "{}.featherextra".format(partial_path)
         return file_path, temp_path, feather_extra_path
+
+    def _get_underlying_file_from_cache(self, virtual_file_partial, file_format):
+        underlying_file_map = pandas.read_csv(
+            self.virtual_underlying_map_path, index_col=0
+        )
+        if virtual_file_partial in underlying_file_map.index:
+            partial_path = os.path.join(
+                self.cache_dir,
+                underlying_file_map.loc[virtual_file_partial]["underlying"],
+            )
+            file_path = "{}.{}".format(partial_path, file_format)
+            temp_path = "{}.csv".format(partial_path)
+            feather_extra_path = "{}.featherextra".format(partial_path)
+            return file_path, temp_path, feather_extra_path
+        return None, None, None
+
+    def _add_underlying_file_to_cache(self, virtual_file_path, underlying_file_path):
+        underlying_file_map = pandas.read_csv(self.virtual_underlying_map_path, index_col=0)
+        underlying_file_map.loc[virtual_file_path] = underlying_file_path
+        underlying_file_map.to_csv(self.virtual_underlying_map_path)
+
+    def _extract_datafile_metadata(
+        self,
+        dataset_name=None,
+        dataset_version=None,
+        datafile_name=None,
+        metadata=None,
+    ):
+        if metadata is None:
+            metadata = self.get_dataset_metadata(dataset_name, version=dataset_version)
+        datafile_metadata = next(
+            f
+            for f in metadata["datasetVersion"]["datafiles"]
+            if f["name"] == datafile_name
+        )
+        return datafile_metadata
 
     def get_dataset_id_by_name(self, name, md5=None, version=None):
         """Deprecated"""
@@ -551,9 +599,18 @@ class Taiga2Client:
         if datafile_name is None:
             raise ValueError("ERROR: No datafile name provided")
 
-        file_path, temp_path, feather_extra_path = self._get_cache_file_paths(
+        file_path, _, feather_extra_path = self._get_cache_file_paths(
             dataset_name, dataset_version, datafile_name, file_format
         )
+
+        relative_partial_path = os.path.splitext(os.path.basename(file_path))[0]
+
+        underlying_file_path, _, underlying_feather_extra_path = self._get_underlying_file_from_cache(
+            relative_partial_path, file_format
+        )
+        if underlying_file_path:
+            file_path = underlying_file_path
+            feather_extra_path = underlying_feather_extra_path
 
         if os.path.exists(file_path) and (
             file_format == "raw" or os.path.exists(feather_extra_path)
@@ -612,6 +669,16 @@ class Taiga2Client:
             data_name, data_version, data_file, file_format
         )
 
+        relative_partial_path = os.path.splitext(os.path.basename(file_path))[0]
+
+        underlying_file_path, underlying_temp_path, underlying_feather_extra_path = self._get_underlying_file_from_cache(
+            relative_partial_path, file_format
+        )
+        if underlying_file_path is not None:
+            file_path = underlying_file_path
+            temp_path = underlying_temp_path
+            feather_extra_path = underlying_feather_extra_path
+
         remove_temp_file = not os.path.exists(temp_path)
 
         if force_fetch or force_convert:
@@ -625,6 +692,23 @@ class Taiga2Client:
             return Taiga2Client._get_existing_file_and_datafile_type(
                 file_format, file_path, feather_extra_path
             )
+
+        datafile_metadata = self._extract_datafile_metadata(
+            data_name, data_version, data_file
+        )
+        if datafile_metadata["datafile_type"] == "virtual":
+            file_path, datafile_type = self.download_to_cache_for_fetch(
+                datafile_metadata["underlying_file_id"],
+                force_fetch=force_fetch,
+                force_convert=force_convert,
+                file_format=file_format,
+                quiet=quiet,
+                encoding=encoding,
+            )
+            self._add_underlying_file_to_cache(
+                relative_partial_path, os.path.splitext(os.path.basename(file_path))[0]
+            )
+            return file_path, datafile_type
 
         # If file_format is "raw", download file to cache and return path
         if file_format == "raw":

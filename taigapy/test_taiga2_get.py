@@ -3,14 +3,22 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from taigapy import Taiga2Client as TaigaClient
+from taigapy import Taiga2Client as TaigaClient, VIRTUAL_UNDERLYING_MAP_FILE
 
 token_path = os.path.expanduser("~/.taiga/token")
 
 from pandas.util.testing import assert_frame_equal
 
+def get_cached_files(cache_dir):
+    return [
+        f
+        for f in os.listdir(cache_dir)
+        if f not in [VIRTUAL_UNDERLYING_MAP_FILE, "token"]
+    ]
+
+
 def get_cached_count(cache_dir):
-    return len(os.listdir(cache_dir))
+    return len(get_cached_files(cache_dir))
 
 
 @pytest.fixture(scope="session")
@@ -144,8 +152,8 @@ def test_feather_get(tmpdir):
     taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
     assert get_cached_count(cache_dir) == 2
-    assert any(path.endswith('.feather') for path in os.listdir(cache_dir))
-    assert any(path.endswith('.featherextra') for path in os.listdir(cache_dir))
+    assert any(path.endswith('.feather') for path in get_cached_files(cache_dir))
+    assert any(path.endswith('.featherextra') for path in get_cached_files(cache_dir))
 
 def test_feather_get_with_existing_csv_file(tmpdir):
     '''
@@ -161,7 +169,7 @@ def test_feather_get_with_existing_csv_file(tmpdir):
 
     taigaClient.get('b9a6c877-37cb-4ebb-8c05-3385ff9a5ec7')
     assert get_cached_count(cache_dir) == 3
-    assert {filename.split('.')[-1] for filename in os.listdir(cache_dir)} == {'csv', 'feather', 'featherextra'}
+    assert {filename.split('.')[-1] for filename in get_cached_files(cache_dir)} == {'csv', 'feather', 'featherextra'}
 
 def test_no_pickle_download_to_cache(tmpdir):
     '''
@@ -182,7 +190,7 @@ def test_corrupted_feather(tmpdir):
 
     # corrupt the file by truncating it
     # first find the file...
-    cache_files = [os.path.join(cache_dir, x) for x in os.listdir(cache_dir) if x.endswith('feather')]
+    cache_files = [os.path.join(cache_dir, x) for x in get_cached_files(cache_dir) if x.endswith('feather')]
     assert len(cache_files) == 1
     cache_file = cache_files[0]
     
@@ -322,6 +330,20 @@ def test_types(tmpdir, taigaClient):
         .isnull()
         .all()
     )
+
+def test_virtual_file_caching(tmpdir):
+    """
+    Test that downloading a file then downloading a virtual file with that file its
+    underlying file saves one file.
+    """
+    cache_dir = str(tmpdir.join("cache"))
+    taigaClient = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    taigaClient.get("taigr-data-40f2.3/non-utf8-table")
+    cached_files = set(get_cached_files(cache_dir))
+    assert get_cached_count(cache_dir) == 2
+
+    taigaClient.get("taigr-data-40f2.7/non-utf8-table")
+    assert set(get_cached_files(cache_dir)) == cached_files
 
 
 # commenting out because this test fails and is testing new functionality. I'm unclear if this is a regression or this has never worked because
