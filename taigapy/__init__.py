@@ -998,14 +998,15 @@ class Taiga2Client:
         return dataset_id
 
     def update_dataset(self, dataset_id=None, dataset_permaname=None, dataset_version=None, dataset_description=None,
-                       upload_file_path_dict={}, add_taiga_ids=[]):
+                       changes_description: str=None, upload_file_path_dict={}, add_taiga_ids=[]):
         """Create a new version of the dataset. If using dataset_id, will get the latest dataset version and create a new one
         from it.
 
         :param dataset_id: str => Id of a dataset, don't use with dataset_permaname/dataset_version
         :param dataset_permaname: str => Permaname of a dataset. Will retrieve latest dataset version if no dataset_version provided
         :param dataset_version: int => version of a dataset. Use with dataset_permaname
-        :param dataset_description: str
+        :param dataset_description: str => Description for the new version (if not provided, will use latest version's description)
+        :param changes_description: Description of changes for this version
         :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
         :param add_taiga_ids: List[Tuple[str, str]] => first the alias and the second, the taiga ID in the format "dataset.version/file"
 
@@ -1060,6 +1061,9 @@ class Taiga2Client:
             new_dataset_version_params['newDescription'] = dataset_description
         else:
             new_dataset_version_params['newDescription'] = dataset_version_json['description']
+
+        if changes_description is not None:
+            new_dataset_version_params["changesDescription"] = changes_description
 
         new_dataset_version_api_endpoint = "/api/datasetVersion"
 
