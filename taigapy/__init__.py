@@ -957,8 +957,7 @@ class Taiga2Client:
 
     # TODO: Add the creation of a folder, given a path relative to home ('~')
     def create_dataset(self, dataset_name=None, dataset_description=None,
-                       upload_file_path_dict=None, add_taiga_ids=(), folder_id=None):
-        # TODO: Add the folder id to put the files into
+                       upload_file_path_dict={}, add_taiga_ids=(), folder_id=None):
         """Upload multiples files to Taiga, by default in the Public folder
 
         :param dataset_name: str
@@ -967,7 +966,7 @@ class Taiga2Client:
         :param add_taiga_ids: Tuple[str, str] => first the alias and the second, the taiga ID in the format "dataset.version/file"
         :return dataset_id: str
         """
-        assert len(upload_file_path_dict) != 0
+        assert len(upload_file_path_dict) != 0 or len(add_taiga_ids) != 0
         if folder_id is None:
             folder_id = 'public'
             prompt = "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) "
@@ -998,7 +997,7 @@ class Taiga2Client:
         return dataset_id
 
     def update_dataset(self, dataset_id=None, dataset_permaname=None, dataset_version=None, dataset_description=None,
-                       changes_description: str=None, upload_file_path_dict={}, add_taiga_ids=[]):
+                       changes_description: str=None, upload_file_path_dict={}, add_taiga_ids=[], add_all_existing_files=False):
         """Create a new version of the dataset. If using dataset_id, will get the latest dataset version and create a new one
         from it.
 
@@ -1009,6 +1008,10 @@ class Taiga2Client:
         :param changes_description: Description of changes for this version
         :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
         :param add_taiga_ids: List[Tuple[str, str]] => first the alias and the second, the taiga ID in the format "dataset.version/file"
+        :param add_all_existing_files: If True, add all files in the specified dataset
+                                       to the new dataset as virtual datafiles, if
+                                       name is not already specified in
+                                       upload_file_path_dict or add_taiga_ids
 
         :return new_dataset_version_id:
         """
@@ -1031,15 +1034,14 @@ class Taiga2Client:
             # We retrieve the latest dataset version
             get_latest_dataset_version_id_api_endpoint = "/api/dataset/" + dataset_permaname
             result = self.request_get(api_endpoint=get_latest_dataset_version_id_api_endpoint)
-            dataset_versions_only_permaname = result['versions']
-            get_latest_version_summary = ('', 0)
-            for current_version in dataset_versions_only_permaname:
-                current_version_number = int(current_version['name'])
-                if current_version_number > int(get_latest_version_summary[1]):
-                    get_latest_version_summary = (current_version['id'], current_version['name'])
+            latest_dataset_version_metadata = max(result['versions'], key=lambda x: int(x["name"]))
+            dataset_version = latest_dataset_version_metadata["name"]
+            if latest_dataset_version_metadata["state"] != "approved":
+                print(colorful.orange(
+                    "WARNING: The latest version of this dataset is deprecated."))
 
             get_latest_dataset_version_api_endpoint = "/api/dataset/" + dataset_permaname + \
-                                                      "/" + get_latest_version_summary[1]
+                                                      "/" + dataset_version
             result = self.request_get(api_endpoint=get_latest_dataset_version_api_endpoint)
             dataset_json = result["dataset"]
             dataset_version_json = result["datasetVersion"]
@@ -1048,8 +1050,26 @@ class Taiga2Client:
             get_dataset_with_id_api_endpoint = "/api/dataset/" + dataset_id + "/last"
             result = self.request_get(api_endpoint=get_dataset_with_id_api_endpoint)
             dataset_version_json = result
+            dataset_permaname = self.request_get(api_endpoint="/api/dataset/" + dataset_id)["permanames"][-1]
+            dataset_version = dataset_version_json["version"]
 
         datafiles = dataset_version_json['datafiles']
+
+        if add_all_existing_files:
+            skip_files = set(
+                UploadFile(prefix="", file_path=key, format=file_format).file_name
+                for file_path, file_format in upload_file_path_dict.items()
+            ).union(set(alias for alias, _ in add_taiga_ids))
+            for datafile in datafiles:
+                if datafile["name"] not in skip_files:
+                    add_taiga_ids.append(
+                        (
+                            datafile["name"],
+                            "{}.{}/{}".format(
+                                dataset_permaname, dataset_version, datafile["name"]
+                            ),
+                        )
+                    )
 
         new_session_id = self.upload_session_files(upload_file_path_dict=upload_file_path_dict, add_taiga_ids=add_taiga_ids)
 
