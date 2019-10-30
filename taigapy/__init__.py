@@ -11,7 +11,7 @@ import progressbar
 import requests
 import sys
 import time
-from typing import Union
+from typing import Dict, List, Tuple, Union
 
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import (
@@ -1083,19 +1083,25 @@ class Taiga2Client:
     # TODO: Add the creation of a folder, given a path relative to home ('~')
     def create_dataset(
         self,
-        dataset_name=None,
-        dataset_description=None,
-        upload_file_path_dict={},
-        add_taiga_ids=(),
-        folder_id=None,
-    ):
-        """Upload multiples files to Taiga, by default in the Public folder
+        dataset_name: str = None,
+        dataset_description: str = None,
+        upload_file_path_dict: Dict[str, str] = {},
+        add_taiga_ids: List[Tuple[str, str]] = [],
+        folder_id: str = None,
+    ) -> str:
+        """Create a new dataset in Taiga, by default in the Public folder.
 
-        :param dataset_name: str
-        :param dataset_description: str
-        :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
-        :param add_taiga_ids: Tuple[str, str] => first the alias and the second, the taiga ID in the format "dataset.version/file"
-        :return dataset_id: str
+        Files can be local files (specified in upload_file_path_dict) or virtual files
+        (specified in add_taiga_ids).
+
+        :param dataset_name: 
+        :param dataset_description: Description for the new dataset
+        :param upload_file_path_dict: Key is the file_path, value is the format
+        :param add_taiga_ids: List of tuples where the first item is the name of the
+                              datafile in the new version and the second item is the
+                              Taiga ID in the format "dataset_permaname.version/file"
+        :param folder_id: Folder to place this dataset in.
+        :returns: Dataset ID of the new dataset
         """
         assert len(upload_file_path_dict) != 0 or len(add_taiga_ids) != 0
         if folder_id is None:
@@ -1135,31 +1141,40 @@ class Taiga2Client:
 
     def update_dataset(
         self,
-        dataset_id=None,
-        dataset_permaname=None,
-        dataset_version=None,
-        dataset_description=None,
+        dataset_id: str = None,
+        dataset_permaname: str = None,
+        dataset_version: str = None,
+        dataset_description: str = None,
         changes_description: str = None,
-        upload_file_path_dict={},
-        add_taiga_ids=[],
-        add_all_existing_files=False,
-    ):
-        """Create a new version of the dataset. If using dataset_id, will get the latest dataset version and create a new one
-        from it.
+        upload_file_path_dict: Dict[str, str] = {},
+        add_taiga_ids: List[Tuple[str, str]] = [],
+        add_all_existing_files: bool = False,
+    ) -> str:
+        """Create a new version of a dataset.
 
-        :param dataset_id: str => Id of a dataset, don't use with dataset_permaname/dataset_version
-        :param dataset_permaname: str => Permaname of a dataset. Will retrieve latest dataset version if no dataset_version provided
-        :param dataset_version: int => version of a dataset. Use with dataset_permaname
-        :param dataset_description: str => Description for the new version (if not provided, will use latest version's description)
+        If dataset_version is not provided, the latest dataset version is used.
+
+        Files can be local files (specified in upload_file_path_dict) or virtual files
+        (specified in add_taiga_ids).
+
+        :param dataset_id: ID of dataset. Ignored if dataset_permaname is provided
+        :param dataset_permaname: Permaname of a dataset. Will retrieve latest dataset
+                                  version if no dataset_version provided
+        :param dataset_version: Version of a dataset. Ignored if dataset_permaname not
+                                provided
+        :param dataset_description: Description for the new version (if not provided,
+                                    will use existing description)
         :param changes_description: Description of changes for this version
-        :param upload_file_path_dict: Dict[str, str] => Key is the file_path, value is the format
-        :param add_taiga_ids: List[Tuple[str, str]] => first the alias and the second, the taiga ID in the format "dataset.version/file"
+        :param upload_file_path_dict: Key is the file_path, value is the format
+        :param add_taiga_ids: List of tuples where the first item is the name of the
+                              datafile in the new version and the second item is the
+                              Taiga ID in the format "dataset_permaname.version/file"
         :param add_all_existing_files: If True, add all files in the specified dataset
                                        to the new dataset as virtual datafiles, if
                                        name is not already specified in
                                        upload_file_path_dict or add_taiga_ids
 
-        :return new_dataset_version_id:
+        :returns: Dataset version ID of the new version
         """
         assert (not dataset_id and dataset_permaname) or (
             dataset_id and not dataset_permaname and not dataset_version
