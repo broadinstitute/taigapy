@@ -167,7 +167,7 @@ def test_update_dataset_add_all_existing_files(taigaClient: TaigaClient):
 
 @pytest.mark.local
 def test_update_dataset_add_all_existing_files_ignore_same_name(
-    taigaClient: TaigaClient
+    taigaClient: TaigaClient,
 ):
     new_dataset_permaname = get_new_dataset(taigaClient)["permanames"][-1]
     origin_v1_file_id = get_origin_file_id(taigaClient, version=1)
