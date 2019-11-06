@@ -273,16 +273,12 @@ class Taiga2Client:
         return r.json()
 
     def get_datafile_types(self, dataset_id, version):
-        r = requests.get(
-            self.url + "/api/dataset/" + dataset_id + "/" + str(version),
-            headers=dict(Authorization="Bearer " + self.token),
-        )
-        assert r.status_code == 200
-        metadata = r.json()
+        metadata = self.request_get("/api/dataset/" + dataset_id + "/" + str(version))
         type_by_name = dict(
             [
                 (datafile["name"], datafile["type"])
                 for datafile in metadata["datasetVersion"]["datafiles"]
+                if "type" in datafile.keys() and "name" in datafile.keys()
             ]
         )
         return type_by_name
