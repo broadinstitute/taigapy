@@ -22,7 +22,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.7"
+__version__ = "2.12.8"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -1237,7 +1237,7 @@ class Taiga2Client:
 
         if add_all_existing_files:
             skip_files = set(
-                UploadFile(prefix="", file_path=key, format=file_format).file_name
+                UploadFile(prefix="", file_path=file_path, format=file_format).file_name
                 for file_path, file_format in upload_file_path_dict.items()
             ).union(set(alias for alias, _ in add_taiga_ids))
             for datafile in datafiles:
