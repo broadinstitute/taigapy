@@ -26,45 +26,55 @@ If you are developing Taigapy, check out the repo and run
 python setup.py develop
 ```
 
-## Use Taigapy
-
-You can now fetch from taiga in python.  
+## Usage
 
 ### Main methods
 
 #### Download
 
-- If you need a specific file (table or matrix) from a specific dataset version, use `.get` method
-- If you need all the files from a specific dataset version, use `.get_all` method
-- If you need a raw file, we will give you the path to it with `.download_to_cache` method since we don't know what the format of your file is
+- If you want a file from a dataset to use within Python, use `.get` method (this will save a file in your cache in [feather format](https://github.com/wesm/feather))
+- If you want all the files from a specific dataset to use within Python, use `.get_all` method
+- If you need a Raw file (for example, plaintext files) or you want to save a file in a specific format, use the `.download_to_cache` method
 
-Example:
+Examples:
 
 ```python
 from taigapy import TaigaClient
 
 tc = TaigaClient() # These two steps could be merged in one with `from taigapy import default_tc as tc`
 
-# fetch by ID a full dataset
+# The following 6 examples are equivalent, and fetch the file named 'data' from the
+# dataset 'Achilles v2.4.6', whose permaname is 'achilles-v2-4-6' and whose current
+# version is version 4.
+
+# 1. Fetch a file using dataset ID
+df = tc.get(id='022b5ee4df914362945afb8a4dd55d1e')
+
+# 2. Fetch a file using dataset version ID
 df = tc.get(id='6d9a6104-e2f8-45cf-9002-df3bcedcb80b')
 
-# fetch by name a full version of a dataset
-df1 = tc.get(name='achilles-v2-4-6', version=4)
+# 3. Fetch a file using dataset permaname and version
+df = tc.get(name='achilles-v2-4-6', version=4)
 
-# fetch a specific data file
-# If Raw file, use download_to_cache, which will give you the path of the file
-raw_path = tc.download_to_cache(name='taigr-data-40f2', version=3, file="raw_file")
+# 4. Specify the file (optionally if it's the only file, required if there are multiple
+#    files)
+df = tc.get(name='achilles-v2-4-6', version=4, file='data')
 
-# Else, if CSV convertible
-df = tc.get(name='taigr-data-40f2', version=1, file="tiny_table")
-
-# name and version can serve as the id using name.version
+# 5. Fetch a file using dataset permaname and version as the id using the format
+#    permaname.version
 df = tc.get(id='achilles-v2-4-6.4')
 
-# the file can also be specified in the id using name.version/file
-# id/file (as in 6d9a6104-e2f8-45cf-9002-df3bcedcb80b/tiny_table) is also not supported in either
-df = tc.get(id='taigr-data-40f2.1/tiny_table')
+# 6. Specify the file (optionally if it's the only file, required if there are multiple
+#    files)
+df = tc.get(name='achilles-v2-4-6.4/data')
 
+# If you want the file as a CSV, or want a Raw file, download with download_to_cache
+# and get the local file path.
+# The options for format are
+# - csv, gct, hdf5, tsv for Matrix files
+# - csv and tsv for Table files
+# - raw for Raw files (this is the default)
+raw_path = tc.download_to_cache(name='achilles-v2-4-6', version=4, file='data', format='csv')
 ```
 
 #### Upload
@@ -73,7 +83,7 @@ You can also upload data into taiga (see below for available formats). Methods a
 - Create a dataset with `create_dataset`
 - Update a dataset with `update_dataset`
 
-Example:
+Examples:
 
 - Create a new dataset in folder public (you can find the folder_id in the url of Taiga web)
 
@@ -83,80 +93,69 @@ from taigapy import TaigaClient
 tc = TaigaClient()
 
 # Create a new dataset in public
-tc.create_dataset(dataset_name='My Dataset Name',
+dataset_id = tc.create_dataset(
+    dataset_name='My Dataset Name',
     dataset_description='My Dataset Description',
-    upload_file_path_dict={'file_one_path': 'format'}, folder_id='public')
+    upload_file_path_dict={'file_one_path': 'format'},
+    folder_id='public'
+)
 ```
 
-- Update a dataset with new files, interactively, in public folder (default)
+- Update an existing dataset (i.e. create a new dataset version)
 
 ```python
 from taigapy import TaigaClient
 
 tc = TaigaClient()
-tc.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
-                 dataset_description="Interactive test")
 
+# Update a dataset with new files using dataset_id (will use latest version as base)
+new_dataset_version_id = tc.update_dataset(
+    dataset_id=dataset_id, 
+    upload_file_path_dict={'file_updated_or_new_path': 'format'},
+)
+
+# Update a dataset using permaname only (will use latest version as base)
+new_dataset_version_id = tc.update_dataset(
+    dataset_permaname=dataset_permaname,
+    upload_file_path_dict={'file_updated_or_new_path': 'format'}
+)
+
+# Update a dataset using permaname and version
+new_dataset_version_id = tc.update_dataset(
+    dataset_permaname=dataset_permaname,
+    dataset_version=2,
+    upload_file_path_dict={'file_updated_or_new_path': 'format'},
+)
+
+# Update a dataset with virtual files (files already on Taiga)
+new_dataset_version_id = tc.update_dataset(
+    dataset_id=dataset_id,
+    add_taiga_ids=['name_in_this_dataset': 'dataset.version/existing_file']
+)
+
+# Update a dataset and its description
+new_dataset_version_id = tc.update_dataset(
+    dataset_id=dataset_id,
+    upload_file_path_dict={'file_updated_or_new_path': 'format'},
+    description='New description for dataset'
+)
+
+# Update a dataset and add a description of changes for this version
+new_dataset_version_id = tc.update_dataset(
+    dataset_id=dataset_id,
+    upload_file_path_dict={'file_updated_or_new_path': 'format'},
+    changes_description='Description of changes for this version'
+)
+
+# Update a dataset and add all files from the base dataset version as virtual files
+new_dataset_version_id = tc.update_dataset(
+    dataset_id=dataset_id,
+    upload_file_path_dict={'file_new_path': 'format'},
+    add_all_existing_files=True
+)
 ```
 
-- Update a dataset with new files, keeping all previous files, in a specific folder:
-
-```python
-from taigapy import TaigaClient
-
-tc = TaigaClient()
-tc.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_new_path': 'format'},
-                 dataset_description="Force Keep",
-                 force_keep=True)
-```
-
-- Update a dataset with new files, removing all previous files, in a specific folder:
-
-```python
-from taigapy import TaigaClient
-
-tc = TaigaClient()
-tc.update_dataset(dataset_id=dataset_id, upload_file_path_dict={'file_updated_or_new_path': 'format'},
-                 dataset_description="Force Remove",
-                 force_remove=True)
-```
-
-- Update a dataset with new files, based on its permaname and version
-
-```python
-from taigapy import TaigaClient
-
-tc = TaigaClient()
-tc.update_dataset(dataset_permaname=dataset_permaname, dataset_version=2,
-                 upload_file_path_dict={'file_updated_or_new_path': 'format'},
-                 dataset_description="Update a specific version")
-```
-
-- Update a dataset with new files, based on its permaname only (will update from the latest version)
-
-```python
-from taigapy import TaigaClient
-
-tc = TaigaClient()
-tc.update_dataset(dataset_permaname=dataset_permaname,
-                 upload_file_path_dict={'file_updated_or_new_path': 'format'},
-                 dataset_description="Update from latest")
-```
-
-- Update a dateset with virtual files (pointers to files that already exist in Taiga)
-
-```python
-from taigapy import TaigaClient
-
-tc = TaigaClient()
-tc.update_dataset(dataset_permaname=dataset_permaname,
-                 add_taiga_ids=["name_in_this_dataset": "dataset.version/existing_file"])
-```
-
-
-### Available formats
-
-Formats available currently are:
+Formats available for upload are:
 
 - NumericMatrixCSV
 - NumericMatrixTSV
