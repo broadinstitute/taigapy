@@ -6,7 +6,7 @@ install_requires = [
     "pandas",
     "boto3",
     "colorful",
-    "progressbar2",
+    "progressbar2>=3.3.0",
     "pyarrow",
     "h5py",
 ]
