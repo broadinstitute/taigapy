@@ -834,6 +834,28 @@ class Taiga2Client:
 
         return file_path, datafile_type
 
+    def _delete_from_cache(
+        self,
+        dataset_id: Optional[str],
+        dataset_name: Optional[str],
+        dataset_version: Optional[DatasetVersion],
+        datafile_name: Optional[str],
+        force: bool,
+        file_format: str = "feather",
+    ):
+        _, data_name, data_version, data_file = self._validate_file_for_download(
+            dataset_id, dataset_name, dataset_version, datafile_name, force
+        )
+
+
+        file_paths = self._get_cache_file_paths(
+            data_name, data_version, data_file, file_format
+        )
+
+        for file_path in file_paths:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
     def get(
         self,
         id: str = None,
@@ -883,6 +905,18 @@ class Taiga2Client:
             ) as e:
                 print(colorful.red(str(e)))
                 return None
+            except KeyboardInterrupt as e:
+                print(colorful.red("Download interrupted. Deleting file from cache."))
+                self._delete_from_cache(id, name, version, file, force)
+                return None
+            except (IOError, OSError) as e:
+                print(
+                    colorful.orange(
+                        "Local file is corrupted. Deleting file from cache and trying again."
+                    )
+                )
+                self._delete_from_cache(id, name, version, file, force)
+                continue
 
             try:
                 return Taiga2Client.read_feather_to_df(local_file, data_file_type)
