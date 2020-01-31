@@ -11,7 +11,7 @@ import progressbar
 import requests
 import sys
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Optional, Union
 
 from taigapy.UploadFile import UploadFile
 from taigapy.custom_exceptions import (
@@ -30,6 +30,8 @@ DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR = "~/.taiga"
 VIRTUAL_UNDERLYING_MAP_FILE = ".virtual-underlying-map"
+
+DatasetVersion = Union[str, int]
 
 
 def read_hdf5(filename):
@@ -87,7 +89,7 @@ class Taiga2Client:
         )
 
     def _get_cache_partial_file_path(
-        self, dataset_name: str, dataset_version: Union[str, int], datafile_name: str
+        self, dataset_name: str, dataset_version: DatasetVersion, datafile_name: str
     ) -> str:
         """
         Get the path (without file extension) of the file in the cache corresponding
@@ -101,7 +103,7 @@ class Taiga2Client:
     def _get_cache_file_paths(
         self,
         dataset_name: str,
-        dataset_version: Union[str, int],
+        dataset_version: DatasetVersion,
         datafile_name: str,
         file_format: str,
     ):
@@ -176,10 +178,10 @@ class Taiga2Client:
 
     def _get_dataset_name_version_file(
         self,
-        dataset_id: str,
-        dataset_name: str,
-        dataset_version: str,
-        datafile_name: str,
+        dataset_id: Optional[str],
+        dataset_name: Optional[str],
+        dataset_version: Optional[DatasetVersion],
+        datafile_name: Optional[str],
     ):
         """Get the dataset name, dataset version, and datafile id from dataset id,
         name, and version and datafile name.
@@ -250,9 +252,9 @@ class Taiga2Client:
 
     def get_dataset_metadata(
         self,
-        dataset_id: str = None,
-        version: Union[str, int] = None,
-        version_id: str = None,
+        dataset_id: Optional[str] = None,
+        version: Optional[DatasetVersion] = None,
+        version_id: Optional[str] = None,
     ) -> dict:
         """Get metadata about a dataset"""
         if dataset_id is None and version_id is None:
@@ -429,7 +431,7 @@ class Taiga2Client:
         self,
         datafile_id: str,
         dataset_name: str,
-        dataset_version: Union[str, int],
+        dataset_version: DatasetVersion,
         datafile_name: str,
         force_convert: bool,
         file_format: str,
@@ -477,7 +479,7 @@ class Taiga2Client:
         self,
         id: str,
         name: str,
-        version: Union[str, int],
+        version: DatasetVersion,
         file: str,
         force: bool,
         format: str,
@@ -488,11 +490,13 @@ class Taiga2Client:
         r = requests.get(url, stream=True)
 
         if not quiet:
-            content_length = r.headers.get("Content-Length", None)
-            if not content_length:
-                content_length = progressbar.UnknownLength
+            header_content_length = r.headers.get("Content-Length", None)
+            if not header_content_length:
+                content_length = (
+                    progressbar.UnknownLength
+                )  # type: Union[progressbar.UnknownLength, int]
             else:
-                content_length = int(content_length)
+                content_length = int(header_content_length)
 
             bar = self._progressbar_init(max_value=content_length)
 
@@ -624,15 +628,15 @@ class Taiga2Client:
 
     def _handle_download_to_cache_for_fetch_unconnected(
         self,
-        dataset_id: str,
-        dataset_name: str,
-        dataset_version: Union[str, int],
-        datafile_name: str,
+        dataset_id: Optional[str],
+        dataset_name: Optional[str],
+        dataset_version: Optional[DatasetVersion],
+        datafile_name: Optional[str],
         force_fetch: bool,
         force_convert: bool,
         file_format: str,
         quiet: bool,
-        encoding: str,
+        encoding: Optional[str],
     ):
         """Handles downloading/fetching from cache when there is no connection. Behaves
         as follows:
@@ -663,7 +667,7 @@ class Taiga2Client:
         if dataset_id is not None and dataset_name is None:
             raise TaigaClientConnectionException(
                 "ERROR: You are in offline mode. Cannot determine dataset name and version for cache using datafile id '{}'.".format(
-                    datafile_id
+                    dataset_id
                 )
             )
 
@@ -715,16 +719,16 @@ class Taiga2Client:
 
     def download_to_cache_for_fetch(
         self,
-        datafile_id: str = None,
-        dataset_name: str = None,
-        dataset_version: Union[str, int] = None,
-        datafile_name: str = None,
+        datafile_id: Optional[str] = None,
+        dataset_name: Optional[str] = None,
+        dataset_version: Optional[DatasetVersion] = None,
+        datafile_name: Optional[str] = None,
         force_fetch: bool = False,
         force_convert: bool = False,
         file_format: str = "raw",
         quiet: bool = False,
-        encoding: str = None,
-    ) -> str:
+        encoding: Optional[str] = None,
+    ) -> Tuple[str, str]:
         if not self._is_connected():
             return self._handle_download_to_cache_for_fetch_unconnected(
                 datafile_id,
@@ -1084,7 +1088,7 @@ class Taiga2Client:
         upload_file_path_dict: Dict[str, str] = {},
         add_taiga_ids: List[Tuple[str, str]] = [],
         folder_id: str = None,
-    ) -> str:
+    ) -> Optional[str]:
         """Create a new dataset in Taiga, by default in the Public folder.
 
         Files can be local files (specified in upload_file_path_dict) or virtual files
@@ -1104,12 +1108,12 @@ class Taiga2Client:
             folder_id = "public"
             prompt = "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) "
             try:
-                user_continue = raw_input(prompt)
+                user_continue = input(prompt)
             except NameError:
                 user_continue = input(prompt)
 
             if user_continue != "y":
-                return
+                return None
 
         new_session_id = self.upload_session_files(
             upload_file_path_dict=upload_file_path_dict, add_taiga_ids=add_taiga_ids
@@ -1204,6 +1208,7 @@ class Taiga2Client:
                 result["versions"], key=lambda x: int(x["name"])
             )
             dataset_version = latest_dataset_version_metadata["name"]
+            assert dataset_version is not None
             if latest_dataset_version_metadata["state"] != "approved":
                 print(
                     colorful.orange(
@@ -1221,6 +1226,7 @@ class Taiga2Client:
             dataset_version_json = result["datasetVersion"]
             dataset_id = dataset_json["id"]
         else:
+            assert dataset_id is not None
             get_dataset_with_id_api_endpoint = "/api/dataset/" + dataset_id + "/last"
             result = self.request_get(api_endpoint=get_dataset_with_id_api_endpoint)
             dataset_version_json = result
