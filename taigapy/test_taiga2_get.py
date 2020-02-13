@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from taigapy import Taiga2Client as TaigaClient, VIRTUAL_UNDERLYING_MAP_FILE
+from .test_utils import taigaClient
 
 token_path = os.path.expanduser("~/.taiga/token")
 
@@ -20,13 +21,6 @@ def get_cached_files(cache_dir):
 
 def get_cached_count(cache_dir):
     return len(get_cached_files(cache_dir))
-
-
-@pytest.fixture(scope="session")
-def taigaClient(tmpdir_factory):
-    cache_dir = str(tmpdir_factory.getbasetemp().join("cache"))
-    c = TaigaClient(cache_dir=cache_dir, token_path=token_path)
-    return c
 
 
 def test_get(tmpdir):

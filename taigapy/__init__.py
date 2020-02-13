@@ -22,7 +22,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.10"
+__version__ = "2.12.11"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
@@ -56,6 +56,7 @@ class Taiga2Client:
             "Raw",
         ]
         self.url = url
+        self.cache = {}
 
         if cache_dir is None:
             cache_dir = DEFAULT_CACHE_DIR
@@ -71,6 +72,8 @@ class Taiga2Client:
             pandas.DataFrame(columns=["virtual", "underlying"]).to_csv(
                 self.virtual_underlying_map_path, index=False
             )
+
+        self.id_to_canonical_id_cache = {} # used for get_canonical_id
 
         if token_path is None:
             token_path = self._find_first_existing(
@@ -995,6 +998,54 @@ class Taiga2Client:
         # TODO: Currently Taiga returns a 500 when receiving a wrong format for datafile. We should change this to not confuse errors meaning
         except TaigaHttpException:
             return False
+
+    def get_canonical_id(self, taiga_id):
+        '''
+        Takes in any valid taiga id, and returns it's canonical taiga id
+            a virtual taiga id will return it's underlying
+            an underlying taiga id will return itself
+            returned canonical id will always have the file fully specified
+                e.g. small-avana-afb8.1 (valid becuase the dataset only has one file) will return small-avana-afb8.1/filename
+        See test for full examples
+        '''
+        name, version, file = self._untangle_dataset_id_with_version(taiga_id)
+        # if we haven't already cached the canonical IDs for all the files in the requested dataset, do so now
+        if taiga_id not in self.id_to_canonical_id_cache:
+            r = requests.get(
+                self.url
+                + "/api/dataset/"
+                + name
+                + "/"
+                + str(version),
+                headers=dict(Authorization="Bearer " + self.token),
+            )
+            jr = r.json()
+
+            if len(jr["datasetVersion"]["datafiles"]) == 1:
+                # only one file, this file must be the one for the taiga id queried
+                # key by the taiga id as provided (optionally without filename) as the key
+                # this is because taiga ids may be optionally specified as dataset.version without the /filename, if there is only one file
+
+                file = jr["datasetVersion"]["datafiles"][0]
+                if "underlying_file_id" in file:
+                    # if virtual, will provide this
+                    canonical_id = file["underlying_file_id"]
+                else:
+                    # even if not virtual, we need to retrieve the file name (might not have been specified in the input taiga_id param
+                    canonical_id = "{}.{}/{}".format(name, version, file["name"])
+                self.id_to_canonical_id_cache[taiga_id] = canonical_id
+
+            else:  # multiple files
+                for file in jr["datasetVersion"]["datafiles"]:
+                    # for each file in the dataset, record it's outward taiga id to canonical taiga id
+                    self.id_to_canonical_id_cache[
+                        "{}.{}/{}".format(name, version, file["name"])
+                    ] = file.get(
+                        "underlying_file_id",
+                        "{}.{}/{}".format(name, version, file["name"]),  # the "underlying_file_id" key is only present if virtual. if not, defaults to itself
+                    )
+
+        return self.id_to_canonical_id_cache[taiga_id]
 
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
