@@ -933,7 +933,9 @@ class Taiga2Client:
                 )
                 os.unlink(local_file)
 
-        raise Exception("Failed to fetch file multiple times")
+        raise Exception("Failed to fetch file multiple times: id={}, name={}, version={}, file={}".format(
+            id, name, version, file
+        ))
 
     def _get_all_file_names(self, name=None, version=None):
         """Retrieve the name of the files contained in a version of a dataset"""
