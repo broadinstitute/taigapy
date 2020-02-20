@@ -372,6 +372,34 @@ def test_virtual_file_caching(tmpdir):
     assert set(get_cached_files(cache_dir)) == cached_files
 
 
+def test_get_experimental(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+    tc = TaigaClient(cache_dir=cache_dir, token_path=token_path)
+    current_cache_count = get_cached_count(cache_dir)
+
+    df1 = tc._get_experimental("test2-cdfa.10/dev__MASTER_MAP")
+    # Should add a .feather and .featherextra file
+    new_cache_count = get_cached_count(cache_dir)
+    assert new_cache_count == current_cache_count + 2
+    current_cache_count = new_cache_count
+
+    df2 = tc._get_experimental(
+        dataset_name="test2-cdfa", dataset_version=13, datafile_name="dev__MASTER_MAP",
+    )
+    # Same file, cache count should stay the same
+    new_cache_count = get_cached_count(cache_dir)
+
+    assert df1.equals(df2)
+
+    df3 = tc._get_experimental("test2-cdfa.13/test_some_cell_lines")
+    new_cache_count = get_cached_count(cache_dir)
+    assert new_cache_count == current_cache_count + 2
+    current_cache_count = new_cache_count
+
+    assert df3.index.to_list() == ["ACH-000425", "ACH-02286"]
+    assert all([dtype == float for dtype in df3.dtypes.to_list()])
+
+
 # commenting out because this test fails and is testing new functionality. I'm unclear if this is a regression or this has never worked because
 # I don't believe anything has changed since this test was initially written.
 #

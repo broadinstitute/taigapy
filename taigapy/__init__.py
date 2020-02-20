@@ -33,7 +33,10 @@ VIRTUAL_UNDERLYING_MAP_FILE = ".virtual-underlying-map"
 
 DatasetVersion = Union[str, int]
 
+DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"
+DATAFILE_CACHE_FORMAT = "{dataset_permaname}_v{dataset_version}_{datafile_name}"
 
+# TODO: Remove after we migrate all files
 def read_hdf5(filename):
     src = h5py.File(filename, "r")
     try:
@@ -73,7 +76,7 @@ class Taiga2Client:
                 self.virtual_underlying_map_path, index=False
             )
 
-        self.id_to_canonical_id_cache = {} # used for get_canonical_id
+        self.id_to_canonical_id_cache = {}  # used for get_canonical_id
 
         if token_path is None:
             token_path = self._find_first_existing(
@@ -152,6 +155,7 @@ class Taiga2Client:
         )
         return datafile_metadata
 
+    # TODO: Mark private
     def get_dataset_id_by_name(self, name, md5=None, version=None):
         """Deprecated"""
         params = dict(fetch="id", name=name)
@@ -259,6 +263,7 @@ class Taiga2Client:
         version: Optional[DatasetVersion] = None,
         version_id: Optional[str] = None,
     ) -> dict:
+        # TODO: Rewrite with self.request_get
         """Get metadata about a dataset"""
         if dataset_id is None and version_id is None:
             raise Exception("Dataset name or dataset version ID must be provided")
@@ -277,6 +282,7 @@ class Taiga2Client:
         assert r.status_code == 200
         return r.json()
 
+    # TODO: Mark private
     def get_datafile_types(self, dataset_id, version):
         metadata = self.request_get("/api/dataset/" + dataset_id + "/" + str(version))
         type_by_name = dict(
@@ -367,7 +373,9 @@ class Taiga2Client:
 
         raise Taiga404Exception("Datafile not found...check the file name?")
 
-    def _validate_file_for_download(self, id, name, version, file, force):
+    def _validate_file_for_download(
+        self, id, name, version, file, force
+    ) -> Tuple[str, str, str, str]:
         if id is None:
             assert name is not None, "id or name must be specified"
 
@@ -598,6 +606,7 @@ class Taiga2Client:
         )
         return file_path
 
+    # TODO: Mark private
     @staticmethod
     def read_feather_to_df(path: str, datafile_type: str) -> pandas.DataFrame:
         """Reads and returns a Pandas DataFrame from a Feather file at `path`.
@@ -616,6 +625,9 @@ class Taiga2Client:
             return True
         except requests.ConnectionError:
             return False
+
+    def _is_file_in_cache(self, file_path: str, feather_extra_path: str):
+        return os.path.exists(file_path) and os.path.exists(feather_extra_path)
 
     @staticmethod
     def _get_existing_file_and_datafile_type(
@@ -720,6 +732,7 @@ class Taiga2Client:
             json.dump(feather_extra, f)
             f.close()
 
+    # TODO: Mark private
     def download_to_cache_for_fetch(
         self,
         datafile_id: Optional[str] = None,
@@ -850,7 +863,6 @@ class Taiga2Client:
             dataset_id, dataset_name, dataset_version, datafile_name, force
         )
 
-
         file_paths = self._get_cache_file_paths(
             data_name, data_version, data_file, file_format
         )
@@ -884,6 +896,7 @@ class Taiga2Client:
             id=id, name=name, version=version, file=file
         )
         for conv_type in allowed_conversion_type:
+            # TODO: Allow
             if conv_type == "raw":
                 raise TaigaRawTypeException(
                     "The file is a Raw one, please use instead `download_to_cache` with the same parameters"
@@ -933,9 +946,11 @@ class Taiga2Client:
                 )
                 os.unlink(local_file)
 
-        raise Exception("Failed to fetch file multiple times: id={}, name={}, version={}, file={}".format(
-            id, name, version, file
-        ))
+        raise Exception(
+            "Failed to fetch file multiple times: id={}, name={}, version={}, file={}".format(
+                id, name, version, file
+            )
+        )
 
     def _get_all_file_names(self, name=None, version=None):
         """Retrieve the name of the files contained in a version of a dataset"""
@@ -984,6 +999,7 @@ class Taiga2Client:
 
         return dict_data_holder
 
+    # TODO: Mark private
     def is_valid_dataset(
         self,
         id=None,
@@ -1002,23 +1018,19 @@ class Taiga2Client:
             return False
 
     def get_canonical_id(self, taiga_id):
-        '''
+        """
         Takes in any valid taiga id, and returns it's canonical taiga id
             a virtual taiga id will return it's underlying
             an underlying taiga id will return itself
             returned canonical id will always have the file fully specified
                 e.g. small-avana-afb8.1 (valid becuase the dataset only has one file) will return small-avana-afb8.1/filename
         See test for full examples
-        '''
+        """
         name, version, file = self._untangle_dataset_id_with_version(taiga_id)
         # if we haven't already cached the canonical IDs for all the files in the requested dataset, do so now
         if taiga_id not in self.id_to_canonical_id_cache:
             r = requests.get(
-                self.url
-                + "/api/dataset/"
-                + name
-                + "/"
-                + str(version),
+                self.url + "/api/dataset/" + name + "/" + str(version),
                 headers=dict(Authorization="Bearer " + self.token),
             )
             jr = r.json()
@@ -1044,11 +1056,14 @@ class Taiga2Client:
                         "{}.{}/{}".format(name, version, file["name"])
                     ] = file.get(
                         "underlying_file_id",
-                        "{}.{}/{}".format(name, version, file["name"]),  # the "underlying_file_id" key is only present if virtual. if not, defaults to itself
+                        "{}.{}/{}".format(
+                            name, version, file["name"]
+                        ),  # the "underlying_file_id" key is only present if virtual. if not, defaults to itself
                     )
 
         return self.id_to_canonical_id_cache[taiga_id]
 
+    # TODO: Mark private
     def get_short_summary(self, id=None, name=None, version=None, file=None):
         """Get the short summary of a datafile, given the the id/file or name/version/file"""
         if id:
@@ -1069,6 +1084,7 @@ class Taiga2Client:
 
     # <editor-fold desc="Upload">
 
+    # TODO: Mark private
     def upload_session_files(self, upload_file_path_dict, add_taiga_ids):
         # We first create a new session, and fetch its id
         new_session_api_endpoint = "/api/upload_session"
@@ -1132,6 +1148,7 @@ class Taiga2Client:
                     "format": upload_file_object.format.name,
                     "bucket": str(bucket),
                     "key": str(upload_file_object.prefix_and_file_name),
+                    # TODO: Add encoding
                 },
             }
 
@@ -1374,9 +1391,8 @@ class Taiga2Client:
 
         return new_dataset_version_id
 
-    # </editor-fold>
-
-    # <editor-fold desc="Utilities">
+    # TODO: Mark private
+    # TODO: Add handlers for error codes
     def request_get(self, api_endpoint, params=None):
         url = self.url + api_endpoint
         r = requests.get(
@@ -1397,6 +1413,8 @@ class Taiga2Client:
 
         return r.json()
 
+    # TODO: Mark private
+    # TODO: Add handlers for error codes
     def request_post(self, api_endpoint, data, standard_reponse_handling=True):
         assert data is not None
 
@@ -1417,6 +1435,7 @@ class Taiga2Client:
         else:
             return r
 
+    # TODO: Remove
     @staticmethod
     def convert_column_types(df: pandas.DataFrame):
         for c in df.columns:
@@ -1430,7 +1449,143 @@ class Taiga2Client:
                     continue
                 df[c] = df[c].apply(lambda v: v if pandas.isnull(v) else str(v))
 
-        # </editor-fold>
+    def _get_experimental(
+        self,
+        datafile_id: Optional[str] = None,
+        dataset_name: Optional[str] = None,
+        dataset_version: Optional[DatasetVersion] = None,
+        datafile_name: Optional[str] = None,
+    ) -> pandas.DataFrame:
+        """
+        !! WARNING: EXPERIMENTAL VERSION !!
+
+        Retrieves a Table or NumericMatrix datafile from Taiga (or local cache, if
+        available).
+
+        Stores the file in the cache if it is not already stored.
+
+        Errors if the requested datafile is not a Table or NumericMatrix (i.e. is a
+        Raw datafile).
+
+        Args:
+            datafile_id: Datafile ID of the datafile to get, in the form
+                dataset_permaname.dataset_version/datafile_name, or
+                dataset_permaname.dataset_version if there is only one file in the
+                dataset. Required if dataset_name is not provided. Takes precedence
+                if both are provided.
+            dataset_name: Permaname or id of the dataset with the datafile. Required
+                if datafile_id is not provided. Not used if both are provided.
+                dataset_version: Version of the dataset. If not provided, will use the
+                latest approved (i.e. not deprecated or deleted) dataset. Required if
+                datafile_id is not provided. Not used if both are provided.
+            datafile_name: Name of the datafile in the dataset. Required if
+                datafile_id is not provided and the dataset contains more than one
+                file. Not used if datafile_id is provided.
+
+        Returns:
+            pandas.DataFrame: If the file is a NumericMatrix, the row headers will be
+            used as the DataFrame's index.
+        """
+        if not self._is_connected():
+            return self._handle_download_to_cache_for_fetch_unconnected(
+                datafile_id,
+                dataset_name,
+                dataset_version,
+                datafile_name,
+                False,
+                False,
+                "feather",
+                False,
+                None,
+            )
+
+        (
+            datafile_id,
+            dataset_name,
+            dataset_version,
+            datafile_name,
+        ) = self._validate_file_for_download(
+            datafile_id, dataset_name, dataset_version, datafile_name, False
+        )
+
+        datafile_metadata = self._extract_datafile_metadata(
+            dataset_name, dataset_version, datafile_name
+        )
+
+        if datafile_metadata["type"] == "Raw":
+            raise TaigaRawTypeException(
+                "The file is a Raw one, please use instead `download_to_cache` with the same parameters"
+            )
+
+        # TODO: Remove after migration
+        if "raw" not in datafile_metadata["allowed_conversion_type"]:
+            colorful.orange(
+                "WARNING: This file does not have a raw download. Using .get instead."
+            )
+            return self.get(datafile_id)
+
+        file_path, temp_path, feather_extra_path = self._get_cache_file_paths(
+            dataset_name, dataset_version, datafile_name, "feather"
+        )
+
+        if datafile_metadata["datafile_type"] == "virtual":
+            relative_partial_path = os.path.splitext(os.path.basename(file_path))[0]
+            (
+                underlying_file_path,
+                underlying_temp_path,
+                underlying_feather_extra_path,
+            ) = self._get_underlying_file_from_cache(relative_partial_path, "feather")
+            if (
+                underlying_file_path is not None
+                and underlying_feather_extra_path is not None
+            ):
+                file_path = underlying_file_path
+                temp_path = underlying_temp_path
+                feather_extra_path = underlying_feather_extra_path
+            else:
+                df = self._get_experimental(datafile_metadata["underlying_file_id"])
+
+                self._add_underlying_file_to_cache(
+                    os.path.splitext(os.path.basename(file_path))[0],
+                    datafile_metadata["underlying_file_id"]
+                    .replace(".", "_v")
+                    .replace("/", "_"),
+                )
+                return df
+
+        delete_temp_file = not os.path.exists(temp_path)
+
+        data_type = datafile_metadata["type"]
+
+        if self._is_file_in_cache(file_path, feather_extra_path):
+            try:
+                return self.read_feather_to_df(file_path, data_type)
+            except Exception as e:
+                self._delete_from_cache(
+                    datafile_id, dataset_name, dataset_version, datafile_name, False
+                )
+
+        self._download_to_local_file(
+            datafile_id, datafile_name, False, temp_path, False, "raw", False,
+        )
+        self._write_feather_extra(feather_extra_path, {"datafile_type": data_type})
+        if data_type == "HDF5":
+            # https://github.com/pandas-dev/pandas/issues/25067
+            df = pandas.read_csv(temp_path, index_col=0)
+            df = df.astype(float)
+
+            # Feather does not support indexes
+            df.reset_index().to_feather(file_path)
+        else:
+            datafile_column_types = self._get_datafile_column_types(
+                datafile_id, dataset_name, dataset_version, datafile_name
+            )
+            df = pandas.read_csv(temp_path, dtype=datafile_column_types)
+            df.to_feather(file_path)
+
+        if delete_temp_file:
+            os.remove(temp_path)
+        return df
 
 
 TaigaClient = Taiga2Client
