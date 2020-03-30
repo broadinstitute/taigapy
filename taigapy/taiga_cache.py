@@ -6,12 +6,19 @@ from typing import Optional, Tuple
 
 DataFile = namedtuple(
     "DataFile",
-    ["full_taiga_id", "underlying_taiga_id", "feather_path", "datafile_type"],
+    [
+        "full_taiga_id",
+        "underlying_taiga_id",
+        "raw_path",
+        "feather_path",
+        "datafile_type",
+    ],
 )
 
 
 class TaigaCache:
-    def __init__(self, cache_file_path=str):
+    def __init__(self, cache_dir=str, cache_file_path=str):
+        self.cache_dir = cache_dir
         self.cache_file_path = cache_file_path
 
         cache_exists = os.path.exists(self.cache_file_path)
@@ -30,6 +37,7 @@ class TaigaCache:
             CREATE TABLE datafiles(
                 full_taiga_id TEXT NOT NULL PRIMARY KEY,
                 underlying_taiga_id TEXT,
+                raw_path TEXT,
                 feather_path TEXT,
                 datafile_type TEXT
             )
@@ -42,7 +50,7 @@ class TaigaCache:
                 alias TEXT NOT NULL PRIMARY KEY,
                 full_taiga_id TEXT NOT NULL,
                 FOREIGN KEY (full_taiga_id)
-                    REFERENCES datafiles (full_taiga_id) 
+                    REFERENCES datafiles (full_taiga_id)
             )
             """
         )
@@ -56,12 +64,12 @@ class TaigaCache:
         c = self.conn.cursor()
         c.execute(
             """
-            SELECT datafiles.full_taiga_id, underlying_taiga_id, feather_path, datafile_type 
+            SELECT datafiles.full_taiga_id, underlying_taiga_id, raw_path, feather_path, datafile_type
             FROM datafiles
-            JOIN aliases
-            ON 
+            LEFT JOIN aliases
+            ON
                 datafiles.full_taiga_id = aliases.full_taiga_id
-            WHERE 
+            WHERE
                 alias = ? OR
                 datafiles.full_taiga_id = ?
             """,
@@ -75,7 +83,7 @@ class TaigaCache:
 
         datafile = DataFile(*r)
         if datafile.underlying_taiga_id is not None:
-            return self.get_entry(queried_taiga_id)
+            return self.get_entry(datafile.underlying_taiga_id)
         return datafile
 
     def get_entry_path_and_format(
@@ -92,28 +100,40 @@ class TaigaCache:
             return entry.full_taiga_id
         return None
 
-    def get_feather_path_and_make_directories(
-        self, dataset_permaname: str, dataset_version: str, datafile_name: str
+    def get_path_and_make_directories(
+        self,
+        dataset_permaname: str,
+        dataset_version: str,
+        datafile_name: str,
+        extension: Optional[str] = None,
     ) -> str:
-        feather_path = os.path.join(
-            self.cache_file_path,
+        file_path = os.path.join(
+            self.cache_dir,
             dataset_permaname,
             dataset_version,
-            datafile_name + ".feather",
+            "{}.{}".format(datafile_name, extension)
+            if extension is not None
+            else datafile_name,
         )
-        os.makedirs(os.path.dirname(feather_path), exist_ok=True)
-        return feather_path
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        return file_path
 
-    def add_entry(self, full_taiga_id: str, feather_path: str, datafile_type: str):
+    def add_entry(
+        self,
+        full_taiga_id: str,
+        raw_path: Optional[str],
+        feather_path: Optional[str],
+        datafile_type: str,
+    ):
         c = self.conn.cursor()
         entry = self.get_entry(full_taiga_id)
         if entry is None:
             c.execute(
                 """
                 INSERT INTO datafiles
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (full_taiga_id, None, feather_path, datafile_type),
+                (full_taiga_id, None, raw_path, feather_path, datafile_type),
             )
         elif entry.feather_path is None:
             c.execute(
@@ -148,10 +168,39 @@ class TaigaCache:
             c.execute(
                 """
                 INSERT INTO datafiles
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (full_taiga_id, underlying_taiga_id, None, None),
+                (full_taiga_id, underlying_taiga_id, None, None, None),
             )
+        c.close()
+        self.conn.commit()
+
+    def update_datafile(
+        self,
+        full_taiga_id: str,
+        raw_path: Optional[str] = None,
+        feather_path: Optional[str] = None,
+        datafile_type: Optional[str] = None,
+    ):
+        entry = self.get_entry(full_taiga_id)
+        c = self.conn.cursor()
+
+        c.execute(
+            """
+            UPDATE datafiles
+            SET raw_path = ?,
+                feather_path = ?,
+                datafile_type = ?
+            WHERE
+                full_taiga_id = ?
+            """,
+            (
+                raw_path if raw_path is not None else entry.raw_path,
+                feather_path if feather_path is not None else entry.raw_path,
+                datafile_type if datafile_type is not None else entry.raw_path,
+                full_taiga_id,
+            ),
+        )
         c.close()
         self.conn.commit()
 

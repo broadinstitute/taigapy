@@ -1,3 +1,5 @@
+import pdb
+
 import os
 import py
 import pytest
@@ -13,9 +15,10 @@ FEATHER_PATH = FULL_TAIGA_ID.replace(".", "/") + ".feather"
 
 @pytest.fixture
 def populated_cache(tmpdir: py._path.local.LocalPath):
-    cache = TaigaCache(str(tmpdir.join(CACHE_FILE)))
 
-    cache.add_entry(FULL_TAIGA_ID, FEATHER_PATH, DataFileType.HDF5.value)
+    cache = TaigaCache(str(tmpdir), str(tmpdir.join(CACHE_FILE)))
+
+    cache.add_entry(FULL_TAIGA_ID, None, FEATHER_PATH, DataFileType.HDF5.value)
     cache.add_alias(TAIGA_ID_ALIAS, FULL_TAIGA_ID)
     cache.add_virtual_datafile(VIRTUAL_TAIGA_ID, FULL_TAIGA_ID)
 
@@ -24,7 +27,7 @@ def populated_cache(tmpdir: py._path.local.LocalPath):
 
 def test_get_entry(populated_cache: TaigaCache):
     expected_datafile = DataFile(
-        FULL_TAIGA_ID, None, FEATHER_PATH, DataFileType.HDF5.value
+        FULL_TAIGA_ID, None, None, FEATHER_PATH, DataFileType.HDF5.value
     )
     real_file = populated_cache.get_entry(FULL_TAIGA_ID)
     assert expected_datafile == real_file
