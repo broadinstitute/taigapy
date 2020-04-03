@@ -1,9 +1,14 @@
 import re
+from typing import Dict, Mapping, Optional, Union
+
+import progressbar
 import requests
 
-from typing import Mapping, Optional
-
-from taigapy.custom_exceptions import Taiga404Exception, TaigaHttpException
+from taigapy.custom_exceptions import (
+    TaigaHttpException,
+    Taiga404Exception,
+    TaigaServerError,
+)
 from taigapy.types import DatasetVersion, DataFileMetadata
 from taigapy.utils import untangle_dataset_id_with_version
 
@@ -15,10 +20,35 @@ def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
                 params
             )
         )
+    elif r.status_code == 500:
+        raise TaigaServerError()
     elif r.status_code != 200:
         raise TaigaHttpException("Bad status code: {}".format(r.status_code))
 
     return r.json()
+
+
+def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
+    """
+    Initialize the progressbar object with the max_value passed as parameter
+    :param max_value: int
+    :return: ProgressBar
+    """
+
+    widgets = [
+        progressbar.Bar(left="[", right="]"),
+        progressbar.Percentage(),
+        " | ",
+        progressbar.FileTransferSpeed(),
+        " | ",
+        progressbar.DataSize(),
+        " / ",
+        progressbar.DataSize(variable="max_value"),
+        " | ",
+        progressbar.ETA(),
+    ]
+    bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
+    return bar
 
 
 class TaigaApi:
@@ -58,6 +88,44 @@ class TaigaApi:
         else:
             return r
 
+    @staticmethod
+    def _download_file_from_s3(download_url: str, dest: str):
+        r = requests.get(download_url, stream=True)
+
+        header_content_length = r.headers.get("Content-Length", None)
+        if not header_content_length:
+            content_length = (
+                progressbar.UnknownLength
+            )  # type: Union[progressbar.UnknownLength, int]
+        else:
+            content_length = int(header_content_length)
+
+        bar = _progressbar_init(max_value=content_length)
+
+        with open(dest, "wb") as handle:
+            if not r.ok:
+                raise Exception("Error fetching {}".format(download_url))
+
+            # Stream by chunk of 100Kb
+            chunk_size = 1024 * 100
+            total = 0
+            for block in r.iter_content(chunk_size):
+                handle.write(block)
+
+                total += chunk_size
+                # total can be slightly superior to content_length
+                if (
+                    content_length == progressbar.UnknownLength
+                    or total <= content_length
+                ):
+                    bar.update(total)
+            bar.finish()
+
+    def _poll_task(self, task_id: str):
+        api_endpoint = "/api/task_status/{}".format(task_id)
+        r = self._request_get(api_endpoint)
+        raise NotImplementedError
+
     def get_datafile_metadata(
         self,
         id_or_permaname: Optional[str],
@@ -82,7 +150,7 @@ class TaigaApi:
         except Exception:
             raise NotImplementedError
 
-        return self._request_get(api_endpoint, params)
+        return DataFileMetadata(self._request_get(api_endpoint, params))
 
     def get_dataset_version_metadata(self):
         raise NotImplementedError
@@ -90,11 +158,61 @@ class TaigaApi:
     def upload_dataset(self):
         raise NotImplementedError
 
-    def poll_task(self, task_id: str):
+    def get_column_types(
+        self, dataset_permaname: str, dataset_version: str, datafile_name: str
+    ) -> Dict[str, str]:
+        api_endpoint = "/api/datafile/column_types"
+        params = {
+            "dataset_permaname": dataset_permaname,
+            "version": dataset_version,
+            "datafile_name": datafile_name,
+        }
+        r = self._request_get(api_endpoint, params, standard_reponse_handling=False)
+
+        if r.status_code == 200:
+            return r.json()
+        elif r.status_code == 400:
+            raise ValueError(
+                "Request was not well formed. Please check your credentials and/or parameters. params: {}".format(
+                    params
+                )
+            )
+        elif r.status_code == 404:
+            pass
+        elif r.status_code == 500:
+            raise TaigaServerError()
+        else:
+            assert False
+
         raise NotImplementedError
 
-    def get_column_types(self):
-        raise NotImplementedError
+    def download_datafile(
+        self,
+        dataset_permaname: str,
+        dataset_version: str,
+        datafile_name: str,
+        dest: str,
+    ):
+        endpoint = "/api/datafile"
+        params = {
+            "dataset_permaname": dataset_permaname,
+            "version": dataset_version,
+            "datafile_name": datafile_name,
+            "format": "raw_test",
+        }
 
-    def download_datafile(self):
-        raise NotImplementedError
+        r = self._request_get(endpoint, params, standard_reponse_handling=False)
+        if r.status_code == 200:
+            datafile_metadata = DataFileMetadata(r.json())
+            download_url = datafile_metadata.urls[0]
+            self._download_file_from_s3(download_url, dest)
+        elif r.status_code == 202:
+            self._poll_task(r.json())
+        elif r.status_code == 400:
+            raise ValueError(
+                "Request was not well formed. Please check your credentials and/or parameters. params: {}".format(
+                    params
+                )
+            )
+        else:
+            raise TaigaServerError()
