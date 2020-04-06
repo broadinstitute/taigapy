@@ -20,6 +20,15 @@ class DatasetVersionState(Enum):
     deleted = "Deleted"
 
 
+class TaskState(Enum):
+    PENDING = "PENDING"
+    STARTED = "STARTED"
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    RETRY = "RETRY"
+    REVOKED = "REVOKED"
+
+
 DatasetVersion = Union[str, int]
 
 DataFileMetadataDict = TypedDict(
@@ -65,3 +74,26 @@ class DataFileMetadata:
             "datafile_encoding"
         )
         self.urls: Optional[List[str]] = datafile_metadata_dict.get("urls")
+
+
+TaskStatusDict = TypedDict(
+    "TaskStatusDict",
+    {
+        "id": str,
+        "state": str,
+        "message": str,
+        "current": float,
+        "total": float,
+        "s3Key": str,
+    },
+)
+
+
+class TaskStatus:
+    def __init__(self, task_status_dict: TaskStatusDict):
+        self.id: str = task_status_dict.get("id")
+        self.state: TaskState = TaskState(task_status_dict.get("state"))
+        self.message: str = task_status_dict.get("message")
+        self.current: float = task_status_dict.get("current")
+        self.total: float = task_status_dict.get("total")
+        self.s3Key: str = task_status_dict.get("s3Key")
