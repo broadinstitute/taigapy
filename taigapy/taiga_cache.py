@@ -16,6 +16,17 @@ DataFile = namedtuple(
     "DataFile", ["full_taiga_id", "raw_path", "feather_path", "datafile_format",],
 )
 
+GET_QUERY = """
+    SELECT datafiles.full_taiga_id, raw_path, feather_path, datafile_format
+    FROM datafiles
+    LEFT JOIN aliases
+    ON
+        datafiles.full_taiga_id = aliases.full_taiga_id
+    WHERE
+        alias = ? OR
+        datafiles.full_taiga_id = ?
+    """
+
 
 def _write_csv_to_feather(
     csv_path: str,
@@ -104,6 +115,20 @@ class TaigaCache:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         return file_path
 
+    def _get_datafile_from_db(self, queried_taiga_id: str) -> DataFile:
+        c = self.conn.cursor()
+        c.execute(
+            GET_QUERY, (queried_taiga_id, queried_taiga_id),
+        )
+
+        r = c.fetchone()
+        c.close()
+
+        if r is None:
+            return None
+
+        return DataFile(*r)
+
     def _add_alias(self, queried_taiga_id: str, full_taiga_id: str):
         c = self.conn.cursor()
         c.execute(
@@ -129,29 +154,10 @@ class TaigaCache:
         self.conn.commit()
 
     def get_entry(self, queried_taiga_id: str) -> Optional[pd.DataFrame]:
-        raise NotImplementedError
-        c = self.conn.cursor()
-        c.execute(
-            """
-            SELECT datafiles.full_taiga_id, raw_path, feather_path, datafile_format
-            FROM datafiles
-            LEFT JOIN aliases
-            ON
-                datafiles.full_taiga_id = aliases.full_taiga_id
-            WHERE
-                alias = ? OR
-                datafiles.full_taiga_id = ?
-            """,
-            (queried_taiga_id, queried_taiga_id),
-        )
-
-        r = c.fetchone()
-        c.close()
-
-        if r is None:
+        datafile = self._get_datafile_from_db(queried_taiga_id)
+        if datafile is None:
             return None
 
-        datafile = DataFile(*r)
         if datafile.feather_path is None:
             return None
 
@@ -269,41 +275,84 @@ class TaigaCache:
         self.conn.commit()
 
     def add_raw_entry(
-        self, raw_path: str, full_taiga_id: str, datafile_format: DataFileFormat
+        self,
+        raw_path: str,
+        queried_taiga_id: str,
+        full_taiga_id: str,
+        datafile_format: DataFileFormat,
     ):
-        raise NotImplementedError
+        "Copies the file at `raw_path` into the cache directory, and stores an entry in the cache."
+        self._add_alias(queried_taiga_id, full_taiga_id)
+        datafile = self._get_datafile_from_db(queried_taiga_id)
+
+        cache_file_extension = (
+            ".txt" if datafile_format == DataFileFormat.Raw else ".csv"
+        )
+        cache_file_path = self._get_path_and_make_directories(
+            full_taiga_id, cache_file_extension
+        )
+
+        shutil.copy(raw_path, cache_file_path)
+        c = self.conn.cursor()
+        if datafile is None:
+            c.execute(
+                """
+                INSERT INTO datafiles (full_taiga_id, raw_path, datafile_format)
+                VALUES (?, ?, ?)
+                """,
+                (full_taiga_id, cache_file_path, datafile_format.value),
+            )
+        else:
+            c.execute(
+                """
+                UPDATE datafiles
+                SET raw_path = ?
+                WHERE full_taiga_id = ?
+                """,
+                (cache_file_path, full_taiga_id),
+            )
+        c.close()
+        self.conn.commit()
+
+    def get_raw_path(self, queried_taiga_id: str) -> Optional[str]:
+        datafile = self._get_datafile_from_db(queried_taiga_id)
+        if datafile is None:
+            return None
+
+        raw_path = datafile.raw_path
+        if not os.path.exists(raw_path):
+            if datafile.feather_path is None:
+                self.remove_from_cache(queried_taiga_id)
+            return None
+
+        return raw_path
 
     def remove_from_cache(self, queried_taiga_id: str):
-        raise NotImplementedError
-        datafile = self.get_entry(queried_taiga_id)
-        if datafile is None:
-            # TODO: add warning?
-            return
+        datafile = self._get_datafile_from_db(queried_taiga_id)
 
         c = self.conn.cursor()
+        c.execute(
+            """
+            DELETE FROM datafiles
+            WHERE full_taiga_id = ?
+            """,
+            (datafile.full_taiga_id,),
+        )
+
+        c.execute(
+            """
+            DELETE FROM datafiles
+            WHERE full_taiga_id = ?
+            """,
+            (datafile.full_taiga_id,),
+        )
+
+        c.close()
+        self.conn.commit()
 
         for p in [datafile.feather_path, datafile.raw_path]:
             if os.path.exists(p):
                 os.remove(p)
-            else:
-                # TODO: add warning?
-                pass
-
-        c.execute(
-            """
-            DELETE FROM datafiles
-            WHERE full_taiga_id = '?'
-            """,
-            (datafile.full_taiga_id,),
-        )
-
-        c.execute(
-            """
-            DELETE FROM datafiles
-            WHERE full_taiga_id = '?'
-            """,
-            (datafile.full_taiga_id,),
-        )
 
     def remove_all_from_cache(self, prefix: str):
         raise NotImplementedError

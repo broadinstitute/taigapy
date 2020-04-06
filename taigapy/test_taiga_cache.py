@@ -14,7 +14,7 @@ from taigapy.__init_big_bang__ import CACHE_FILE
 from taigapy.types import DataFileType, DataFileFormat
 
 COLUMNAR_DATAFRAME = pd.DataFrame(
-    {"foo": [1, 2, 3], "bar": ["four", "five", "six"], "baz": [7, 8, 9]}
+    {"foo": [1.0, 2.0, 3.0], "bar": ["four", "five", "six"], "baz": [7.0, 8.0, 9.0]}
 )
 COLUMNAR_TYPES = {"foo": "float", "bar": "str", "baz": "float"}
 COLUMNAR_FULL_TAIGA_ID = "columnar-dataset.1/some-file"
@@ -24,6 +24,7 @@ COLUMNAR_VIRTUAL_TAIGA_ID = "columnar-dataset.2/some-file"
 MATRIX_DATAFRAME = pd.DataFrame(
     {"foo": [1, 2, 3], "bar": [4, 5, 6], "baz": [7, 8, 9]},
     index=["wibble", "wobble", "wubble"],
+    dtype=float,
 )
 MATRIX_FULL_TAIGA_ID = "matrix-dataset.1/some-file"
 MATRIX_TAIGA_ID_ALIAS = "matrix-dataset.1"
@@ -139,19 +140,39 @@ def test_get_entry(
     - removing the actual file should remove the entry just for the actual taiga id,
       but not the aliases/virtual taiga id
     """
-    assert populated_cache.get_entry(full_taiga_id).equals(expected_df)
-    # TODO
+    df = populated_cache.get_entry(full_taiga_id)
+    assert df.equals(expected_df)
 
 
-def test_add_raw_entry(tmpdir):
-    cache = TaigaCache(str(tmpdir), str(tmpdir.join(CACHE_FILE)))
-
+def test_get_raw_entry(tmpdir, populated_cache: TaigaCache):
     p = tmpdir.join("foobar.txt")
-    cache.add_raw_entry
+    with open(str(p), "w+") as f:
+        f.write("baz")
+
+    populated_cache.add_raw_entry(
+        str(p), "raw-dataset.1", "raw-dataset.1/some-file", DataFileFormat.Raw
+    )
+
+    path_from_cache = populated_cache.get_raw_path("raw-dataset.1")
+    with open(path_from_cache) as f:
+        assert f.read() == "baz"
 
 
 def test_remove_from_cache(populated_cache: TaigaCache):
-    populated_cache.remove_from_cache
+    populated_cache.remove_from_cache(COLUMNAR_FULL_TAIGA_ID)
+
+    assert populated_cache.get_entry(COLUMNAR_FULL_TAIGA_ID) is None
+    assert populated_cache.get_entry(COLUMNAR_TAIGA_ID_ALIAS) is None
+    assert populated_cache.get_entry(COLUMNAR_VIRTUAL_TAIGA_ID) is None
+
+    c = populated_cache.conn.cursor()
+    c.execute(
+        """
+        SELECT * FROM datafiles
+        """
+    )
+    rows = c.fetchall()
+    assert len(rows) == 1
 
 
 def test_remove_all_from_cache(populated_cache: TaigaCache):
