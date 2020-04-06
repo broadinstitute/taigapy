@@ -1,4 +1,5 @@
 import re
+import time
 from typing import Dict, Mapping, Optional, Union
 
 import progressbar
@@ -9,8 +10,10 @@ from taigapy.custom_exceptions import (
     Taiga404Exception,
     TaigaServerError,
 )
-from taigapy.types import DatasetVersion, DataFileMetadata
+from taigapy.types import DatasetVersion, DataFileMetadata, TaskState, TaskStatus
 from taigapy.utils import untangle_dataset_id_with_version
+
+CHUNK_SIZE = 1024 * 1024
 
 
 def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
@@ -106,13 +109,11 @@ class TaigaApi:
             if not r.ok:
                 raise Exception("Error fetching {}".format(download_url))
 
-            # Stream by chunk of 100Kb
-            chunk_size = 1024 * 100
             total = 0
-            for block in r.iter_content(chunk_size):
+            for block in r.iter_content(CHUNK_SIZE):
                 handle.write(block)
 
-                total += chunk_size
+                total += CHUNK_SIZE
                 # total can be slightly superior to content_length
                 if (
                     content_length == progressbar.UnknownLength
@@ -121,21 +122,30 @@ class TaigaApi:
                     bar.update(total)
             bar.finish()
 
-    def _poll_task(self, task_id: str):
+    def _poll_task(self, task_id: str) -> TaskStatus:
         api_endpoint = "/api/task_status/{}".format(task_id)
         r = self._request_get(api_endpoint)
-        raise NotImplementedError
+        task_status = TaskStatus(r.json())
+        while (
+            task_status.state != TaskState.SUCCESS
+            or task_status.state != TaskState.FAILURE
+        ):
+            r = self._request_get(api_endpoint)
+            task_status = TaskStatus(r.json())
+            time.sleep(1)
+
+        return task_status
 
     def get_datafile_metadata(
         self,
         id_or_permaname: Optional[str],
-        dataset_name: Optional[str],
+        dataset_permaname: Optional[str],
         dataset_version: Optional[DatasetVersion],
         datafile_name: Optional[str],
     ) -> DataFileMetadata:
         api_endpoint = "/api/datafile"
         try:
-            if dataset_name is None:
+            if dataset_permaname is None:
                 (
                     dataset_permaname,
                     dataset_version,
@@ -152,8 +162,14 @@ class TaigaApi:
 
         return DataFileMetadata(self._request_get(api_endpoint, params))
 
-    def get_dataset_version_metadata(self):
-        raise NotImplementedError
+    def get_dataset_version_metadata(
+        self, dataset_permaname: str, dataset_version: Optional[DatasetVersion]
+    ):
+        api_endpoint = "/api/dataset/{}".format(dataset_permaname)
+        if dataset_version is not None:
+            api_endpoint = "{}/{}".format(api_endpoint, dataset_version)
+
+        return self._request_get(api_endpoint)
 
     def upload_dataset(self):
         raise NotImplementedError
@@ -178,7 +194,7 @@ class TaigaApi:
                 )
             )
         elif r.status_code == 404:
-            pass
+            raise NotImplementedError
         elif r.status_code == 500:
             raise TaigaServerError()
         else:
@@ -207,7 +223,12 @@ class TaigaApi:
             download_url = datafile_metadata.urls[0]
             self._download_file_from_s3(download_url, dest)
         elif r.status_code == 202:
-            self._poll_task(r.json())
+            task_status = self._poll_task(r.json())
+            if task_status.state == TaskState.FAILURE:
+                raise TaigaServerError()
+            self.download_datafile(
+                dataset_permaname, dataset_version, datafile_name, dest
+            )
         elif r.status_code == 400:
             raise ValueError(
                 "Request was not well formed. Please check your credentials and/or parameters. params: {}".format(
