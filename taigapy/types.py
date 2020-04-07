@@ -47,6 +47,7 @@ DataFileMetadataDict = TypedDict(
         "datafile_format": str,
         "datafile_encoding": str,
         "urls": Optional[List[str]],
+        "underlying_file_id": Optional[str],
     },
 )
 
@@ -74,6 +75,9 @@ class DataFileMetadata:
             "datafile_encoding"
         )
         self.urls: Optional[List[str]] = datafile_metadata_dict.get("urls")
+        self.underlying_file_id: Optional[str] = datafile_metadata_dict.get(
+            "underlying_file_id"
+        )
 
 
 TaskStatusDict = TypedDict(
