@@ -115,10 +115,12 @@ class TaigaCache:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         return file_path
 
-    def _get_datafile_from_db(self, queried_taiga_id: str) -> DataFile:
+    def _get_datafile_from_db(
+        self, queried_taiga_id: str, full_taiga_id: str
+    ) -> DataFile:
         c = self.conn.cursor()
         c.execute(
-            GET_QUERY, (queried_taiga_id, queried_taiga_id),
+            GET_QUERY, (queried_taiga_id, full_taiga_id),
         )
 
         r = c.fetchone()
@@ -153,8 +155,11 @@ class TaigaCache:
         c.close()
         self.conn.commit()
 
-    def get_entry(self, queried_taiga_id: str) -> Optional[pd.DataFrame]:
-        datafile = self._get_datafile_from_db(queried_taiga_id)
+    def get_entry(
+        self, queried_taiga_id: str, full_taiga_id: str
+    ) -> Optional[pd.DataFrame]:
+        self._add_alias(queried_taiga_id, full_taiga_id)
+        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
         if datafile is None:
             return None
 
@@ -166,7 +171,7 @@ class TaigaCache:
                 datafile.feather_path, DataFileFormat(datafile.datafile_format)
             )
         except Exception as e:
-            self.remove_from_cache(queried_taiga_id)
+            self.remove_from_cache(queried_taiga_id, full_taiga_id)
             raise Exception(
                 "Local file is corrupted. Deleting file from cache and trying again."
             )
@@ -283,7 +288,7 @@ class TaigaCache:
     ):
         "Copies the file at `raw_path` into the cache directory, and stores an entry in the cache."
         self._add_alias(queried_taiga_id, full_taiga_id)
-        datafile = self._get_datafile_from_db(queried_taiga_id)
+        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
 
         cache_file_extension = (
             ".txt" if datafile_format == DataFileFormat.Raw else ".csv"
@@ -314,21 +319,21 @@ class TaigaCache:
         c.close()
         self.conn.commit()
 
-    def get_raw_path(self, queried_taiga_id: str) -> Optional[str]:
-        datafile = self._get_datafile_from_db(queried_taiga_id)
+    def get_raw_path(self, queried_taiga_id: str, full_taiga_id: str) -> Optional[str]:
+        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
         if datafile is None:
             return None
 
         raw_path = datafile.raw_path
         if not os.path.exists(raw_path):
             if datafile.feather_path is None:
-                self.remove_from_cache(queried_taiga_id)
+                self.remove_from_cache(queried_taiga_id, full_taiga_id)
             return None
 
         return raw_path
 
-    def remove_from_cache(self, queried_taiga_id: str):
-        datafile = self._get_datafile_from_db(queried_taiga_id)
+    def remove_from_cache(self, queried_taiga_id: str, full_taiga_id: str):
+        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
 
         c = self.conn.cursor()
         c.execute(

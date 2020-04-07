@@ -140,8 +140,14 @@ def test_get_entry(
     - removing the actual file should remove the entry just for the actual taiga id,
       but not the aliases/virtual taiga id
     """
-    df = populated_cache.get_entry(full_taiga_id)
+    df = populated_cache.get_entry(full_taiga_id, full_taiga_id)
     assert df.equals(expected_df)
+
+    df_alias = populated_cache.get_entry(taiga_id_alias, full_taiga_id)
+    assert df_alias.equals(df)
+
+    df_virtual = populated_cache.get_entry(virtual_taiga_id, full_taiga_id)
+    assert df_virtual.equals(df)
 
 
 def test_get_raw_entry(tmpdir, populated_cache: TaigaCache):
@@ -153,17 +159,26 @@ def test_get_raw_entry(tmpdir, populated_cache: TaigaCache):
         str(p), "raw-dataset.1", "raw-dataset.1/some-file", DataFileFormat.Raw
     )
 
-    path_from_cache = populated_cache.get_raw_path("raw-dataset.1")
+    path_from_cache = populated_cache.get_raw_path(
+        "raw-dataset.1", "raw-dataset.1/some-file"
+    )
     with open(path_from_cache) as f:
         assert f.read() == "baz"
 
 
 def test_remove_from_cache(populated_cache: TaigaCache):
-    populated_cache.remove_from_cache(COLUMNAR_FULL_TAIGA_ID)
+    populated_cache.remove_from_cache(COLUMNAR_FULL_TAIGA_ID, COLUMNAR_FULL_TAIGA_ID)
 
-    assert populated_cache.get_entry(COLUMNAR_FULL_TAIGA_ID) is None
-    assert populated_cache.get_entry(COLUMNAR_TAIGA_ID_ALIAS) is None
-    assert populated_cache.get_entry(COLUMNAR_VIRTUAL_TAIGA_ID) is None
+    assert (
+        populated_cache.get_entry(COLUMNAR_FULL_TAIGA_ID, COLUMNAR_FULL_TAIGA_ID)
+        is None
+    )
+    assert populated_cache.get_entry(COLUMNAR_TAIGA_ID_ALIAS, COLUMNAR_FULL_TAIGA_ID) is None
+    
+    assert (
+        populated_cache.get_entry(COLUMNAR_VIRTUAL_TAIGA_ID, COLUMNAR_FULL_TAIGA_ID)
+        is None
+    )
 
     c = populated_cache.conn.cursor()
     c.execute(
