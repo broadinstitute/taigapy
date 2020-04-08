@@ -10,7 +10,7 @@ from taigapy.custom_exceptions import (
     Taiga404Exception,
     TaigaServerError,
 )
-from taigapy.types import DatasetVersion, DataFileMetadata, TaskState, TaskStatus
+from taigapy.types import DatasetVersion, DatasetMetadataDict,DatasetVersionMetadataDict,DataFileMetadata, TaskState, TaskStatus
 from taigapy.utils import untangle_dataset_id_with_version
 
 CHUNK_SIZE = 1024 * 1024
@@ -140,7 +140,7 @@ class TaigaApi:
         self,
         id_or_permaname: Optional[str],
         dataset_permaname: Optional[str],
-        dataset_version: Optional[DatasetVersion],
+        dataset_version: Optional[str],
         datafile_name: Optional[str],
     ) -> DataFileMetadata:
         api_endpoint = "/api/datafile"
@@ -153,7 +153,7 @@ class TaigaApi:
                 ) = untangle_dataset_id_with_version(id_or_permaname)
             params = {
                 "dataset_permaname": dataset_permaname,
-                "version": str(dataset_version),
+                "version": dataset_version,
                 "datafile_name": datafile_name,
                 "format": "metadata",
             }
@@ -164,7 +164,7 @@ class TaigaApi:
 
     def get_dataset_version_metadata(
         self, dataset_permaname: str, dataset_version: Optional[DatasetVersion]
-    ):
+    ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
         api_endpoint = "/api/dataset/{}".format(dataset_permaname)
         if dataset_version is not None:
             api_endpoint = "{}/{}".format(api_endpoint, dataset_version)

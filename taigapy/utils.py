@@ -2,7 +2,12 @@ import os
 import re
 from typing import Iterable, Optional, Tuple
 
-from taigapy.types import DatasetVersion
+from taigapy.types import (
+    DatasetVersion,
+    DatasetMetadataDict,
+    DatasetVersionMetadataDict,
+    DataFileMetadata,
+)
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"
 DATAFILE_ID_FORMAT_MISSING_DATAFILE = "{dataset_permaname}.{dataset_version}"
@@ -13,6 +18,7 @@ DATAFILE_CACHE_FORMAT = "{dataset_permaname}_v{dataset_version}_{datafile_name}"
 
 def find_first_existing(paths: Iterable[str]):
     for path in paths:
+        path = os.path.expanduser(path)
         if os.path.exists(path):
             return path
     raise Exception(
@@ -82,3 +88,26 @@ def format_datafile_id(
     )
 
     return id_format.format(**name_parts)
+
+
+def format_datafile_id_from_datafile_metadata(
+    datafile_metadata: DataFileMetadata,
+) -> str:
+    return DATAFILE_ID_FORMAT.format(
+        dataset_permaname=datafile_metadata.dataset_permaname,
+        dataset_version=datafile_metadata.dataset_version,
+        datafile_name=datafile_metadata.datafile_name,
+    )
+
+
+def get_latest_valid_version_from_metadata(
+    dataset_metadata: DatasetMetadataDict,
+) -> str:
+    versions = dataset_metadata["versions"]
+    latest_valid_version = 1
+    for version in versions:
+        version_num = int(version["name"])
+        if version_num > latest_valid_version and version["state"] != "deleted":
+            latest_valid_version = version_num
+
+    return str(latest_valid_version)
