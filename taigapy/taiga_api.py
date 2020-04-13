@@ -179,12 +179,20 @@ class TaigaApi:
                 dataset_version,
                 datafile_name,
             ) = untangle_dataset_id_with_version(id_or_permaname)
-        params = {
-            "dataset_permaname": dataset_permaname,
-            "version": dataset_version,
-            "datafile_name": datafile_name,
-            "format": "metadata",
-        }
+
+        if dataset_permaname is not None:
+            params = {
+                "dataset_permaname": dataset_permaname,
+                "version": dataset_version,
+                "datafile_name": datafile_name,
+                "format": "metadata",
+            }
+        else:
+            params = {
+                "dataset_version_id": id_or_permaname,
+                "datafile_name": datafile_name,
+                "format": "metadata",
+            }
 
         return DataFileMetadata(self._request_get(api_endpoint, params))
 
