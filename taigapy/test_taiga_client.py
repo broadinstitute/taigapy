@@ -1,3 +1,4 @@
+import os
 import pdb
 import pytest
 from unittest.mock import patch
@@ -31,6 +32,22 @@ def populatedTaigaClient(taigaClient: TaigaClient):
     return taigaClient
 
 
+@pytest.fixture
+def localTaigaClient(tmpdir):
+    cache_dir = tmpdir.join("cache")
+    token_path = cache_dir.join("token")
+    os.makedirs(cache_dir, exist_ok=True)
+    with open(str(token_path), "w+") as f:
+        f.write("test-token")
+
+    tc = TaigaClient(
+        url="http://localhost:5000/taiga",
+        cache_dir=str(cache_dir),
+        token_path=str(token_path),
+    )
+    return tc
+
+
 class TestInit:
     def test_init(self, taigaClient):
         """
@@ -44,7 +61,7 @@ class TestInit:
             taigaClient.get(DATAFILE_ID)
             assert not mock_format_datafile_id.called
 
-    def test_init_nonexistent_token(self, tmpdir):
+    def test_init_nonexistent_token(self, tmpdir, capsys):
         """
         TaigaClient should error if token does not exist only when a user-facing
         function is called.
@@ -52,8 +69,9 @@ class TestInit:
         cache_dir = str(tmpdir.join("cache"))
         tc = TaigaClient(cache_dir=cache_dir, token_path="fake token path")
 
-        with pytest.raises(Exception, match=r"No token file found") as e:
-            tc.get(DATAFILE_ID)
+        assert tc.get(DATAFILE_ID) is None
+        out, err = capsys.readouterr()
+        assert out.startswith("No token file found.")
 
 
 class TestGet:
@@ -157,11 +175,38 @@ class TestGetMetadata:
             DATASET_PERMANAME, DATASET_VERSION
         )
         keys = dataset_version_metadata.keys()
-        assert all(
-            k in keys
-            for k in [
-                "dataset",
-                "datasetVersion",
-            ]
-        )
+        assert all(k in keys for k in ["dataset", "datasetVersion",])
         assert dataset_version_metadata["dataset"] == dataset_metadata
+
+
+@pytest.mark.local
+class TestCreateDataset:
+    def test_create_dataset(self, localTaigaClient: TaigaClient):
+        dataset_id = localTaigaClient.create_dataset(
+            "foo",
+            folder_id="20e2168fb9f24fb98f6ac7148be79eec",
+            add_taiga_ids=[{"taiga_id": "origin-cb86.4/Datav1v2v3"}],
+        )
+
+    def test_input_validation(self, capsys, localTaigaClient: TaigaClient):
+        assert localTaigaClient.create_dataset("foo") is None
+        out, _ = capsys.readouterr()
+        assert out.startswith("upload_files and add_taiga_ids cannot both be empty.")
+
+    def test_invalid_file_fails(self):
+        pass
+
+    def test_nonexistent_folder_fails(self):
+        pass
+
+    def test_duplicate_file_names_fails(self):
+        pass
+
+    def test_(self):
+        pass
+
+
+@pytest.mark.local
+class TestUpdateDataset:
+    def test_update_dataset(self, taigaClient: TaigaClient):
+        pass

@@ -1,7 +1,9 @@
+import asyncio
 import os
 import tempfile
 
-from typing import Optional, Union
+from collections import defaultdict
+from typing import Collection, DefaultDict, List, Optional, Tuple, Union
 
 import colorful as cf
 import pandas as pd
@@ -14,6 +16,7 @@ from taigapy.utils import (
     format_datafile_id_from_datafile_metadata,
     untangle_dataset_id_with_version,
     get_latest_valid_version_from_metadata,
+    upload_to_s3,
 )
 from taigapy.types import (
     DataFileFormat,
@@ -22,8 +25,19 @@ from taigapy.types import (
     DatasetMetadataDict,
     DatasetVersionMetadataDict,
     DataFileMetadata,
+    UploadDataFile,
+    UploadS3DataFileDict,
+    UploadS3DataFile,
+    UploadVirtualDataFileDict,
+    UploadVirtualDataFile,
 )
-from taigapy.custom_exceptions import TaigaDeletedVersionException
+from taigapy.custom_exceptions import (
+    TaigaDeletedVersionException,
+    Taiga404Exception,
+    TaigaServerError,
+    TaigaTokenFileNotFound,
+    TaigaCacheFileCorrupted,
+)
 
 __version__ = "TODO"
 
@@ -107,7 +121,7 @@ class TaigaClient:
         )
 
         if metadata is None:
-            raise Exception(
+            raise ValueError(
                 "No data for the given parameters. Please check your inputs are correct."
             )
 
@@ -191,7 +205,12 @@ class TaigaClient:
         file: Optional[str],
         get_dataframe: bool,
     ) -> Optional[Union[str, pd.DataFrame]]:
-        self._set_token_and_initialized_api()
+        try:
+            self._set_token_and_initialized_api()
+        except TaigaTokenFileNotFound as e:
+            print(cf.red(str(e)))
+            return None
+
         # Validate inputs
         try:
             datafile_metadata = self._validate_file_for_download(
@@ -226,7 +245,7 @@ class TaigaClient:
             df_or_path = get_from_cache(query, full_taiga_id)
             if df_or_path is not None:
                 return df_or_path
-        except Exception as e:
+        except TaigaCacheFileCorrupted as e:
             print(cf.orange(str(e)))
 
         # Download from Taiga
@@ -235,9 +254,167 @@ class TaigaClient:
                 query, full_taiga_id, datafile_metadata, get_dataframe
             )
             return get_from_cache(query, full_taiga_id)
-        except Exception as e:
+        except (Taiga404Exception, TaigaServerError) as e:
             print(cf.red(str(e)))
             return None
+
+    def _validate_upload_files(
+        self,
+        upload_files: Collection[UploadS3DataFileDict],
+        add_taiga_ids: Collection[UploadVirtualDataFileDict],
+        previous_version_taiga_ids: Optional[
+            Collection[UploadVirtualDataFileDict]
+        ] = None,
+    ) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
+        upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
+        upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
+
+        # https://github.com/python/typeshed/issues/2383
+        all_upload_datafiles: Collection[UploadDataFile] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
+
+        datafile_names: DefaultDict[str, int] = defaultdict(int)
+        for upload_datafile in all_upload_datafiles:
+            datafile_names[upload_datafile.file_name] += 1
+
+        duplicate_file_names = [
+            file_name for file_name, count in datafile_names.items() if count > 1
+        ]
+        if len(duplicate_file_names) > 0:
+            raise ValueError(
+                "Multiple files named {}".format(", ".join(duplicate_file_names))
+            )
+
+        if previous_version_taiga_ids is not None:
+            for upload_datafile in previous_version_taiga_ids:  # type: ignore
+                if upload_datafile.file_name not in duplicate_file_names:
+                    upload_virtual_datafiles.append(upload_datafile)  # type: ignore
+
+        return upload_s3_datafiles, upload_virtual_datafiles
+
+    def _validate_create_dataset_arguments(
+        self,
+        dataset_name: str,
+        upload_files: Optional[Collection[UploadS3DataFileDict]],
+        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]],
+        folder_id: Optional[str],
+    ):
+        if len(dataset_name) == 0:
+            raise ValueError("dataset_name must be a nonempty string.")
+        if len(upload_files) == 0 and len(add_taiga_ids) == 0:
+            raise ValueError("upload_files and add_taiga_ids cannot both be empty.")
+
+        upload_s3_datafiles, upload_virtual_datafiles = self._validate_upload_files(
+            upload_files, add_taiga_ids
+        )
+
+        if folder_id is None:
+            folder_id = "public"
+            prompt = "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) "
+            user_continue = input(prompt)
+
+            if user_continue != "y":
+                return None, None
+        else:
+            try:
+                self.api.get_folder(folder_id)
+            except Taiga404Exception:
+                raise ValueError("No folder found with id {}.".format(folder_id))
+
+        return upload_s3_datafiles, upload_virtual_datafiles
+
+    def _validate_update_dataset_arguments(
+        self,
+        dataset_id: Optional[str],
+        dataset_permaname: Optional[str],
+        dataset_version: Optional[DatasetVersion],
+        upload_files: Optional[Collection[UploadS3DataFileDict]],
+        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]],
+        add_all_existing_files: bool,
+    ) -> Tuple[
+        List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict,
+    ]:
+        if dataset_id is None and dataset_permaname is None:
+            # TODO standardize exceptions
+            raise ValueError("Dataset id or name must be specified")
+
+        if dataset_id is not None:
+            if "." in dataset_id:
+                (
+                    dataset_permaname,
+                    dataset_version,
+                    _,
+                ) = untangle_dataset_id_with_version(dataset_id)
+            else:
+                dataset_permaname = dataset_id
+
+        if dataset_version is None:
+            dataset_metadata = self.api.get_dataset_version_metadata(
+                dataset_permaname, dataset_version
+            )
+
+            if dataset_version is None:
+                dataset_version = get_latest_valid_version_from_metadata(
+                    dataset_metadata
+                )
+                print(
+                    cf.orange(
+                        "No dataset version provided. Using version {}.".format(
+                            dataset_version
+                        )
+                    )
+                )
+        dataset_version_metadata: DatasetVersionMetadataDict = self.api.get_dataset_version_metadata(
+            dataset_permaname, dataset_version
+        )
+
+        if add_all_existing_files:
+            existing_files: List[UploadVirtualDataFileDict] = [
+                {
+                    "taiga_id": format_datafile_id(
+                        dataset_permaname, dataset_version, datafile["name"]
+                    )
+                }
+                for datafile in dataset_version_metadata["datasetVersion"]["datafiles"]
+            ]
+        else:
+            existing_files = None
+
+        upload_s3_datafiles, upload_virtual_datafiles = self._validate_upload_files(
+            upload_files, add_taiga_ids, existing_files
+        )
+
+        return upload_s3_datafiles, upload_virtual_datafiles, dataset_version_metadata
+
+    def _upload_files(
+        self,
+        upload_s3_datafiles: List[UploadS3DataFile],
+        upload_virtual_datafiles: List[UploadVirtualDataFile],
+    ) -> str:
+        upload_session_id = self.api.create_upload_session()
+        s3_credentials = self.api.get_s3_credentials()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(
+            asyncio.gather(
+                *[
+                    upload_to_s3(s3_credentials, upload_session_id, f)
+                    for f in upload_s3_datafiles
+                ]
+            )
+        )
+        loop.close()
+
+        # https://github.com/python/typeshed/issues/2383
+        upload_datafiles: List[
+            UploadDataFile
+        ] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
+        for upload_file in upload_datafiles:
+            print("Uploading {} to Taiga".format(upload_file.file_name))
+            self.api.upload_file_to_taiga(upload_session_id, upload_file)
+            print("Finished uploading {} to Taiga".format(upload_file.file_name))
+
+        return upload_session_id
 
     # User-facing functions
     def get(
@@ -262,7 +439,12 @@ class TaigaClient:
         self, dataset_id: str, version: Optional[DatasetVersion] = None,
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
         """Get metadata about a dataset"""
-        self._set_token_and_initialized_api()
+        try:
+            self._set_token_and_initialized_api()
+        except TaigaTokenFileNotFound as e:
+            print(cf.red(str(e)))
+            return None
+
         if "." in dataset_id:
             try:
                 dataset_id, version, _ = untangle_dataset_id_with_version(dataset_id)
@@ -272,7 +454,7 @@ class TaigaClient:
 
         try:
             return self.api.get_dataset_version_metadata(dataset_id, version)
-        except Exception as e:
+        except (Taiga404Exception, TaigaServerError) as e:
             print(cf.red(str(e)))
             return None
 
@@ -280,17 +462,125 @@ class TaigaClient:
         self,
         dataset_name: str = None,
         dataset_description: str = None,
-        upload_file_path_dict: Dict[str, str] = None,
-        add_taiga_ids: List[Tuple[str, str]] = None,
+        upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
         folder_id: str = None,
     ) -> Optional[str]:
-        if upload_file_path_dict is None:
-            upload_file_path_dict = {}
+        try:
+            self._set_token_and_initialized_api()
+        except TaigaTokenFileNotFound as e:
+            print(cf.red(str(e)))
+            return None
+
+        if upload_files is None:
+            upload_files = []
         if add_taiga_ids is None:
             add_taiga_ids = []
 
-        if len(upload_file_path_dict) == 0 and len(add_taiga_ids) == 0:
-            raise ValueError("TODO")
+        try:
+            (
+                upload_s3_datafiles,
+                upload_virtual_datafiles,
+            ) = self._validate_create_dataset_arguments(
+                dataset_name, upload_files, add_taiga_ids, folder_id
+            )
+        except ValueError as e:
+            print(cf.red(str(e)))
+            return None
+
+        if upload_s3_datafiles is None:
+            # User declined to upload to public folder
+            return None
+
+        try:
+            upload_session_id = self._upload_files(
+                upload_s3_datafiles, upload_virtual_datafiles
+            )
+        except ValueError as e:
+            print(cf.red(str(e)))
+            return None
+
+        dataset_id = self.api.create_dataset(
+            upload_session_id, folder_id, dataset_name, dataset_description
+        )
+        print(
+            cf.green(
+                "Dataset created. Access it directly with this url: {}\n".format(
+                    self.url + "/dataset/" + dataset_id,
+                )
+            )
+        )
+        return dataset_id
+
+    def update_dataset(
+        self,
+        dataset_id: Optional[str] = None,
+        dataset_permaname: Optional[str] = None,
+        dataset_version: Optional[DatasetVersion] = None,
+        dataset_description: Optional[str] = None,
+        changes_description: Optional[str] = None,
+        upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
+        add_all_existing_files: bool = False,
+    ):
+        try:
+            self._set_token_and_initialized_api()
+        except TaigaTokenFileNotFound as e:
+            print(cf.red(str(e)))
+            return None
+
+        if upload_files is None:
+            upload_files = []
+        if add_taiga_ids is None:
+            add_taiga_ids = []
+
+        try:
+            (
+                upload_s3_datafiles,
+                upload_virtual_datafiles,
+                dataset_version_metadata,
+            ) = self._validate_update_dataset_arguments(
+                dataset_id,
+                dataset_permaname,
+                dataset_version,
+                upload_files,
+                add_taiga_ids,
+                add_all_existing_files,
+            )
+        except ValueError as e:
+            print(cf.red(str(e)))
+            return None
+
+        try:
+            upload_session_id = self._upload_files(
+                upload_s3_datafiles, upload_virtual_datafiles
+            )
+        except ValueError as e:
+            print(cf.red(str(e)))
+            return None
+
+        dataset_description = (
+            dataset_description
+            if dataset_description is not None
+            else dataset_version_metadata["datasetVersion"]["description"]
+        )
+
+        new_dataset_version_id = self.api.update_dataset(
+            dataset_version_metadata["dataset"]["id"],
+            upload_session_id,
+            dataset_description,
+            changes_description,
+        )
+
+        print(
+            cf.green(
+                "Dataset version created. Access it directly with this url: {}".format(
+                    self.url + "/dataset_version/" + new_dataset_version_id,
+                )
+            )
+        )
+
+        return new_dataset_version_id
 
 
 default_tc = TaigaClient()

@@ -6,6 +6,7 @@ import pandas as pd
 from collections import namedtuple
 from typing import Mapping, Optional, Tuple
 
+from taigapy.custom_exceptions import TaigaCacheFileCorrupted
 from taigapy.types import DataFileType, DataFileFormat
 
 # Also needs to handle case where a virtual dataset contains only one file... ? Should that be an alias?
@@ -172,9 +173,7 @@ class TaigaCache:
             )
         except Exception as e:
             self.remove_from_cache(queried_taiga_id, full_taiga_id)
-            raise Exception(
-                "Local file is corrupted. Deleting file from cache and trying again."
-            )
+            raise TaigaCacheFileCorrupted()
 
     def add_entry(
         self,

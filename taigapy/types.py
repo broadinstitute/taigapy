@@ -1,3 +1,7 @@
+import codecs
+import os
+
+from abc import ABC
 from enum import Enum
 from typing import List, Optional, Union
 from typing_extensions import Literal, TypedDict
@@ -15,6 +19,12 @@ class DataFileFormat(Enum):
     Raw = "Raw"
 
 
+class DataFileUploadFormat(Enum):
+    NumericMatrixCSV = "NumericMatrixCSV"
+    TableCSV = "TableCSV"
+    Raw = "Raw"
+
+
 class DatasetVersionState(Enum):
     approved = "Approved"
     deprecated = "Deprecated"
@@ -28,6 +38,7 @@ class TaskState(Enum):
     FAILURE = "FAILURE"
     RETRY = "RETRY"
     REVOKED = "REVOKED"
+    PROGRESS = "PROGRESS"
 
 
 User = TypedDict("User", {"id": str, "name": str})
@@ -47,7 +58,7 @@ DatasetVersionFiles = TypedDict(
         "name": str,
         "short_summary": str,
         "type": DataFileFormat,
-        "underlying_file_id": str,
+        "underlying_file_id": Optional[str],
     },
 )
 DatasetVersionLongDict = TypedDict(
@@ -159,3 +170,82 @@ class TaskStatus:
         self.current: float = task_status_dict.get("current")
         self.total: float = task_status_dict.get("total")
         self.s3Key: str = task_status_dict.get("s3Key")
+
+
+class S3Credentials:
+    def __init__(self, s3_credentials_dict):
+        self.access_key_id: str = s3_credentials_dict["accessKeyId"]
+        self.bucket: str = s3_credentials_dict["bucket"]
+        self.expiration: str = s3_credentials_dict["expiration"]
+        self.prefix: str = s3_credentials_dict["prefix"]
+        self.secret_access_key: str = s3_credentials_dict["secretAccessKey"]
+        self.session_token: str = s3_credentials_dict["sessionToken"]
+
+
+UploadS3DataFileDict = TypedDict(
+    "UploadS3DataFileDict",
+    {"path": str, "name": Optional[str], "format": str, "encoding": Optional[str]},
+)
+
+
+class UploadDataFile(ABC):
+    file_name: str
+
+    def to_api_param(self):
+        pass
+
+
+class UploadS3DataFile(UploadDataFile):
+    def __init__(self, upload_s3_file_dict: UploadS3DataFileDict):
+        self.file_path = os.path.abspath(upload_s3_file_dict["path"])
+        if not os.path.exists(self.file_path):
+            raise Exception(
+                "File '{}' does not exist.".format(upload_s3_file_dict["path"])
+            )
+        self.file_name = upload_s3_file_dict.get(
+            "name", self._standardize_file_name(self.file_path)
+        )
+        self.datafile_format = DataFileUploadFormat(upload_s3_file_dict["format"])
+        self.encoding = codecs.lookup(upload_s3_file_dict.get("encoding", "utf-8")).name
+        self.bucket: Optional[str] = None
+        self.key: Optional[str] = None
+
+    @staticmethod
+    def _standardize_file_name(file_name: str):
+        return os.path.basename(os.path.splitext(file_name)[0])
+
+    def add_s3_upload_information(self, bucket: str, key: str):
+        self.bucket = bucket
+        self.key = key
+
+    def to_api_param(self):
+        return {
+            "filename": self.file_name,
+            "filetype": "s3",
+            "s3Upload": {
+                "format": self.datafile_format.value,
+                "bucket": self.bucket,
+                "key": self.key,
+                "encoding": self.encoding,
+            },
+        }
+
+
+UploadVirtualDataFileDict = TypedDict(
+    "UploadVirtualDataFileDict", {"taiga_id": str, "name": str}, total=False
+)
+
+
+class UploadVirtualDataFile(UploadDataFile):
+    def __init__(self, upload_virtual_file_dict: UploadVirtualDataFileDict):
+        self.taiga_id = upload_virtual_file_dict["taiga_id"]
+        self.file_name = upload_virtual_file_dict.get(
+            "name", self.taiga_id.split("/", 1)[1]
+        )
+
+    def to_api_param(self):
+        return {
+            "filename": self.file_name,
+            "filetype": "virtual",
+            "existingTaigaId": self.taiga_id,
+        }

@@ -1,3 +1,6 @@
+from typing import Iterable
+
+
 class TaigaHttpException(Exception):
     """Exception to retrieve a Bad Status code from Taiga"""
 
@@ -33,3 +36,19 @@ class TaigaClientConnectionException(Exception):
     """Exception when we are unable to connect to Taiga"""
 
     pass
+
+
+class TaigaTokenFileNotFound(Exception):
+    def __init__(self, file_paths_checked: Iterable[str]):
+        super().__init__(
+            "No token file found. Checked the following locations: {}".format(
+                file_paths_checked
+            )
+        )
+
+
+class TaigaCacheFileCorrupted(Exception):
+    def __init__(self):
+        super().__init__(
+            "Local file is corrupted. Deleting file from cache and trying again."
+        )

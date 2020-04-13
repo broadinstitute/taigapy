@@ -1,6 +1,6 @@
 import re
 import time
-from typing import Dict, Mapping, Optional, Union
+from typing import Any, Dict, Mapping, Optional, Union
 
 import progressbar
 import requests
@@ -10,7 +10,16 @@ from taigapy.custom_exceptions import (
     Taiga404Exception,
     TaigaServerError,
 )
-from taigapy.types import DatasetVersion, DatasetMetadataDict,DatasetVersionMetadataDict,DataFileMetadata, TaskState, TaskStatus
+from taigapy.types import (
+    DatasetVersion,
+    DatasetMetadataDict,
+    DatasetVersionMetadataDict,
+    DataFileMetadata,
+    TaskState,
+    TaskStatus,
+    S3Credentials,
+    UploadDataFile,
+)
 from taigapy.utils import untangle_dataset_id_with_version
 
 CHUNK_SIZE = 1024 * 1024
@@ -125,16 +134,36 @@ class TaigaApi:
     def _poll_task(self, task_id: str) -> TaskStatus:
         api_endpoint = "/api/task_status/{}".format(task_id)
         r = self._request_get(api_endpoint)
-        task_status = TaskStatus(r.json())
+        task_status = TaskStatus(r)
         while (
             task_status.state != TaskState.SUCCESS
-            or task_status.state != TaskState.FAILURE
+            and task_status.state != TaskState.FAILURE
         ):
             r = self._request_get(api_endpoint)
-            task_status = TaskStatus(r.json())
+            task_status = TaskStatus(r)
             time.sleep(1)
 
         return task_status
+
+    def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
+        api_endpoint = "/api/datafile/{}".format(session_id)
+        task_id = self._request_post(
+            api_endpoint=api_endpoint, data=session_file.to_api_param(),
+        )
+
+        if task_id == "done":
+            return
+
+        task_status = self._poll_task(task_id)
+
+        if task_status.state == TaskState.SUCCESS:
+            return
+        else:
+            raise ValueError(
+                "Error uploading {}: {}".format(
+                    session_file.file_name, task_status.message
+                )
+            )
 
     def get_datafile_metadata(
         self,
@@ -237,3 +266,55 @@ class TaigaApi:
             )
         else:
             raise TaigaServerError()
+
+    def get_folder(self, folder_id: str):
+        api_endpoint = "/api/folder/{}".format(folder_id)
+        return self._request_get(api_endpoint)
+
+    def get_s3_credentials(self) -> S3Credentials:
+        api_endpoint = "/api/credentials_s3"
+        return S3Credentials(self._request_get(api_endpoint))
+
+    def create_upload_session(self) -> str:
+        api_endpoint = "/api/upload_session"
+        return self._request_get(api_endpoint, params=None)
+
+    def create_dataset(
+        self,
+        upload_session_id: str,
+        folder_id: str,
+        dataset_name: str,
+        dataset_description: str,
+    ) -> str:
+        api_endpoint = "/api/dataset"
+
+        new_dataset_params = {
+            "sessionId": upload_session_id,
+            "currentFolderId": folder_id,
+            "datasetName": dataset_name,
+            "datasetDescription": dataset_description,
+        }
+        return self._request_post(api_endpoint, data=new_dataset_params)
+
+    def update_dataset(
+        self,
+        dataset_id: str,
+        session_id: str,
+        description: str,
+        changes_description: Optional[str],
+    ) -> str:
+        params = {
+            "datasetId": dataset_id,
+            "sessionId": session_id,
+            "newDescription": description,
+        }
+        if changes_description is not None:
+            params["changesDescription"] = changes_description
+
+        api_endpoint = "/api/datasetVersion"
+
+        new_dataset_version_id = self._request_post(
+            api_endpoint=api_endpoint, data=params,
+        )
+
+        return new_dataset_version_id

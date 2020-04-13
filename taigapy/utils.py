@@ -1,12 +1,18 @@
+import asyncio
 import os
 import re
 from typing import Iterable, Optional, Tuple
 
+import aiobotocore
+
+from taigapy.custom_exceptions import TaigaTokenFileNotFound
 from taigapy.types import (
     DatasetVersion,
     DatasetMetadataDict,
     DatasetVersionMetadataDict,
     DataFileMetadata,
+    S3Credentials,
+    UploadS3DataFile,
 )
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"
@@ -21,9 +27,8 @@ def find_first_existing(paths: Iterable[str]):
         path = os.path.expanduser(path)
         if os.path.exists(path):
             return path
-    raise Exception(
-        "No token file found. Checked the following locations: {}".format(paths)
-    )
+
+    raise TaigaTokenFileNotFound(paths)
 
 
 def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional[str]]:
@@ -111,3 +116,24 @@ def get_latest_valid_version_from_metadata(
             latest_valid_version = version_num
 
     return str(latest_valid_version)
+
+
+async def upload_to_s3(
+    s3_credentials: S3Credentials, new_session_id: str, upload_file: UploadS3DataFile
+):
+    print("Uploading {} to S3".format(upload_file.file_name))
+    bucket = s3_credentials.bucket
+    partial_prefix = s3_credentials.prefix
+    key = "{}{}/{}".format(partial_prefix, new_session_id, upload_file.file_name)
+
+    session = aiobotocore.get_session()
+    async with session.create_client(
+        "s3",
+        aws_access_key_id=s3_credentials.access_key_id,
+        aws_secret_access_key=s3_credentials.secret_access_key,
+        aws_session_token=s3_credentials.session_token,
+    ) as s3_client:
+        with open(upload_file.file_path, "rb") as f:
+            await s3_client.put_object(Bucket=bucket, Key=key, Body=f.read())
+    upload_file.add_s3_upload_information(bucket, key)
+    print("Finished uploading {} to S3".format(upload_file.file_name))
