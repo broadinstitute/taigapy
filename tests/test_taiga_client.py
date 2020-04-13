@@ -181,32 +181,128 @@ class TestGetMetadata:
 
 @pytest.mark.local
 class TestCreateDataset:
-    def test_create_dataset(self, localTaigaClient: TaigaClient):
+    def test_create_dataset(self, monkeypatch, localTaigaClient: TaigaClient):
+        monkeypatch.setattr("builtins.input", lambda _: "y")
         dataset_id = localTaigaClient.create_dataset(
-            "foo",
-            folder_id="20e2168fb9f24fb98f6ac7148be79eec",
-            add_taiga_ids=[{"taiga_id": "origin-cb86.4/Datav1v2v3"}],
+            "taigapy test_create_dataset",
+            dataset_description="Hello world",
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
         )
 
+        assert dataset_id is not None
+        dataset_metadata: DatasetMetadataDict = localTaigaClient.get_dataset_metadata(
+            dataset_id
+        )
+        assert dataset_metadata["name"] == "taigapy test_create_dataset"
+        assert dataset_metadata["description"] == "Hello world"
+
     def test_input_validation(self, capsys, localTaigaClient: TaigaClient):
-        assert localTaigaClient.create_dataset("foo") is None
+        assert localTaigaClient.create_dataset("taigapy test_input_validation") is None
         out, _ = capsys.readouterr()
         assert out.startswith("upload_files and add_taiga_ids cannot both be empty.")
 
-    def test_invalid_file_fails(self):
-        pass
+    def test_invalid_file_fails(
+        self, capsys, monkeypatch, localTaigaClient: TaigaClient
+    ):
+        monkeypatch.setattr("builtins.input", lambda _: "y")
+        dataset_id = localTaigaClient.create_dataset(
+            "taigapy test_invalid_file_fails",
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/empty_file.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+        )
+        assert dataset_id is None
+        out, _ = capsys.readouterr()
+        assert "Error uploading empty_file: This file appears to be empty." in out
 
-    def test_nonexistent_folder_fails(self):
-        pass
+    def test_nonexistent_folder_fails(
+        self, capsys, monkeypatch, localTaigaClient: TaigaClient
+    ):
+        dataset_id = localTaigaClient.create_dataset(
+            "taigapy test_nonexistent_folder_fails",
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+            folder_id="nonexistent_folder",
+        )
+        assert dataset_id is None
+        out, _ = capsys.readouterr()
+        assert "No folder found with id nonexistent_folder." in out
 
-    def test_duplicate_file_names_fails(self):
-        pass
-
-    def test_(self):
-        pass
+    def test_duplicate_file_names_fails(
+        self, capsys, monkeypatch, localTaigaClient: TaigaClient
+    ):
+        monkeypatch.setattr("builtins.input", lambda _: "y")
+        dataset_id = localTaigaClient.create_dataset(
+            "taigapy test_duplicate_file_names_fails",
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                },
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                },
+            ],
+        )
+        assert dataset_id is None
+        out, _ = capsys.readouterr()
+        assert "Multiple files named matrix." in out
 
 
 @pytest.mark.local
 class TestUpdateDataset:
-    def test_update_dataset(self, taigaClient: TaigaClient):
-        pass
+    def test_update_dataset(self, monkeypatch, localTaigaClient: TaigaClient):
+        monkeypatch.setattr("builtins.input", lambda _: "y")
+        dataset_id = localTaigaClient.create_dataset(
+            "taigapy test_create_dataset",
+            dataset_description="Hello world",
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+        )
+
+        dataset_metadata: DatasetMetadataDict = localTaigaClient.get_dataset_metadata(
+            dataset_id
+        )
+
+        dataset_version_id = localTaigaClient.update_dataset(
+            dataset_id,
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+            changes_description="Nothing really",
+        )
+        assert dataset_version_id is not None
+        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
+            dataset_metadata["permanames"][0], 2
+        )
+        assert (
+            dataset_version_metadata["datasetVersion"]["changes_description"]
+            == "Nothing really"
+        )

@@ -20,7 +20,7 @@ from taigapy.types import (
     S3Credentials,
     UploadDataFile,
 )
-from taigapy.utils import untangle_dataset_id_with_version
+from taigapy.utils import untangle_dataset_id_with_version, format_datafile_id
 
 CHUNK_SIZE = 1024 * 1024
 
@@ -173,21 +173,18 @@ class TaigaApi:
         datafile_name: Optional[str],
     ) -> DataFileMetadata:
         api_endpoint = "/api/datafile"
-        try:
-            if dataset_permaname is None:
-                (
-                    dataset_permaname,
-                    dataset_version,
-                    datafile_name,
-                ) = untangle_dataset_id_with_version(id_or_permaname)
-            params = {
-                "dataset_permaname": dataset_permaname,
-                "version": dataset_version,
-                "datafile_name": datafile_name,
-                "format": "metadata",
-            }
-        except Exception:
-            raise NotImplementedError
+        if id_or_permaname is not None and "." in id_or_permaname:
+            (
+                dataset_permaname,
+                dataset_version,
+                datafile_name,
+            ) = untangle_dataset_id_with_version(id_or_permaname)
+        params = {
+            "dataset_permaname": dataset_permaname,
+            "version": dataset_version,
+            "datafile_name": datafile_name,
+            "format": "metadata",
+        }
 
         return DataFileMetadata(self._request_get(api_endpoint, params))
 
@@ -199,9 +196,6 @@ class TaigaApi:
             api_endpoint = "{}/{}".format(api_endpoint, dataset_version)
 
         return self._request_get(api_endpoint)
-
-    def upload_dataset(self):
-        raise NotImplementedError
 
     def get_column_types(
         self, dataset_permaname: str, dataset_version: str, datafile_name: str
@@ -223,13 +217,21 @@ class TaigaApi:
                 )
             )
         elif r.status_code == 404:
-            raise NotImplementedError
+            raise ValueError(
+                "No datafile found with for dataile id {}".format(
+                    format_datafile_id(
+                        dataset_permaname, dataset_version, datafile_name
+                    )
+                )
+            )
         elif r.status_code == 500:
             raise TaigaServerError()
-        else:
-            assert False
 
-        raise NotImplementedError
+        raise TaigaHttpException(
+            "Unrecognized status code for datafile/column_types: {}".format(
+                r.status_code
+            )
+        )
 
     def download_datafile(
         self,

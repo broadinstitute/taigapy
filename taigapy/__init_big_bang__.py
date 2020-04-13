@@ -254,7 +254,7 @@ class TaigaClient:
                 query, full_taiga_id, datafile_metadata, get_dataframe
             )
             return get_from_cache(query, full_taiga_id)
-        except (Taiga404Exception, TaigaServerError) as e:
+        except (Taiga404Exception, TaigaServerError, ValueError) as e:
             print(cf.red(str(e)))
             return None
 
@@ -281,7 +281,7 @@ class TaigaClient:
         ]
         if len(duplicate_file_names) > 0:
             raise ValueError(
-                "Multiple files named {}".format(", ".join(duplicate_file_names))
+                "Multiple files named {}.".format(", ".join(duplicate_file_names))
             )
 
         if previous_version_taiga_ids is not None:
@@ -345,25 +345,25 @@ class TaigaClient:
                     _,
                 ) = untangle_dataset_id_with_version(dataset_id)
             else:
-                dataset_permaname = dataset_id
+                dataset_metadata: DatasetMetadataDict = self.get_dataset_metadata(dataset_id)
+                dataset_permaname = dataset_metadata["permanames"][-1]
+        else:
+            dataset_metadata = self.get_dataset_metadata(dataset_permaname)
+
 
         if dataset_version is None:
-            dataset_metadata = self.api.get_dataset_version_metadata(
-                dataset_permaname, dataset_version
+            dataset_version = get_latest_valid_version_from_metadata(
+                dataset_metadata
             )
-
-            if dataset_version is None:
-                dataset_version = get_latest_valid_version_from_metadata(
-                    dataset_metadata
-                )
-                print(
-                    cf.orange(
-                        "No dataset version provided. Using version {}.".format(
-                            dataset_version
-                        )
+            print(
+                cf.orange(
+                    "No dataset version provided. Using version {}.".format(
+                        dataset_version
                     )
                 )
-        dataset_version_metadata: DatasetVersionMetadataDict = self.api.get_dataset_version_metadata(
+            )
+
+        dataset_version_metadata: DatasetVersionMetadataDict = self.get_dataset_metadata(
             dataset_permaname, dataset_version
         )
 
@@ -484,6 +484,8 @@ class TaigaClient:
             ) = self._validate_create_dataset_arguments(
                 dataset_name, upload_files, add_taiga_ids, folder_id
             )
+            if folder_id is None:
+                folder_id = "public"
         except ValueError as e:
             print(cf.red(str(e)))
             return None

@@ -185,6 +185,7 @@ class S3Credentials:
 UploadS3DataFileDict = TypedDict(
     "UploadS3DataFileDict",
     {"path": str, "name": Optional[str], "format": str, "encoding": Optional[str]},
+    total=False,
 )
 
 

@@ -359,14 +359,35 @@ class TaigaCache:
                 os.remove(p)
 
     def remove_all_from_cache(self, prefix: str):
-        raise NotImplementedError
+        if not prefix.endswith("/"):
+            raise ValueError("Prefix must end in /")
 
-        assert prefix.endswith("/")
         c = self.conn.cursor()
 
         c.execute(
             """
-            SELECT * FROM datafiles
+            SELECT alias FROM aliases
+            WHERE
+                full_taiga_id LIKE '?%'
+            """,
+            (prefix,),
+        )
+
+        aliases_to_delete = [r[0] for r in c.fetchall()]
+
+        c.execute(
+            """
+            DELETE FROM aliases
+            WHERE alias IN ({})
+            """.format(
+                ",".join("?" * len(aliases_to_delete))
+            ),
+            tuple(aliases_to_delete),
+        )
+
+        c.execute(
+            """
+            SELECT full_taiga_id, raw_path, feather_path, datafile_format FROM datafiles
             WHERE
                 full_taiga_id LIKE '?%' or
                 underlyfing_file_id LIKE '?%'
@@ -374,16 +395,22 @@ class TaigaCache:
             (prefix, prefix),
         )
 
-        datafiles_to_delete = c.fetchall()
-
+        datafiles_to_delete = [DataFile(*r) for r in c.fetchall()]
         c.execute(
             """
-            SELECT * FROM aliases
-            WHERE
-                full_taiga_id LIKE '?%'
-            """,
-            (prefix, prefix),
+            DELETE FROM datafiles
+            WHERE full_taiga_id IN ({})
+            """.format(
+                ",".join("?" * len(datafiles_to_delete))
+            ),
+            tuple([datafile.full_taiga_id for datafile in datafiles_to_delete]),
         )
 
-        aliases_to_delete = c.fetchall()
-        raise NotImplementedError
+        for datafile in datafiles_to_delete:
+            if datafile.raw_path is not None and os.path.exists(datafile.raw_path):
+                os.remove(datafile.raw_path)
+
+            if datafile.feather_path is not None and os.path.exists(
+                datafile.feather_path
+            ):
+                os.remove(datafile.feather_path)
