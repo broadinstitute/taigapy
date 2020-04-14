@@ -173,7 +173,7 @@ class TaigaClient:
                 dataset_permaname, dataset_version, datafile_name, tf.name
             )
 
-            if datafile_format == DataFileFormat.Raw:
+            if not get_dataframe:
                 self.cache.add_raw_entry(
                     tf.name,
                     query,
@@ -345,16 +345,15 @@ class TaigaClient:
                     _,
                 ) = untangle_dataset_id_with_version(dataset_id)
             else:
-                dataset_metadata: DatasetMetadataDict = self.get_dataset_metadata(dataset_id)
+                dataset_metadata: DatasetMetadataDict = self.get_dataset_metadata(
+                    dataset_id
+                )
                 dataset_permaname = dataset_metadata["permanames"][-1]
         else:
             dataset_metadata = self.get_dataset_metadata(dataset_permaname)
 
-
         if dataset_version is None:
-            dataset_version = get_latest_valid_version_from_metadata(
-                dataset_metadata
-            )
+            dataset_version = get_latest_valid_version_from_metadata(dataset_metadata)
             print(
                 cf.orange(
                     "No dataset version provided. Using version {}.".format(

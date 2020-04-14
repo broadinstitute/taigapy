@@ -3,6 +3,8 @@ import pdb
 import pytest
 from unittest.mock import patch
 
+import pandas as pd
+
 # TODO: Change once replaced
 from taigapy.__init_big_bang__ import TaigaClient
 import taigapy.taiga_api
@@ -143,6 +145,18 @@ class TestGet:
 
         df2 = populatedTaigaClient.get(DATAFILE_ID)
         df2.equals(df)
+
+
+class TestDownloadToCache:
+    def test_download_to_cache(self, taigaClient: TaigaClient):
+        path = taigaClient.download_to_cache(DATAFILE_ID)
+        assert path is not None
+        df = pd.read_csv(path, index_col=0)
+        assert df.loc["MDAMB453_BREAST", "breast"] == 1.0
+        assert df.loc["MDAMB453_BREAST", "rhabdoid"] == 0.0
+
+        datafile = taigaClient.cache._get_datafile_from_db(DATAFILE_ID, DATAFILE_ID)
+        assert datafile.feather_path is None
 
 
 class TestGetMetadata:
