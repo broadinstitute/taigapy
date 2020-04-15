@@ -193,6 +193,41 @@ class TestGetMetadata:
         assert dataset_version_metadata["dataset"] == dataset_metadata
 
 
+class TestGetCanonicalID:
+    def test_get_canonical_id_full_taiga_id(self, taigaClient: TaigaClient):
+        canonical_id = taigaClient.get_canonical_id(DATAFILE_ID)
+        assert canonical_id == DATAFILE_ID
+
+    def test_get_canonical_id_short_taiga_id(self, taigaClient: TaigaClient):
+        canonical_id = taigaClient.get_canonical_id(
+            format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, None)
+        )
+        assert canonical_id == DATAFILE_ID
+
+    def test_get_canonical_id_virtual_taiga_id(self, taigaClient: TaigaClient):
+        canonical_id = taigaClient.get_canonical_id(
+            "beat-aml-5d92.17/cPCA_cell_loadings"
+        )
+        assert canonical_id == "beat-aml-5d92.14/cPCA_cell_loadings"
+
+    def test_get_canonical_id_populates_whole_dataset_version(
+        self, taigaClient: TaigaClient
+    ):
+        canonical_id = taigaClient.get_canonical_id(
+            "beat-aml-5d92.17/cPCA_cell_loadings"
+        )
+        assert canonical_id == "beat-aml-5d92.14/cPCA_cell_loadings"
+
+        with patch(
+            "taigapy.taiga_api.TaigaApi.get_datafile_metadata"
+        ) as mock_get_datafile_metadata:
+            canonical_id = taigaClient.get_canonical_id(
+                "beat-aml-5d92.17/cPCA_gene_components"
+            )
+            assert canonical_id == "beat-aml-5d92.14/cPCA_gene_components"
+            assert not mock_get_datafile_metadata.called
+
+
 @pytest.mark.local
 class TestCreateDataset:
     def test_create_dataset(self, monkeypatch, localTaigaClient: TaigaClient):

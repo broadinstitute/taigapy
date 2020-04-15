@@ -145,6 +145,13 @@ class TaigaApi:
 
         return task_status
 
+    def is_connected(self):
+        try:
+            requests.get(self.url)
+            return True
+        except requests.ConnectionError:
+            return False
+
     def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
         api_endpoint = "/api/datafile/{}".format(session_id)
         task_id = self._request_post(

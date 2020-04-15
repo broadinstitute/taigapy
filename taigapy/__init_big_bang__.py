@@ -583,5 +583,63 @@ class TaigaClient:
 
         return new_dataset_version_id
 
+    def get_canonical_id(self, queried_taiga_id: str) -> Optional[str]:
+        try:
+            self._set_token_and_initialized_api()
+        except TaigaTokenFileNotFound as e:
+            print(cf.red(str(e)))
+            return None
+
+        full_taiga_id = self.cache.get_full_taiga_id(queried_taiga_id)
+        if full_taiga_id is not None:
+            return full_taiga_id
+
+        try:
+            if "." in queried_taiga_id:
+                (
+                    dataset_permaname,
+                    dataset_version,
+                    datafile_name,
+                ) = untangle_dataset_id_with_version(queried_taiga_id)
+                datafile_metadata = self.api.get_datafile_metadata(
+                    None, dataset_permaname, dataset_version, datafile_name
+                )
+            else:
+                datafile_metadata = self.api.get_datafile_metadata(
+                    queried_taiga_id, None, None, None
+                )
+        except Taiga404Exception as e:
+            print(cf.red(str(e)))
+            return None
+
+        dataset_version_metadata: DatasetVersionMetadataDict = self.get_dataset_metadata(
+            format_datafile_id_from_datafile_metadata(datafile_metadata)
+        )
+
+        # Add canonical IDs for all other files in dataset, while we're at it
+        for f in dataset_version_metadata["datasetVersion"]["datafiles"]:
+            datafile_id = format_datafile_id(
+                datafile_metadata.dataset_permaname,
+                datafile_metadata.dataset_version,
+                f["name"],
+            )
+
+            real_datafile_id = (
+                datafile_id
+                if "underlying_file_id" not in f
+                else f["underlying_file_id"]
+            )
+
+            self.cache.add_full_id(
+                datafile_id, real_datafile_id, DataFileFormat(f["type"])
+            )
+
+            if f["name"] == datafile_metadata.dataset_name:
+                self.cache.add_full_id(
+                    queried_taiga_id, datafile_id, datafile_metadata.datafile_format
+                )
+
+        return self.cache.get_full_taiga_id(queried_taiga_id)
+
 
 default_tc = TaigaClient()

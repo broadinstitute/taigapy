@@ -159,10 +159,10 @@ class TaigaCache:
     def get_entry(
         self, queried_taiga_id: str, full_taiga_id: str
     ) -> Optional[pd.DataFrame]:
-        self._add_alias(queried_taiga_id, full_taiga_id)
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
         if datafile is None:
             return None
+        self._add_alias(queried_taiga_id, full_taiga_id)
 
         if datafile.feather_path is None:
             return None
@@ -197,7 +197,6 @@ class TaigaCache:
             (TaigaClient flow should have already added the real file?)
             - 
         """
-        self._add_alias(queried_taiga_id, full_taiga_id)
 
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
 
@@ -285,6 +284,7 @@ class TaigaCache:
                     (feather_path, full_taiga_id),
                 )
 
+        self._add_alias(queried_taiga_id, full_taiga_id)
         c.close()
         self.conn.commit()
 
@@ -296,7 +296,6 @@ class TaigaCache:
         datafile_format: DataFileFormat,
     ):
         "Copies the file at `raw_path` into the cache directory, and stores an entry in the cache."
-        self._add_alias(queried_taiga_id, full_taiga_id)
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
 
         cache_file_extension = "txt" if datafile_format == DataFileFormat.Raw else "csv"
@@ -323,6 +322,7 @@ class TaigaCache:
                 """,
                 (cache_file_path, full_taiga_id),
             )
+        self._add_alias(queried_taiga_id, full_taiga_id)
         c.close()
         self.conn.commit()
 
@@ -338,6 +338,31 @@ class TaigaCache:
             return None
 
         return raw_path
+
+    def add_full_id(
+        self, queried_taiga_id: str, full_taiga_id: str, datafile_format: DataFileFormat
+    ):
+        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
+        if datafile is None:
+            c = self.conn.cursor()
+            c.execute(
+                """
+                INSERT INTO datafiles (full_taiga_id, datafile_format)
+                VALUES (?, ?)
+                """,
+                (full_taiga_id, datafile_format.value),
+            )
+            c.close()
+            self.conn.commit()
+
+        self._add_alias(queried_taiga_id, full_taiga_id)
+
+    def get_full_taiga_id(self, queried_taiga_id: str) -> Optional[str]:
+        datafile = self._get_datafile_from_db(queried_taiga_id, queried_taiga_id)
+        if datafile is None:
+            return None
+
+        return datafile.full_taiga_id
 
     def remove_from_cache(self, queried_taiga_id: str, full_taiga_id: str):
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
