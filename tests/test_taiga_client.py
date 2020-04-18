@@ -255,8 +255,7 @@ class TestGetCanonicalID:
 
 @pytest.mark.local
 class TestCreateDataset:
-    def test_create_dataset(self, monkeypatch, localTaigaClient: TaigaClient):
-        monkeypatch.setattr("builtins.input", lambda _: "y")
+    def test_create_dataset(self, localTaigaClient: TaigaClient):
         dataset_id = localTaigaClient.create_dataset(
             "taigapy test_create_dataset",
             dataset_description="Hello world",
@@ -281,10 +280,7 @@ class TestCreateDataset:
         out, _ = capsys.readouterr()
         assert out.startswith("upload_files and add_taiga_ids cannot both be empty.")
 
-    def test_invalid_file_fails(
-        self, capsys, monkeypatch, localTaigaClient: TaigaClient
-    ):
-        monkeypatch.setattr("builtins.input", lambda _: "y")
+    def test_invalid_file_fails(self, capsys, localTaigaClient: TaigaClient):
         dataset_id = localTaigaClient.create_dataset(
             "taigapy test_invalid_file_fails",
             upload_files=[
@@ -299,9 +295,7 @@ class TestCreateDataset:
         out, _ = capsys.readouterr()
         assert "Error uploading empty_file: This file appears to be empty." in out
 
-    def test_nonexistent_folder_fails(
-        self, capsys, monkeypatch, localTaigaClient: TaigaClient
-    ):
+    def test_nonexistent_folder_fails(self, capsys, localTaigaClient: TaigaClient):
         dataset_id = localTaigaClient.create_dataset(
             "taigapy test_nonexistent_folder_fails",
             upload_files=[
@@ -317,10 +311,7 @@ class TestCreateDataset:
         out, _ = capsys.readouterr()
         assert "No folder found with id nonexistent_folder." in out
 
-    def test_duplicate_file_names_fails(
-        self, capsys, monkeypatch, localTaigaClient: TaigaClient
-    ):
-        monkeypatch.setattr("builtins.input", lambda _: "y")
+    def test_duplicate_file_names_fails(self, capsys, localTaigaClient: TaigaClient):
         dataset_id = localTaigaClient.create_dataset(
             "taigapy test_duplicate_file_names_fails",
             upload_files=[
@@ -342,8 +333,7 @@ class TestCreateDataset:
 
 
 @pytest.fixture
-def new_dataset(monkeypatch, localTaigaClient: TaigaClient):
-    monkeypatch.setattr("builtins.input", lambda _: "y")
+def new_dataset(localTaigaClient: TaigaClient):
     dataset_id = localTaigaClient.create_dataset(
         "taigapy test_create_dataset",
         dataset_description="Hello world",

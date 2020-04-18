@@ -362,7 +362,9 @@ class TaigaClient:
 
         if folder_id is None:
             folder_id = "public"
-            prompt = "Warning: Your dataset will be created in Public. Are you sure? y/n (otherwise use folder_id parameter) "
+            prompt = (
+                "Warning: Your dataset will be created in Public. Are you sure? y/n"
+            )
             user_continue = input(prompt)
 
             if user_continue != "y":
@@ -516,7 +518,7 @@ class TaigaClient:
 
     def create_dataset(
         self,
-        dataset_name: str = None,
+        dataset_name: str,
         dataset_description: str = None,
         upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
@@ -541,7 +543,7 @@ class TaigaClient:
                 dataset_name, upload_files, add_taiga_ids, folder_id
             )
             if folder_id is None:
-                folder_id = "public"
+                folder_id = self.api.get_user["home_folder_id"]
         except ValueError as e:
             print(cf.red(str(e)))
             return None
