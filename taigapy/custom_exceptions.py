@@ -50,5 +50,5 @@ class TaigaTokenFileNotFound(Exception):
 class TaigaCacheFileCorrupted(Exception):
     def __init__(self):
         super().__init__(
-            "Local file is corrupted. Deleting file from cache and trying again."
+            "Local file is corrupted. Deleting file from cache."
         )

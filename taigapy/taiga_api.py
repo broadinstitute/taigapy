@@ -145,7 +145,7 @@ class TaigaApi:
 
         return task_status
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         try:
             requests.get(self.url)
             return True

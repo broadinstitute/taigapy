@@ -6,7 +6,7 @@ import pandas as pd
 from collections import namedtuple
 from typing import Mapping, Optional, Tuple
 
-from taigapy.custom_exceptions import TaigaCacheFileCorrupted
+from taigapy.custom_exceptions import TaigaCacheFileCorrupted, TaigaRawTypeException
 from taigapy.types import DataFileType, DataFileFormat
 
 # Also needs to handle case where a virtual dataset contains only one file... ? Should that be an alias?
@@ -133,6 +133,9 @@ class TaigaCache:
         return DataFile(*r)
 
     def _add_alias(self, queried_taiga_id: str, full_taiga_id: str):
+        if queried_taiga_id == full_taiga_id:
+            return
+
         c = self.conn.cursor()
         c.execute(
             """
@@ -162,6 +165,10 @@ class TaigaCache:
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
         if datafile is None:
             return None
+
+        if datafile.datafile_format == DataFileFormat.Raw:
+            raise TaigaRawTypeException()
+
         self._add_alias(queried_taiga_id, full_taiga_id)
 
         if datafile.feather_path is None:
@@ -174,6 +181,26 @@ class TaigaCache:
         except Exception as e:
             self.remove_from_cache(queried_taiga_id, full_taiga_id)
             raise TaigaCacheFileCorrupted()
+
+    def get_raw_path(self, queried_taiga_id: str, full_taiga_id: str) -> Optional[str]:
+        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
+        if datafile is None:
+            return None
+
+        raw_path = datafile.raw_path
+        if not os.path.exists(raw_path):
+            if datafile.feather_path is None:
+                self.remove_from_cache(queried_taiga_id, full_taiga_id)
+            return None
+
+        return raw_path
+
+    def get_full_taiga_id(self, queried_taiga_id: str) -> Optional[str]:
+        datafile = self._get_datafile_from_db(queried_taiga_id, queried_taiga_id)
+        if datafile is None:
+            return None
+
+        return datafile.full_taiga_id
 
     def add_entry(
         self,
@@ -326,19 +353,6 @@ class TaigaCache:
         c.close()
         self.conn.commit()
 
-    def get_raw_path(self, queried_taiga_id: str, full_taiga_id: str) -> Optional[str]:
-        datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
-        if datafile is None:
-            return None
-
-        raw_path = datafile.raw_path
-        if not os.path.exists(raw_path):
-            if datafile.feather_path is None:
-                self.remove_from_cache(queried_taiga_id, full_taiga_id)
-            return None
-
-        return raw_path
-
     def add_full_id(
         self, queried_taiga_id: str, full_taiga_id: str, datafile_format: DataFileFormat
     ):
@@ -356,13 +370,6 @@ class TaigaCache:
             self.conn.commit()
 
         self._add_alias(queried_taiga_id, full_taiga_id)
-
-    def get_full_taiga_id(self, queried_taiga_id: str) -> Optional[str]:
-        datafile = self._get_datafile_from_db(queried_taiga_id, queried_taiga_id)
-        if datafile is None:
-            return None
-
-        return datafile.full_taiga_id
 
     def remove_from_cache(self, queried_taiga_id: str, full_taiga_id: str):
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)

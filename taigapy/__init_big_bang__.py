@@ -37,6 +37,7 @@ from taigapy.custom_exceptions import (
     TaigaServerError,
     TaigaTokenFileNotFound,
     TaigaCacheFileCorrupted,
+    TaigaRawTypeException,
 )
 
 __version__ = "TODO"
@@ -211,6 +212,11 @@ class TaigaClient:
             print(cf.red(str(e)))
             return None
 
+        if not self.api.is_connected():
+            return self._get_dataframe_or_path_offline(
+                id, name, version, file, get_dataframe
+            )
+
         # Validate inputs
         try:
             datafile_metadata = self._validate_file_for_download(
@@ -257,6 +263,46 @@ class TaigaClient:
         except (Taiga404Exception, TaigaServerError, ValueError) as e:
             print(cf.red(str(e)))
             return None
+
+    def _get_dataframe_or_path_offline(
+        self,
+        id: Optional[str],
+        name: Optional[str],
+        version: Optional[DatasetVersion],
+        file: Optional[str],
+        get_dataframe: bool,
+    ):
+        print(
+            cf.orange(
+                "You are in offline mode, please be aware that you might be out of sync with the state of the dataset version (deprecation)."
+            )
+        )
+        if id is not None:
+            query = id
+        else:
+            query = format_datafile_id(name, version, file)
+
+        get_from_cache = (
+            self.cache.get_entry if get_dataframe else self.cache.get_raw_path
+        )
+
+        try:
+            df_or_path = get_from_cache(query, query)
+            if df_or_path is not None:
+                return df_or_path
+        except TaigaRawTypeException as e:
+            print(
+                cf.red(
+                    "The file is a Raw one, please use instead `download_to_cache` with the same parameters"
+                )
+            )
+            return None
+        except TaigaCacheFileCorrupted as e:
+            print(cf.red(str(e)))
+            return None
+
+        print(cf.red("The datafile you requested was not in the cache."))
+        return None
 
     def _validate_upload_files(
         self,

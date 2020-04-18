@@ -146,6 +146,22 @@ class TestGet:
         df2 = populatedTaigaClient.get(DATAFILE_ID)
         df2.equals(df)
 
+    def test_get_offline(self, capsys, populatedTaigaClient: TaigaClient):
+        with patch.object(
+            taigapy.taiga_api.TaigaApi, "is_connected", new=lambda cls: False
+        ):
+            assert populatedTaigaClient.get(DATAFILE_ID) is not None
+            df = populatedTaigaClient.get(
+                format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, None)
+            )
+            assert df is None
+        out, _ = capsys.readouterr()
+        assert (
+            "You are in offline mode, please be aware that you might be out of sync with the state of the dataset version (deprecation)"
+            in out
+        )
+        assert "The datafile you requested was not in the cache" in out
+
 
 class TestDownloadToCache:
     def test_download_to_cache(self, taigaClient: TaigaClient):
