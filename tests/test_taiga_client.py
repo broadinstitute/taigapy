@@ -1,6 +1,7 @@
 import os
 import pdb
 import pytest
+from typing import Dict
 from unittest.mock import patch
 
 import pandas as pd
@@ -90,37 +91,37 @@ class TestGet:
             assert not mock_download_datafile.called
             assert df2.equals(df)
 
-    def test_get_input_formats(self, populatedTaigaClient: TaigaClient):
+    @pytest.mark.parametrize(
+        "get_inputs",
+        [
+            (
+                dict(id=format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, None))
+            ),  # Datafile ID without file name
+            (
+                dict(
+                    name=DATASET_PERMANAME, version=DATASET_VERSION, file=DATAFILE_NAME
+                )
+            ),  # Dataset name, version, datafile id entered separately
+            (
+                dict(name=DATASET_PERMANAME, version=DATASET_VERSION)
+            ),  # Dataset name, version entered separately, no datafile name
+            (
+                dict(name=DATASET_PERMANAME, file=DATAFILE_NAME)
+            ),  # Dataset name, datafile name entered separately, no dataset version
+        ],
+    )
+    def test_get_input_formats(
+        self, populatedTaigaClient: TaigaClient, get_inputs: Dict[str, str]
+    ):
         with patch(
             "taigapy.taiga_api.TaigaApi.download_datafile"
         ) as mock_download_datafile:
             df = populatedTaigaClient.get(DATAFILE_ID)
 
             # Datafile ID without file name
-            df2 = populatedTaigaClient.get(
-                format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, None)
-            )
+            df2 = populatedTaigaClient.get(**get_inputs)
             assert not mock_download_datafile.called
             assert df2.equals(df)
-
-            # Dataset name, version, datafile id entered separately
-            df3 = populatedTaigaClient.get(
-                name=DATASET_PERMANAME, version=DATASET_VERSION, file=DATAFILE_NAME
-            )
-            assert not mock_download_datafile.called
-            assert df3.equals(df)
-
-            # Dataset name, version entered separately, no datafile name
-            df4 = populatedTaigaClient.get(
-                name=DATASET_PERMANAME, version=DATASET_VERSION
-            )
-            assert not mock_download_datafile.called
-            assert df4.equals(df)
-
-            # Dataset name, datafile name entered separately, no dataset version
-            df5 = populatedTaigaClient.get(name=DATASET_PERMANAME, file=DATAFILE_NAME)
-            assert not mock_download_datafile.called
-            assert df5.equals(df)
 
     def test_get_virtual(self, taigaClient: TaigaClient):
         df = taigaClient.get("beat-aml-5d92.14/cPCA_cell_loadings")
@@ -130,7 +131,7 @@ class TestGet:
             df2 = taigaClient.get("beat-aml-5d92.17/cPCA_cell_loadings")
             assert not mock_download_datafile.called
             assert df2.equals(df)
-    
+
     def test_get_raw(self, capsys, taigaClient: TaigaClient):
         assert taigaClient.get("test2-cdfa.17/foo") is None
         out, _ = capsys.readouterr()
