@@ -1,0 +1,11 @@
+aiobotocore==1.0.2
+boto3==1.12.38
+colorful==0.5.4
+pandas==0.25.3
+pre-commit==2.2.0
+progressbar2==3.50.1
+pyarrow==0.16.0
+pytest==5.4.1
+requests==2.23.0
+twine==3.1.1
+typing-extensions==3.7.4.2
