@@ -173,8 +173,11 @@ def test_remove_from_cache(populated_cache: TaigaCache):
         populated_cache.get_entry(COLUMNAR_FULL_TAIGA_ID, COLUMNAR_FULL_TAIGA_ID)
         is None
     )
-    assert populated_cache.get_entry(COLUMNAR_TAIGA_ID_ALIAS, COLUMNAR_FULL_TAIGA_ID) is None
-    
+    assert (
+        populated_cache.get_entry(COLUMNAR_TAIGA_ID_ALIAS, COLUMNAR_FULL_TAIGA_ID)
+        is None
+    )
+
     assert (
         populated_cache.get_entry(COLUMNAR_VIRTUAL_TAIGA_ID, COLUMNAR_FULL_TAIGA_ID)
         is None

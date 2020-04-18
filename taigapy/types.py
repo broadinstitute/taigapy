@@ -57,7 +57,7 @@ DatasetVersionFiles = TypedDict(
         "id": str,
         "name": str,
         "short_summary": str,
-        "type": str, # DataFileFormat
+        "type": str,  # DataFileFormat
         "underlying_file_id": Optional[str],
     },
 )

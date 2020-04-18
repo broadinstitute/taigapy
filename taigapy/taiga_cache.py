@@ -14,7 +14,7 @@ from taigapy.types import DataFileType, DataFileFormat
 # TODO: Redo this... Remove underlying_data_file and just lump that in with alias. I don't think cache needs
 #       to know whether something is an alias or underlying file, as long as it returns the right df
 DataFile = namedtuple(
-    "DataFile", ["full_taiga_id", "raw_path", "feather_path", "datafile_format",],
+    "DataFile", ["full_taiga_id", "raw_path", "feather_path", "datafile_format"]
 )
 
 GET_QUERY = """
@@ -105,13 +105,11 @@ class TaigaCache:
         # Save (commit) the changes
         self.conn.commit()
 
-    def _get_path_and_make_directories(
-        self, full_taiga_id: str, extension: str,
-    ) -> str:
+    def _get_path_and_make_directories(self, full_taiga_id: str, extension: str) -> str:
         assert not extension.startswith(".")
         rel_file_path_without_extension = full_taiga_id.replace(".", "/")
         file_path = os.path.join(
-            self.cache_dir, "{}.{}".format(rel_file_path_without_extension, extension),
+            self.cache_dir, "{}.{}".format(rel_file_path_without_extension, extension)
         )
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         return file_path
@@ -120,9 +118,7 @@ class TaigaCache:
         self, queried_taiga_id: str, full_taiga_id: str
     ) -> DataFile:
         c = self.conn.cursor()
-        c.execute(
-            GET_QUERY, (queried_taiga_id, full_taiga_id),
-        )
+        c.execute(GET_QUERY, (queried_taiga_id, full_taiga_id))
 
         r = c.fetchone()
         c.close()
@@ -243,7 +239,7 @@ class TaigaCache:
                 )
             else:
                 raw_cache_path = self._get_path_and_make_directories(
-                    full_taiga_id, "csv",
+                    full_taiga_id, "csv"
                 )
                 feather_path = self._get_path_and_make_directories(
                     full_taiga_id, "feather"

@@ -85,7 +85,7 @@ class TaigaApi:
             return r
 
     def _request_post(
-        self, api_endpoint: str, data: Mapping, standard_reponse_handling: bool = True,
+        self, api_endpoint: str, data: Mapping, standard_reponse_handling: bool = True
     ):
         assert data is not None
 
@@ -159,7 +159,7 @@ class TaigaApi:
     def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
         api_endpoint = "/api/datafile/{}".format(session_id)
         task_id = self._request_post(
-            api_endpoint=api_endpoint, data=session_file.to_api_param(),
+            api_endpoint=api_endpoint, data=session_file.to_api_param()
         )
 
         if task_id == "done":
@@ -335,7 +335,7 @@ class TaigaApi:
         api_endpoint = "/api/datasetVersion"
 
         new_dataset_version_id = self._request_post(
-            api_endpoint=api_endpoint, data=params,
+            api_endpoint=api_endpoint, data=params
         )
 
         return new_dataset_version_id

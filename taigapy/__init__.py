@@ -186,7 +186,7 @@ class TaigaClient:
             column_types = None
             if datafile_format == DataFileFormat.Columnar:
                 column_types = self.api.get_column_types(
-                    dataset_permaname, dataset_version, datafile_name,
+                    dataset_permaname, dataset_version, datafile_name
                 )
 
             self.cache.add_entry(
@@ -314,12 +314,16 @@ class TaigaClient:
     ) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
         upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
         upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
-        previous_version_datafiles = [
-            UploadVirtualDataFile(f) for f in previous_version_taiga_ids
-        ] if previous_version_taiga_ids is not None else None
+        previous_version_datafiles = (
+            [UploadVirtualDataFile(f) for f in previous_version_taiga_ids]
+            if previous_version_taiga_ids is not None
+            else None
+        )
 
         # https://github.com/python/typeshed/issues/2383
-        all_upload_datafiles: Collection[UploadDataFile] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
+        all_upload_datafiles: Collection[
+            UploadDataFile
+        ] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
 
         datafile_names: DefaultDict[str, int] = defaultdict(int)
         for upload_datafile in all_upload_datafiles:
@@ -381,7 +385,7 @@ class TaigaClient:
         add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]],
         add_all_existing_files: bool,
     ) -> Tuple[
-        List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict,
+        List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
     ]:
         if dataset_id is None and dataset_permaname is None:
             # TODO standardize exceptions
@@ -488,7 +492,7 @@ class TaigaClient:
         return self._get_dataframe_or_path(id, name, version, file, get_dataframe=False)
 
     def get_dataset_metadata(
-        self, dataset_id: str, version: Optional[DatasetVersion] = None,
+        self, dataset_id: str, version: Optional[DatasetVersion] = None
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
         """Get metadata about a dataset"""
         try:
@@ -560,7 +564,7 @@ class TaigaClient:
         print(
             cf.green(
                 "Dataset created. Access it directly with this url: {}\n".format(
-                    self.url + "/dataset/" + dataset_id,
+                    self.url + "/dataset/" + dataset_id
                 )
             )
         )
@@ -630,7 +634,7 @@ class TaigaClient:
         print(
             cf.green(
                 "Dataset version created. Access it directly with this url: {}".format(
-                    self.url + "/dataset_version/" + new_dataset_version_id,
+                    self.url + "/dataset_version/" + new_dataset_version_id
                 )
             )
         )

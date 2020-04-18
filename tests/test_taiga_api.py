@@ -34,7 +34,7 @@ def taigaApi():
     ],
 )
 def test_get_datafile_metadata(
-    taigaApi: TaigaApi, id_or_permaname, dataset_name, dataset_version, datafile_name,
+    taigaApi: TaigaApi, id_or_permaname, dataset_name, dataset_version, datafile_name
 ):
     assert (
         taigaApi.get_datafile_metadata(

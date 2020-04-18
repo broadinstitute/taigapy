@@ -150,7 +150,7 @@ class TestGet:
         feather_path = c.fetchone()[0]
         feather_content = open(feather_path, "rb").read()
         with open(feather_path, "wb+") as f:
-            f.write(feather_content[: int(len(feather_content,) / 2)])
+            f.write(feather_content[: int(len(feather_content) / 2)])
 
         df2 = populatedTaigaClient.get(DATAFILE_ID)
         df2.equals(df)
@@ -214,7 +214,7 @@ class TestGetMetadata:
             DATASET_PERMANAME, DATASET_VERSION
         )
         keys = dataset_version_metadata.keys()
-        assert all(k in keys for k in ["dataset", "datasetVersion",])
+        assert all(k in keys for k in ["dataset", "datasetVersion"])
         assert dataset_version_metadata["dataset"] == dataset_metadata
 
 
