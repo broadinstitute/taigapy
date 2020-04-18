@@ -130,6 +130,14 @@ class TestGet:
             df2 = taigaClient.get("beat-aml-5d92.17/cPCA_cell_loadings")
             assert not mock_download_datafile.called
             assert df2.equals(df)
+    
+    def test_get_raw(self, capsys, taigaClient: TaigaClient):
+        assert taigaClient.get("test2-cdfa.17/foo") is None
+        out, _ = capsys.readouterr()
+        assert (
+            "The file is a Raw one, please use instead `download_to_cache` with the same parameters"
+            in out
+        )
 
     def test_corrupted_feather(self, populatedTaigaClient: TaigaClient):
         df = populatedTaigaClient.get(DATAFILE_ID)
