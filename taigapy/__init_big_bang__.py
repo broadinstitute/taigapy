@@ -314,6 +314,9 @@ class TaigaClient:
     ) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
         upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
         upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
+        previous_version_datafiles = [
+            UploadVirtualDataFile(f) for f in previous_version_taiga_ids
+        ] if previous_version_taiga_ids is not None else None
 
         # https://github.com/python/typeshed/issues/2383
         all_upload_datafiles: Collection[UploadDataFile] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
@@ -331,9 +334,9 @@ class TaigaClient:
             )
 
         if previous_version_taiga_ids is not None:
-            for upload_datafile in previous_version_taiga_ids:  # type: ignore
-                if upload_datafile.file_name not in duplicate_file_names:
-                    upload_virtual_datafiles.append(upload_datafile)  # type: ignore
+            for upload_datafile in previous_version_datafiles:
+                if upload_datafile.file_name not in datafile_names:
+                    upload_virtual_datafiles.append(upload_datafile)
 
         return upload_s3_datafiles, upload_virtual_datafiles
 
@@ -373,6 +376,7 @@ class TaigaClient:
         dataset_id: Optional[str],
         dataset_permaname: Optional[str],
         dataset_version: Optional[DatasetVersion],
+        changes_description: Optional[str],
         upload_files: Optional[Collection[UploadS3DataFileDict]],
         add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]],
         add_all_existing_files: bool,
@@ -381,7 +385,10 @@ class TaigaClient:
     ]:
         if dataset_id is None and dataset_permaname is None:
             # TODO standardize exceptions
-            raise ValueError("Dataset id or name must be specified")
+            raise ValueError("Dataset id or name must be specified.")
+
+        if changes_description is None or changes_description == "":
+            raise ValueError("Description of changes cannot be empty.")
 
         if dataset_id is not None:
             if "." in dataset_id:
@@ -590,6 +597,7 @@ class TaigaClient:
                 dataset_id,
                 dataset_permaname,
                 dataset_version,
+                changes_description,
                 upload_files,
                 add_taiga_ids,
                 add_all_existing_files,

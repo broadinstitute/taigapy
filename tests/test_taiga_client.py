@@ -341,28 +341,32 @@ class TestCreateDataset:
         assert "Multiple files named matrix." in out
 
 
+@pytest.fixture
+def new_dataset(monkeypatch, localTaigaClient: TaigaClient):
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    dataset_id = localTaigaClient.create_dataset(
+        "taigapy test_create_dataset",
+        dataset_description="Hello world",
+        upload_files=[
+            {
+                "path": "./tests/upload_files/matrix.csv",
+                "format": "NumericMatrixCSV",
+                "encoding": "utf-8",
+            }
+        ],
+    )
+    return dataset_id
+
+
 @pytest.mark.local
 class TestUpdateDataset:
-    def test_update_dataset(self, monkeypatch, localTaigaClient: TaigaClient):
-        monkeypatch.setattr("builtins.input", lambda _: "y")
-        dataset_id = localTaigaClient.create_dataset(
-            "taigapy test_create_dataset",
-            dataset_description="Hello world",
-            upload_files=[
-                {
-                    "path": "./tests/upload_files/matrix.csv",
-                    "format": "NumericMatrixCSV",
-                    "encoding": "utf-8",
-                }
-            ],
-        )
-
+    def test_update_dataset(self, localTaigaClient: TaigaClient, new_dataset: str):
         dataset_metadata: DatasetMetadataDict = localTaigaClient.get_dataset_metadata(
-            dataset_id
+            new_dataset
         )
 
         dataset_version_id = localTaigaClient.update_dataset(
-            dataset_id,
+            new_dataset,
             upload_files=[
                 {
                     "path": "./tests/upload_files/matrix.csv",
@@ -380,3 +384,81 @@ class TestUpdateDataset:
             dataset_version_metadata["datasetVersion"]["changes_description"]
             == "Nothing really"
         )
+
+    def test_update_dataset_dataset_permaname(
+        self, localTaigaClient: TaigaClient, new_dataset: str
+    ):
+        dataset_metadata: DatasetMetadataDict = localTaigaClient.get_dataset_metadata(
+            new_dataset
+        )
+
+        dataset_version_id = localTaigaClient.update_dataset(
+            dataset_permaname=dataset_metadata["permanames"][0],
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+            changes_description="Nothing really",
+        )
+        assert dataset_version_id is not None
+        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
+            dataset_metadata["permanames"][0], 2
+        )
+        assert (
+            dataset_version_metadata["datasetVersion"]["changes_description"]
+            == "Nothing really"
+        )
+
+    def test_add_all_existing(self, localTaigaClient: TaigaClient, new_dataset: str):
+        dataset_metadata: DatasetMetadataDict = localTaigaClient.get_dataset_metadata(
+            new_dataset
+        )
+
+        dataset_version_id = localTaigaClient.update_dataset(
+            new_dataset,
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "name": "a new file name",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+            changes_description="Another (of the same) file",
+            add_all_existing_files=True,
+        )
+
+        assert dataset_version_id is not None
+        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
+            dataset_metadata["permanames"][0], 2
+        )
+        assert len(dataset_version_metadata["datasetVersion"]["datafiles"]) == 2
+
+    def test_add_all_existing_same_file_name(
+        self, localTaigaClient: TaigaClient, new_dataset: str
+    ):
+        dataset_metadata: DatasetMetadataDict = localTaigaClient.get_dataset_metadata(
+            new_dataset
+        )
+
+        dataset_version_id = localTaigaClient.update_dataset(
+            new_dataset,
+            upload_files=[
+                {
+                    "path": "./tests/upload_files/matrix.csv",
+                    "format": "NumericMatrixCSV",
+                    "encoding": "utf-8",
+                }
+            ],
+            changes_description="Another (of the same) file",
+            add_all_existing_files=True,
+        )
+
+        assert dataset_version_id is not None
+        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
+            dataset_metadata["permanames"][0], 2
+        )
+        assert len(dataset_version_metadata["datasetVersion"]["datafiles"]) == 1
