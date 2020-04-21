@@ -30,6 +30,8 @@ def fetch(args):
     if args.data_file_id is None and args.name is None:
         raise Exception("data_file_id or name must be set")
 
+    tc = _get_taiga_client(args)
+
     if args.format == "feather":
         _fetch = tc.get
         datafile_index = 2  # feather_path
@@ -44,10 +46,9 @@ def fetch(args):
         name=args.name,
         version=args.version,
         file=args.file,
-        encoding="utf8",
     )
     if df_or_path is None:
-        d = {error: True}
+        d = {"error": True}
     else:
         if args.data_file_id is not None:
             query = args.data_file_id
@@ -93,7 +94,7 @@ if __name__ == "__main__":
         "--data-dir", help="Path to where token file lives and cached downloaded files"
     )
 
-    subparsers = parser.add_subparsers(title="commands", required=True, dest="command")
+    subparsers = parser.add_subparsers(title="commands", dest="command")
 
     # fetch command parser
     parser_fetch = subparsers.add_parser(

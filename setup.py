@@ -9,6 +9,7 @@ install_requires = [
     "progressbar2>=3.3.0",
     "pyarrow",
     "h5py",
+    "aiobotocore==1.0.2",
 ]
 if sys.version_info < (3, 5):
     install_requires.append("enum34")
