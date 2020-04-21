@@ -1,5 +1,6 @@
 # taigapy
 [![BuildStatus](https://travis-ci.com/broadinstitute/taigapy.svg?token=HXpmsw1k9tRRgrvTq4yb&branch=master)](https://travis-ci.com/github/broadinstitute/taigapy)
+
 Python client for fetching datafiles from and creating/updating datasets in [Taiga](https://github.com/broadinstitute/taiga).
 
 See [taigr](https://github.com/broadinstitute/taigr) for the R client.
