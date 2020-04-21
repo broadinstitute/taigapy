@@ -6,8 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-# TODO: Change once replaced
-from taigapy.__init_big_bang__ import TaigaClient
+from taigapy import TaigaClient
 import taigapy.taiga_api
 import taigapy.utils
 from taigapy.utils import format_datafile_id

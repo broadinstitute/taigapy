@@ -9,8 +9,7 @@ from unittest.mock import patch
 
 from taigapy.taiga_cache import TaigaCache, DataFile
 
-# TODO: Fix once big bang version is finished 🙃
-from taigapy.__init_big_bang__ import CACHE_FILE
+from taigapy import CACHE_FILE
 from taigapy.types import DataFileType, DataFileFormat
 
 COLUMNAR_DATAFRAME = pd.DataFrame(
