@@ -1,59 +1,65 @@
 #!/usr/bin/env python
 import argparse
-import colorful
 import json
 import os
+
+import colorful
+
 from taigapy import TaigaClient, DEFAULT_TAIGA_URL
 from taigapy.custom_exceptions import (
     Taiga404Exception,
     TaigaDeletedVersionException,
     TaigaClientConnectionException,
 )
+from taigapy.utils import format_datafile_id
 
 
 def _get_taiga_client(args: argparse.Namespace):
     """Get TaigaClient based on args from either `fetch` or `dataset_meta`"""
     url = DEFAULT_TAIGA_URL
     cache_dir = None
-    token_path = None
     if args.taiga_url is not None:
         url = args.taiga_url
     if args.data_dir is not None:
         cache_dir = os.path.expanduser(args.data_dir)
-        token_path = os.path.join(cache_dir, "token")
-        if not os.path.exists(token_path):
-            raise Exception("No Taiga token found at {}".format(args.data_dir))
 
-    return TaigaClient(url=url, cache_dir=cache_dir, token_path=token_path)
+    return TaigaClient(url=url, cache_dir=cache_dir)
 
 
 def fetch(args):
     if args.data_file_id is None and args.name is None:
         raise Exception("data_file_id or name must be set")
 
+    if args.format == "feather":
+        _fetch = tc.get
+        datafile_index = 2  # feather_path
+    else:
+        _fetch = tc.download_to_cache
+        datafile_index = 1  # raw_path
+
     tc = _get_taiga_client(args)
 
-    try:
-        filename, datafile_type = tc.download_to_cache_for_fetch(
-            datafile_id=args.data_file_id,
-            dataset_name=args.name,
-            dataset_version=args.version,
-            datafile_name=args.file,
-            force_fetch=args.force_fetch,
-            force_convert=args.force_convert,
-            file_format=args.format,
-            quiet=args.quiet,
-            encoding="utf8",
-        )
-        d = {"filename": filename, "datafile_type": datafile_type, "error": False}
-    except (
-        Taiga404Exception,
-        TaigaDeletedVersionException,
-        TaigaClientConnectionException,
-        ValueError,
-    ) as e:
-        print(colorful.red(str(e)))
-        d = {"error": True}
+    df_or_path = _fetch(
+        id=args.data_file_id,
+        name=args.name,
+        version=args.version,
+        file=args.file,
+        encoding="utf8",
+    )
+    if df_or_path is None:
+        d = {error: True}
+    else:
+        if args.data_file_id is not None:
+            query = args.data_file_id
+        else:
+            query = format_datafile_id(args.name, args.version, args.file)
+
+        datafile = tc.cache._get_datafile_from_db(query, query)
+        d = {
+            "filename": datafile[datafile_index],
+            "datafile_type": datafile.datafile_format,
+            "error": False,
+        }
 
     if args.write_filename is not None:
         with open(args.write_filename, "w+") as f:
@@ -104,19 +110,6 @@ if __name__ == "__main__":
     )
     parser_fetch.add_argument("--version", help="Dataset version")
     parser_fetch.add_argument("--file", help="Datafile name")
-    parser_fetch.add_argument(
-        "--force-fetch",
-        action="store_true",
-        help="If set, will bypass local cache and try to redownload from Taiga",
-    )
-    parser_fetch.add_argument(
-        "--quiet", action="store_true", help="If set, do not print progress"
-    )
-    parser_fetch.add_argument(
-        "--force-convert",
-        action="store_true",
-        help="Ask Taiga to convert this file again (Implies --force-fetch)",
-    )
     parser_fetch.add_argument(
         "--format",
         choices=["raw", "feather"],
