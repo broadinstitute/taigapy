@@ -108,14 +108,6 @@ class TaigaClient:
                     )
                 )
             )
-        elif (
-            id_or_permaname is not None
-            and datafile_name is None
-            and "." not in id_or_permaname
-        ):
-            raise ValueError(
-                "id not in the format dataset_permaname.version/datafile_name"
-            )
 
         metadata = self.api.get_datafile_metadata(
             id_or_permaname, dataset_name, dataset_version, datafile_name

@@ -188,8 +188,10 @@ class TaigaApi:
             (
                 dataset_permaname,
                 dataset_version,
-                datafile_name,
+                new_datafile_name,
             ) = untangle_dataset_id_with_version(id_or_permaname)
+            if datafile_name is None:
+                datafile_name = new_datafile_name
 
         if dataset_permaname is not None:
             params = {
