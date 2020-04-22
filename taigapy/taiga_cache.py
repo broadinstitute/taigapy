@@ -35,7 +35,7 @@ def _write_csv_to_feather(
     datafile_format: DataFileFormat,
     column_types: Optional[Mapping[str, str]] = None,
     encoding: Optional[str] = None,
-) -> str:
+) -> pd.DataFrame:
     if datafile_format == DataFileFormat.HDF5:
         # https://github.com/pandas-dev/pandas/issues/25067
         df = pd.read_csv(csv_path, index_col=0, encoding=encoding)
@@ -47,7 +47,7 @@ def _write_csv_to_feather(
         df = pd.read_csv(csv_path, dtype=column_types, encoding=encoding)
         df.to_feather(feather_path)
 
-    return feather_path
+    return df
 
 
 def _read_feather_to_df(path: str, datafile_format: DataFileFormat) -> pd.DataFrame:
@@ -206,7 +206,7 @@ class TaigaCache:
         datafile_format: DataFileFormat,
         column_types: Optional[Mapping[str, str]],
         encoding: Optional[str],
-    ):
+    ) -> pd.DataFrame:
         """
         TODO:
         if already exists:
@@ -245,7 +245,7 @@ class TaigaCache:
                     full_taiga_id, "feather"
                 )
                 shutil.copy(raw_path, raw_cache_path)
-                _write_csv_to_feather(
+                df = _write_csv_to_feather(
                     raw_cache_path,
                     feather_path,
                     datafile_format,
@@ -281,7 +281,7 @@ class TaigaCache:
                     full_taiga_id, "feather"
                 )
                 try:
-                    _write_csv_to_feather(
+                    df = _write_csv_to_feather(
                         datafile.raw_path,
                         feather_path,
                         datafile_format,
@@ -290,7 +290,7 @@ class TaigaCache:
                     )
                 except FileNotFoundError:
                     shutil.copy(raw_path, datafile.raw_path)
-                    _write_csv_to_feather(
+                    df = _write_csv_to_feather(
                         datafile.raw_path,
                         feather_path,
                         datafile_format,
@@ -311,13 +311,15 @@ class TaigaCache:
         c.close()
         self.conn.commit()
 
+        return df
+
     def add_raw_entry(
         self,
         raw_path: str,
         queried_taiga_id: str,
         full_taiga_id: str,
         datafile_format: DataFileFormat,
-    ):
+    ) -> str:
         "Copies the file at `raw_path` into the cache directory, and stores an entry in the cache."
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
 
@@ -348,6 +350,8 @@ class TaigaCache:
         self._add_alias(queried_taiga_id, full_taiga_id)
         c.close()
         self.conn.commit()
+
+        return cache_file_path
 
     def add_full_id(
         self, queried_taiga_id: str, full_taiga_id: str, datafile_format: DataFileFormat

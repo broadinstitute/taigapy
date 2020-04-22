@@ -167,7 +167,7 @@ class TaigaClient:
         full_taiga_id: str,
         datafile_metadata: DataFileMetadata,
         get_dataframe: bool,
-    ):
+    ) -> Union[str, pd.DataFrame]:
         with tempfile.NamedTemporaryFile() as tf:
             dataset_permaname = datafile_metadata.dataset_permaname
             dataset_version = datafile_metadata.dataset_version
@@ -179,13 +179,12 @@ class TaigaClient:
             )
 
             if not get_dataframe:
-                self.cache.add_raw_entry(
+                return self.cache.add_raw_entry(
                     tf.name,
                     query,
                     full_taiga_id,
                     DataFileFormat(datafile_metadata.datafile_format),
                 )
-                return
 
             column_types = None
             if datafile_format == DataFileFormat.Columnar:
@@ -193,7 +192,7 @@ class TaigaClient:
                     dataset_permaname, dataset_version, datafile_name
                 )
 
-            self.cache.add_entry(
+            return self.cache.add_entry(
                 tf.name,
                 query,
                 full_taiga_id,
@@ -229,11 +228,11 @@ class TaigaClient:
             )
 
             if not get_dataframe:
-                self.cache.add_raw_entry(
+                return self.cache.add_raw_entry(
                     tf.name, taiga_id, taiga_id, figshare_file_metadata["format"]
                 )
             else:
-                self.cache.add_entry(
+                return self.cache.add_entry(
                     tf.name,
                     taiga_id,
                     taiga_id,
@@ -241,8 +240,6 @@ class TaigaClient:
                     figshare_file_metadata.get("column_types"),
                     figshare_file_metadata.get("encoding"),
                 )
-
-        return get_from_cache(taiga_id, taiga_id)
 
     def _get_dataframe_or_path(
         self,
@@ -308,10 +305,9 @@ class TaigaClient:
 
         # Download from Taiga
         try:
-            self._download_file_and_save_to_cache(
+            return self._download_file_and_save_to_cache(
                 query, full_taiga_id, datafile_metadata, get_dataframe
             )
-            return get_from_cache(query, full_taiga_id)
         except (Taiga404Exception, TaigaServerError, ValueError) as e:
             print(cf.red(str(e)))
             return None
