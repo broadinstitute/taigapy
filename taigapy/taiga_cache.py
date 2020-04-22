@@ -220,60 +220,31 @@ class TaigaCache:
             (TaigaClient flow should have already added the real file?)
             - 
         """
-
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
+        assert datafile_format != DataFileFormat.Raw
 
         c = self.conn.cursor()
         if datafile is None:
-            if datafile_format == DataFileFormat.Raw:
-                raw_cache_path = self._get_path_and_make_directories(
-                    full_taiga_id, "txt"
-                )
-                shutil.copy(raw_path, raw_cache_path)
-                c.execute(
-                    """
-                    INSERT INTO datafiles
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (full_taiga_id, raw_cache_path, None, datafile_format.value),
-                )
-            else:
-                raw_cache_path = self._get_path_and_make_directories(
-                    full_taiga_id, "csv"
-                )
-                feather_path = self._get_path_and_make_directories(
-                    full_taiga_id, "feather"
-                )
-                shutil.copy(raw_path, raw_cache_path)
-                df = _write_csv_to_feather(
-                    raw_cache_path,
-                    feather_path,
-                    datafile_format,
-                    column_types,
-                    encoding,
-                )
-                c.execute(
-                    """
-                    INSERT INTO datafiles
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (
-                        full_taiga_id,
-                        raw_cache_path,
-                        feather_path,
-                        datafile_format.value,
-                    ),
-                )
+            raw_cache_path = self._get_path_and_make_directories(full_taiga_id, "csv")
+            feather_path = self._get_path_and_make_directories(full_taiga_id, "feather")
+            shutil.copy(raw_path, raw_cache_path)
+            df = _write_csv_to_feather(
+                raw_cache_path, feather_path, datafile_format, column_types, encoding
+            )
+            c.execute(
+                """
+                INSERT INTO datafiles
+                VALUES (?, ?, ?, ?)
+                """,
+                (full_taiga_id, raw_cache_path, feather_path, datafile_format.value),
+            )
         else:
             if datafile.raw_path is None:
                 self.add_raw_entry(
                     raw_path, queried_taiga_id, full_taiga_id, datafile_format
                 )
                 datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
-            if (
-                datafile.feather_path is None
-                and datafile.datafile_format != DataFileFormat.Raw
-            ):
+            if datafile.feather_path is None:
                 if datafile_format == DataFileFormat.Columnar:
                     assert column_types is not None
 
@@ -306,6 +277,8 @@ class TaigaCache:
                     """,
                     (feather_path, full_taiga_id),
                 )
+            else:
+                df = self.get_entry(queried_taiga_id, full_taiga_id)
 
         self._add_alias(queried_taiga_id, full_taiga_id)
         c.close()
