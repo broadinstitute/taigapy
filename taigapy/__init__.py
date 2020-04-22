@@ -10,6 +10,7 @@ import pandas as pd
 
 from taigapy.taiga_api import TaigaApi
 from taigapy.taiga_cache import TaigaCache
+from taigapy.figshare import parse_figshare_map_file, download_file_from_figshare
 from taigapy.utils import (
     find_first_existing,
     format_datafile_id,
@@ -51,7 +52,13 @@ CACHE_FILE = ".cache.db"
 
 
 class TaigaClient:
-    def __init__(self, url=DEFAULT_TAIGA_URL, cache_dir=None, token_path=None):
+    def __init__(
+        self,
+        url: str = DEFAULT_TAIGA_URL,
+        cache_dir: Optional[str] = None,
+        token_path: Optional[str] = None,
+        figshare_map_file: Optional[str] = None,
+    ):
         self.url = url
         self.token = None
         self.token_path = token_path
@@ -66,6 +73,11 @@ class TaigaClient:
 
         cache_file_path = os.path.join(self.cache_dir, CACHE_FILE)
         self.cache = TaigaCache(self.cache_dir, cache_file_path)
+
+        if figshare_map_file is not None:
+            self.figshare_map = parse_figshare_map_file(figshare_map_file)
+        else:
+            self.figshare_map = None
 
     def _set_token_and_initialized_api(self):
         if self.token is not None:
@@ -190,6 +202,48 @@ class TaigaClient:
                 datafile_metadata.datafile_encoding,
             )
 
+    def _get_dataframe_or_path_from_figshare(self, taiga_id: str, get_dataframe: bool):
+        if taiga_id in self.figshare_map:
+            figshare_file_metadata = self.figshare_map[taiga_id]
+        else:
+            raise ValueError("{} is not in figshare_file_map".format(taiga_id))
+
+        if get_dataframe and figshare_file_metadata["format"] == DataFileFormat.Raw:
+            raise ValueError(
+                "The file is a Raw one, please use instead `download_to_cache` with the same parameters"
+            )
+
+        get_from_cache = (
+            self.cache.get_entry if get_dataframe else self.cache.get_raw_path
+        )
+        d = get_from_cache(taiga_id, taiga_id)
+
+        if d is not None:
+            return d
+
+        with tempfile.NamedTemporaryFile() as tf:
+            download_file_from_figshare(
+                figshare_file_metadata["article_id"],
+                figshare_file_metadata["file_id"],
+                tf.name,
+            )
+
+            if not get_dataframe:
+                self.cache.add_raw_entry(
+                    tf.name, taiga_id, taiga_id, figshare_file_metadata["format"]
+                )
+            else:
+                self.cache.add_entry(
+                    tf.name,
+                    taiga_id,
+                    taiga_id,
+                    figshare_file_metadata["format"],
+                    figshare_file_metadata.get("column_types"),
+                    figshare_file_metadata.get("encoding"),
+                )
+
+        return get_from_cache(taiga_id, taiga_id)
+
     def _get_dataframe_or_path(
         self,
         id: Optional[str],
@@ -198,6 +252,12 @@ class TaigaClient:
         file: Optional[str],
         get_dataframe: bool,
     ) -> Optional[Union[str, pd.DataFrame]]:
+        if self.figshare_map is not None:
+            try:
+                return self._get_dataframe_or_path_from_figshare(id, get_dataframe)
+            except ValueError as e:
+                print(cf.red(str(e)))
+                return None
         try:
             self._set_token_and_initialized_api()
         except TaigaTokenFileNotFound as e:

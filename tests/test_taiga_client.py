@@ -19,6 +19,8 @@ DATASET_VERSION = 3
 DATAFILE_NAME = "depcon_binary_context_matrix"
 DATAFILE_ID = format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, DATAFILE_NAME)
 
+PUBLIC_TAIGA_ID = "public-20q1-c3b6.14/Achilles_common_essentials"
+
 
 @pytest.fixture
 def taigaClient(tmpdir):
@@ -46,6 +48,16 @@ def localTaigaClient(tmpdir):
         url="http://localhost:5000/taiga",
         cache_dir=str(cache_dir),
         token_path=str(token_path),
+    )
+    return tc
+
+
+@pytest.fixture
+def figshareTaigaClient(tmpdir):
+    cache_dir = str(tmpdir.join("cache"))
+
+    tc = TaigaClient(
+        cache_dir=cache_dir, figshare_map_file="./tests/figshare_map_file_sample.json"
     )
     return tc
 
@@ -451,3 +463,28 @@ class TestUpdateDataset:
             dataset_metadata["permanames"][0], 2
         )
         assert len(dataset_version_metadata["datasetVersion"]["datafiles"]) == 1
+
+
+class TestFigshare:
+    def test_figshare_get(self, capsys, figshareTaigaClient: TaigaClient):
+        df = figshareTaigaClient.get(PUBLIC_TAIGA_ID)
+        assert df is not None
+        assert df["gene"][0] == "AAAS (8086)"
+
+        # Check that it caches file
+        with patch(
+            "taigapy.figshare.download_file_from_figshare"
+        ) as mock_download_file_from_figshare:
+            figshareTaigaClient.get(PUBLIC_TAIGA_ID)
+            assert not mock_download_file_from_figshare.called
+
+        # Check that it does not get the file from Taiga
+        assert figshareTaigaClient.get(DATAFILE_ID) is None
+        out, err = capsys.readouterr()
+        assert out.startswith("{} is not in figshare_file_map".format(DATAFILE_ID))
+
+    def test_figshare_download_to_cache(self, figshareTaigaClient: TaigaClient):
+        path = figshareTaigaClient.download_to_cache(PUBLIC_TAIGA_ID)
+        assert path is not None
+        df = pd.read_csv(path)
+        assert df["gene"][0] == "AAAS (8086)"

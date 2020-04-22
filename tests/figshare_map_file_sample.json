@@ -1,0 +1,9 @@
+{
+  "public-20q1-c3b6.14/Achilles_common_essentials": {
+    "article_id": 11791698,
+    "file_id": 21521865,
+    "format": "Columnar",
+    "column_types": { "gene": "str" },
+    "encoding": "utf-8"
+  }
+}
