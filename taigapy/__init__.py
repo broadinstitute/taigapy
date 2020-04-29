@@ -22,7 +22,7 @@ from taigapy.custom_exceptions import (
     TaigaClientConnectionException,
 )
 
-__version__ = "2.12.11"
+__version__ = "2.12.12"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
