@@ -18,7 +18,7 @@ See [taigr](https://github.com/broadinstitute/taigr) for the R client.
 - [Development](#Development)
    - [Setup](#Setup)
    - [Running Tests](#Running_Tests)
-   - [Publishing Taigapy on pypi](#Publishing_Taigapy_on_pypi)
+   - [Publishing Taigapy](#Publishing_Taigapy)
 
 
 ## Quickstart
