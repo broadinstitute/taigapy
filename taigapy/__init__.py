@@ -529,6 +529,23 @@ class TaigaClient:
         version: Optional[DatasetVersion] = None,
         file: Optional[str] = None,
     ) -> pd.DataFrame:
+        """Retrieves a Table or NumericMatrix datafile from Taiga (or local cache, if available) and returns it as a pandas.DataFrame.
+
+        Stores the file in the cache if it is not already stored.
+
+        Errors if the requested datafile is not a Table or NumericMatrix (i.e. is a Raw datafile).
+
+        If used while offline, will get datafiles that are already in the cache.
+
+        Keyword Arguments:
+            id {Optional[str]} -- Datafile ID of the datafile to get, in the form dataset_permaname.dataset_version/datafile_name, or dataset_permaname.dataset_version if there is only one file in the dataset. Required if dataset_name is not provided. Takes precedence if both are provided. (default: {None})
+            name {Optional[str]} -- Permaname or id of the dataset with the datafile. Required if id is not provided. Not used if both are provided. (default: {None})
+            version {Optional[Union[str, int]]} -- Version of the dataset. If not provided, will use the latest approved (i.e. not deprecated or deleted) dataset. Required if id is not provided. Not used if both are provided. (default: {None})
+            file {Optional[str]} -- Name of the datafile in the dataset. Required if id is not provided and the dataset contains more than one file. Not used if id is provided. (default: {None})
+
+        Returns:
+            pd.DataFrame -- If the file is a NumericMatrix, the row headers will be used as the DataFrame's index.
+        """
         return self._get_dataframe_or_path(id, name, version, file, get_dataframe=True)
 
     def download_to_cache(
@@ -538,12 +555,34 @@ class TaigaClient:
         version: Optional[DatasetVersion] = None,
         file: Optional[str] = None,
     ) -> str:
+        """Retrieves a datafile from Taiga in its raw format (CSV or plain text file).
+
+        Keyword Arguments:
+            id {Optional[str]} -- Datafile ID of the datafile to get, in the form dataset_permaname.dataset_version/datafile_name, or dataset_permaname.dataset_version if there is only one file in the dataset. Required if dataset_name is not provided. Takes precedence if both are provided. (default: {None})
+            name {Optional[str]} -- Permaname or id of the dataset with the datafile. Required if id is not provided. Not used if both are provided. (default: {None})
+            version {Optional[Union[str, int]]} -- Version of the dataset. If not provided, will use the latest approved (i.e. not deprecated or deleted) dataset. Required if id is not provided. Not used if both are provided. (default: {None})
+            file {Optional[str]} -- Name of the datafile in the dataset. Required if id is not provided and the dataset contains more than one file. Not used if id is provided. (default: {None})
+
+        Returns:
+            str -- The path of the downloaded file.
+        """
         return self._get_dataframe_or_path(id, name, version, file, get_dataframe=False)
 
     def get_dataset_metadata(
         self, dataset_id: str, version: Optional[DatasetVersion] = None
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
-        """Get metadata about a dataset"""
+        """Get metadata about a dataset
+        
+        Keyword Arguments:
+            id {Optional[str]} -- Datafile ID of the datafile to get, in the form dataset_permaname.dataset_version/datafile_name, or dataset_permaname.dataset_version if there is only one file in the dataset. Required if dataset_name is not provided. Takes precedence if both are provided. (default: {None})
+            name {Optional[str]} -- Permaname or id of the dataset with the datafile. Required if id is not provided. Not used if both are provided. (default: {None})
+            version {Optional[Union[str, int]]} -- Version of the dataset. If not provided, will use the latest approved (i.e. not deprecated or deleted) dataset. Required if id is not provided. Not used if both are provided. (default: {None})
+            file {Optional[str]} -- Name of the datafile in the dataset. Required if id is not provided and the dataset contains more than one file. Not used if id is provided. (default: {None})
+
+        Returns:
+            Union[DatasetMetadataDict, DatasetVersionMetadataDict] -- See docs at https://github.com/broadinstitute/taigapy for more details
+        """
+
         try:
             self._set_token_and_initialized_api()
         except TaigaTokenFileNotFound as e:
@@ -566,11 +605,36 @@ class TaigaClient:
     def create_dataset(
         self,
         dataset_name: str,
-        dataset_description: str = None,
+        dataset_description: Optional[str] = None,
         upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
         folder_id: str = None,
     ) -> Optional[str]:
+        """Creates a new dataset named dataset_name with local files upload_files and virtual datafiles add_taiga_ids in the folder with id parent_folder_id.
+
+        If multiple files in the union of upload_files and add_taiga_ids share the same name, Taiga will throw and error and the dataset will not be created.
+
+        Arguments:
+            dataset_name {str} -- The name of the new dataset.
+
+        Keyword Arguments:
+            dataset_description {Optional[str]} -- Description of the dataset. (default: {None})
+            upload_files {Optional[List[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
+                - d["path"] is the path of the file to upload
+                - d["name"] is what the file should be named in the dataset. Uses the base name of the file if not provided
+                - d["format"] is the Format of the file (as a string).
+                And optionally,
+                - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
+                (default: {None})
+            add_taiga_ids {Optional[List[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
+                - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
+                - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
+                (default: {None})
+            folder_id {str} -- The ID of the containing folder. If not specified, will use home folder of user. (default: {None})
+
+        Returns:
+            Optional[str] -- The id of the new dataset, or None if the operation was not successful.
+        """
         try:
             self._set_token_and_initialized_api()
         except TaigaTokenFileNotFound as e:
@@ -629,7 +693,31 @@ class TaigaClient:
         upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
         add_all_existing_files: bool = False,
-    ):
+    ) -> str:
+        """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
+
+        Keyword Arguments:
+            dataset_id {Optional[str]} -- Generated id or id in the format dataset_permaname.dataset_version (default: {None})
+            dataset_permaname {Optional[str]} -- Permaname of the dataset to update. Must be provided if `dataset_id` is not (default: {None})
+            dataset_version {Optional[Union[str, int]]} -- Dataset version to base the new version off of. If not specified, will use the latest version. (default: {None})
+            dataset_description {Optional[str]} -- Description of new dataset version. Uses previous version's description if not specified. (default: {None})
+            changes_description {Optional[str]} -- Description of changes new to this version, required. (default: {None})
+            upload_files {Optional[List[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
+                - d["path"] is the path of the file to upload
+                - d["name"] is what the file should be named in the dataset. Uses the base name of the file if not provided
+                - d["format"] is the Format of the file (as a string).
+                And optionally,
+                - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
+                (default: {None})
+            add_taiga_ids {Optional[List[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
+                - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
+                - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
+                (default: {None})
+            add_all_existing_files {bool} -- Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in upload_files or add_taiga_ids, that file is ignored. (default: {False})
+
+        Returns:
+            Optional[str] -- The id of the new dataset version, or None if the operation was not successful.
+        """
         try:
             self._set_token_and_initialized_api()
         except TaigaTokenFileNotFound as e:
@@ -691,6 +779,18 @@ class TaigaClient:
         return new_dataset_version_id
 
     def get_canonical_id(self, queried_taiga_id: str) -> Optional[str]:
+        """Get the canonical Taiga ID of a datafile specified by queried_taiga_id.
+
+        A canonical ID is of the form dataset_permaname.dataset_version/datafile_name.
+
+        If the datafile specified by queried_taiga_id is a virtual datafile, the canonical ID is that of the underlying datafile. 
+
+        Arguments:
+            queried_taiga_id {str} -- Taiga ID in the form dataset_permaname.dataset_version/datafile_name or dataset_permaname.dataset_version
+
+        Returns:
+            Optional[str] -- The canonical ID, or None if no datafile was found.
+        """
         try:
             self._set_token_and_initialized_api()
         except TaigaTokenFileNotFound as e:

@@ -199,6 +199,8 @@ See [taigapy.TaigaClient.get parameters](#Parameters-1) for description of `data
 See [taigapy.TaigaClient.create_dataset parameters](#Parameters-3) for description of `upload_files`, `add_taiga_ids`.
 - `dataset_id`: _str_\
     Generated id or id in the format `dataset_permaname.dataset_version`
+- `dataset_permaname`: _str_\
+    Permaname of the dataset to update. Must be provided if `dataset_id` is not.
 - `dataset_version`: _str_ or _int_\
     Dataset version to base the new version off of. If not specified, will use the latest version.
 - `dataset_description`: _str_\
