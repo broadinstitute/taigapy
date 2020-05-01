@@ -136,8 +136,10 @@ To run the fetch tests, run `pytest`.
 
 To run all the tests, [set up Taiga locally](https://github.com/broadinstitute/taiga#installing), then run `pytest --runlocal`.
 
-### Publishing Taigapy on pypi
-If you have access to the taigapy project on pypi, you can publish a new version of taigapy by executing `publish_new_taigapy_pypi.sh`, which will do the following:
+### Publishing Taigapy
+To create a new version, please update the version number in `taigapy/__init__.py` and `git tag` the commit with that version number. Push the tags to GitHub and create a new release with the tag. Update the [changelog](CHANGELOG.md) with the changes.
+
+Publish a new version of taigapy to pypi by executing `publish_new_taigapy_pypi.sh`, which will do the following:
 1. `rm -r dist/`
 2. `python setup.py bdist_wheel --universal`
 3. `twine upload dist/*`
