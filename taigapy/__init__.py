@@ -222,8 +222,7 @@ class TaigaClient:
 
         with tempfile.NamedTemporaryFile() as tf:
             download_file_from_figshare(
-                figshare_file_metadata["article_id"],
-                figshare_file_metadata["file_id"],
+                figshare_file_metadata["download_url"],
                 tf.name,
             )
 

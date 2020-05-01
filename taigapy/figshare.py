@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict
+from typing import Dict, Optional
 from typing_extensions import TypedDict
 
 import requests
@@ -12,10 +12,9 @@ BASE_URL = "https://api.figshare.com/v2"
 FigshareFileMetadata = TypedDict(
     "FigshareFileMetadata",
     {
-        "article_id": str,
-        "file_id": str,
+        "download_url": str,
         "format": DataFileFormat,
-        "column_types": Dict[str, str],
+        "column_types": Optional[Dict[str, str]],
         "encoding": str,
     },
     total=False,
@@ -32,7 +31,10 @@ def parse_figshare_map_file(figshare_map_file: str) -> Dict[str, FigshareFileMet
         figshare_map = json.load(f)
 
     for taiga_id, file_info in figshare_map.items():
-        if not all(k in file_info for k in ["article_id", "file_id", "format"]):
+        if not all(
+            k in file_info
+            for k in ["download_url", "format", "column_types", "encoding"]
+        ):
             raise ValueError("The files in the figshare_map_file are ill-formed.")
 
         datafile_format = DataFileFormat(figshare_map[taiga_id]["format"])
@@ -48,17 +50,7 @@ def parse_figshare_map_file(figshare_map_file: str) -> Dict[str, FigshareFileMet
     return figshare_map
 
 
-def download_file_from_figshare(article_id: str, file_id: str, dest: str):
-    api_endpoint = "{}/articles/{}/files/{}".format(BASE_URL, article_id, file_id)
-    r = requests.get(api_endpoint)
-
-    if r.status_code != 200:
-        raise Exception("TODO")
-
-    file_data = r.json()
-
-    download_url = file_data["download_url"]
-
+def download_file_from_figshare(download_url: str, dest: str):
     r = requests.get(download_url)
     with open(dest, "wb") as f:
         f.write(r.content)
