@@ -5,6 +5,7 @@ import tempfile
 from collections import defaultdict
 from typing import Collection, DefaultDict, List, Optional, Tuple, Union
 
+import aiobotocore
 import colorful as cf
 import pandas as pd
 
@@ -17,7 +18,6 @@ from taigapy.utils import (
     format_datafile_id_from_datafile_metadata,
     untangle_dataset_id_with_version,
     get_latest_valid_version_from_metadata,
-    upload_to_s3,
 )
 from taigapy.types import (
     DataFileFormat,
@@ -26,6 +26,7 @@ from taigapy.types import (
     DatasetMetadataDict,
     DatasetVersionMetadataDict,
     DataFileMetadata,
+    S3Credentials,
     UploadDataFile,
     UploadS3DataFileDict,
     UploadS3DataFile,
@@ -62,7 +63,7 @@ class TaigaClient:
         self.url = url
         self.token = None
         self.token_path = token_path
-        self.api = None
+        self.api: TaigaApi = None
 
         if cache_dir is None:
             cache_dir = DEFAULT_CACHE_DIR
@@ -109,8 +110,8 @@ class TaigaClient:
             and dataset_name is not None
             and dataset_version is None
         ):
-            dataset_metadata = self.api.get_dataset_version_metadata(
-                dataset_name, dataset_version
+            dataset_metadata: DatasetMetadataDict = self.api.get_dataset_version_metadata(
+                dataset_name, None
             )
             dataset_version = get_latest_valid_version_from_metadata(dataset_metadata)
             print(
@@ -221,10 +222,7 @@ class TaigaClient:
             return d
 
         with tempfile.NamedTemporaryFile() as tf:
-            download_file_from_figshare(
-                figshare_file_metadata["download_url"],
-                tf.name,
-            )
+            download_file_from_figshare(figshare_file_metadata["download_url"], tf.name)
 
             if not get_dataframe:
                 return self.cache.add_raw_entry(
@@ -407,20 +405,10 @@ class TaigaClient:
             upload_files, add_taiga_ids
         )
 
-        if folder_id is None:
-            folder_id = "public"
-            prompt = (
-                "Warning: Your dataset will be created in Public. Are you sure? y/n"
-            )
-            user_continue = input(prompt)
-
-            if user_continue != "y":
-                return None, None
-        else:
-            try:
-                self.api.get_folder(folder_id)
-            except Taiga404Exception:
-                raise ValueError("No folder found with id {}.".format(folder_id))
+        try:
+            self.api.get_folder(folder_id)
+        except Taiga404Exception:
+            raise ValueError("No folder found with id {}.".format(folder_id))
 
         return upload_s3_datafiles, upload_virtual_datafiles
 
@@ -490,7 +478,34 @@ class TaigaClient:
 
         return upload_s3_datafiles, upload_virtual_datafiles, dataset_version_metadata
 
-    def _upload_files(
+    async def _upload_to_s3_and_request_conversion(
+        self,
+        session_id: str,
+        upload_file: UploadS3DataFile,
+        s3_credentials: S3Credentials,
+    ):
+        print("Uploading {} to S3".format(upload_file.file_name))
+        bucket = s3_credentials.bucket
+        partial_prefix = s3_credentials.prefix
+        key = "{}{}/{}".format(partial_prefix, session_id, upload_file.file_name)
+
+        session = aiobotocore.get_session()
+        async with session.create_client(
+            "s3",
+            aws_access_key_id=s3_credentials.access_key_id,
+            aws_secret_access_key=s3_credentials.secret_access_key,
+            aws_session_token=s3_credentials.session_token,
+        ) as s3_client:
+            with open(upload_file.file_path, "rb") as f:
+                resp = await s3_client.put_object(Bucket=bucket, Key=key, Body=f.read())
+        upload_file.add_s3_upload_information(bucket, key)
+        print("Finished uploading {} to S3".format(upload_file.file_name))
+
+        print("Uploading {} to Taiga".format(upload_file.file_name))
+        await self.api.upload_file_to_taiga(session_id, upload_file)
+        print("Finished uploading {} to Taiga".format(upload_file.file_name))
+
+    async def _upload_files(
         self,
         upload_s3_datafiles: List[UploadS3DataFile],
         upload_virtual_datafiles: List[UploadVirtualDataFile],
@@ -498,26 +513,24 @@ class TaigaClient:
         upload_session_id = self.api.create_upload_session()
         s3_credentials = self.api.get_s3_credentials()
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(
-            asyncio.gather(
-                *[
-                    upload_to_s3(s3_credentials, upload_session_id, f)
-                    for f in upload_s3_datafiles
-                ]
+        tasks = [
+            asyncio.ensure_future(
+                self._upload_to_s3_and_request_conversion(
+                    upload_session_id, f, s3_credentials
+                )
             )
-        )
-        loop.close()
+            for f in upload_s3_datafiles
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        except Exception as e:
+            for t in tasks:
+                t.cancel()
+            raise e
 
-        # https://github.com/python/typeshed/issues/2383
-        upload_datafiles: List[
-            UploadDataFile
-        ] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
-        for upload_file in upload_datafiles:
-            print("Uploading {} to Taiga".format(upload_file.file_name))
-            self.api.upload_file_to_taiga(upload_session_id, upload_file)
-            print("Finished uploading {} to Taiga".format(upload_file.file_name))
+        for upload_file in upload_virtual_datafiles:
+            print("Linking virtual file {}".format(upload_file.taiga_id))
+            await self.api.upload_file_to_taiga(upload_session_id, upload_file)
 
         return upload_session_id
 
@@ -647,14 +660,14 @@ class TaigaClient:
             add_taiga_ids = []
 
         try:
+            if folder_id is None:
+                folder_id = self.api.get_user()["home_folder_id"]
             (
                 upload_s3_datafiles,
                 upload_virtual_datafiles,
             ) = self._validate_create_dataset_arguments(
                 dataset_name, upload_files, add_taiga_ids, folder_id
             )
-            if folder_id is None:
-                folder_id = self.api.get_user["home_folder_id"]
         except ValueError as e:
             print(cf.red(str(e)))
             return None
@@ -664,9 +677,12 @@ class TaigaClient:
             return None
 
         try:
-            upload_session_id = self._upload_files(
-                upload_s3_datafiles, upload_virtual_datafiles
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            upload_session_id = loop.run_until_complete(
+                self._upload_files(upload_s3_datafiles, upload_virtual_datafiles)
             )
+            loop.close()
         except ValueError as e:
             print(cf.red(str(e)))
             return None
@@ -748,9 +764,12 @@ class TaigaClient:
             return None
 
         try:
-            upload_session_id = self._upload_files(
-                upload_s3_datafiles, upload_virtual_datafiles
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            upload_session_id = loop.run_until_complete(
+                self._upload_files(upload_s3_datafiles, upload_virtual_datafiles)
             )
+            loop.close()
         except ValueError as e:
             print(cf.red(str(e)))
             return None
