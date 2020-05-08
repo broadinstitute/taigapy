@@ -207,19 +207,6 @@ class TaigaCache:
         column_types: Optional[Mapping[str, str]],
         encoding: Optional[str],
     ) -> pd.DataFrame:
-        """
-        TODO:
-        if already exists:
-            return
-        if datafile type is s3:
-            - generate path for feather
-            - create subdirectories if needed
-            - convert df to feather
-            - add to cache
-        else if datafile type is virtual:
-            (TaigaClient flow should have already added the real file?)
-            - 
-        """
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
         assert datafile_format != DataFileFormat.Raw
 
@@ -227,7 +214,7 @@ class TaigaCache:
         if datafile is None:
             raw_cache_path = self._get_path_and_make_directories(full_taiga_id, "csv")
             feather_path = self._get_path_and_make_directories(full_taiga_id, "feather")
-            shutil.copy(raw_path, raw_cache_path)
+            shutil.move(raw_path, raw_cache_path)
             df = _write_csv_to_feather(
                 raw_cache_path, feather_path, datafile_format, column_types, encoding
             )
@@ -260,7 +247,7 @@ class TaigaCache:
                         encoding,
                     )
                 except FileNotFoundError:
-                    shutil.copy(raw_path, datafile.raw_path)
+                    shutil.move(raw_path, datafile.raw_path)
                     df = _write_csv_to_feather(
                         datafile.raw_path,
                         feather_path,
@@ -301,7 +288,7 @@ class TaigaCache:
             full_taiga_id, cache_file_extension
         )
 
-        shutil.copy(raw_path, cache_file_path)
+        shutil.move(raw_path, cache_file_path)
         c = self.conn.cursor()
         if datafile is None:
             c.execute(

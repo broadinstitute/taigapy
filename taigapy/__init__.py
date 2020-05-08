@@ -169,7 +169,7 @@ class TaigaClient:
         datafile_metadata: DataFileMetadata,
         get_dataframe: bool,
     ) -> Union[str, pd.DataFrame]:
-        with tempfile.NamedTemporaryFile() as tf:
+        with tempfile.NamedTemporaryFile(dir=self.cache_dir, delete=False) as tf:
             dataset_permaname = datafile_metadata.dataset_permaname
             dataset_version = datafile_metadata.dataset_version
             datafile_name = datafile_metadata.datafile_name
@@ -221,7 +221,7 @@ class TaigaClient:
         if d is not None:
             return d
 
-        with tempfile.NamedTemporaryFile() as tf:
+        with tempfile.NamedTemporaryFile(dir=self.cache_dir, delete=False) as tf:
             download_file_from_figshare(figshare_file_metadata["download_url"], tf.name)
 
             if not get_dataframe:
