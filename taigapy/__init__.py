@@ -121,6 +121,29 @@ class Taiga2Client:
         feather_extra_path = "{}.featherextra".format(partial_path)
         return file_path, temp_path, feather_extra_path
 
+    def _delete_from_cache(
+        self, datafile_id, dataset_name, dataset_version, datafile_name, file_format
+    ):
+        data_id, data_name, data_version, data_file = self._validate_file_for_download(
+            datafile_id, dataset_name, dataset_version, datafile_name, False
+        )
+
+        files_to_delete = []
+        for path in self._get_cache_file_paths(
+            data_name, data_version, data_file, file_format
+        ):
+            if os.path.exists(path):
+                os.remove(path)
+
+        datafile_metadata = self._extract_datafile_metadata(
+            data_name, data_version, data_file
+        )
+
+        if datafile_metadata["datafile_type"] == "virtual":
+            self._delete_from_cache(
+                datafile_metadata["underlying_file_id"], None, None, None, file_format
+            )
+
     def _get_underlying_file_from_cache(self, virtual_file_partial, file_format):
         underlying_file_map = pandas.read_csv(
             self.virtual_underlying_map_path, index_col=0
@@ -601,9 +624,13 @@ class Taiga2Client:
         file_path, _, _ = self._get_cache_file_paths(
             data_name, data_version, data_file, format
         )
-        self._download_to_local_file(
-            data_id, data_file, False, file_path, force, format, False
-        )
+        try:
+            self._download_to_local_file(
+                data_id, data_file, False, file_path, force, format, False
+            )
+        except KeyboardInterrupt as e:
+            print(colorful.red("Download interrupted. Deleting file from cache."))
+            self._delete_from_cache(id, name, version, file, format)
         return file_path
 
     # TODO: Mark private
@@ -902,8 +929,7 @@ class Taiga2Client:
                 return None
             except KeyboardInterrupt as e:
                 print(colorful.red("Download interrupted. Deleting file from cache."))
-                if os.path.exists(local_file):
-                    os.remove(local_file)
+                self._delete_from_cache(id, name, version, file, "feather")
                 return None
             except (IOError, OSError) as e:
                 print(
@@ -911,8 +937,7 @@ class Taiga2Client:
                         "Local file is corrupted. Deleting file from cache and trying again."
                     )
                 )
-                if os.path.exists(local_file):
-                    os.remove(local_file)
+                self._delete_from_cache(id, name, version, file, "feather")
                 continue
 
             try:
