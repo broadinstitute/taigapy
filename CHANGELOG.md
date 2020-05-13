@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.13] - 2020-05-13
+
+### Fixed
+
+- Actually fix deletion of corrupted virtual files from cache.
+- Actually fix deletion of interrupted virtual file downloads from cache.
+
 ## [2.12.12] - 2020-04-29
 
 ### Fixed
@@ -103,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/2.12.12...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/2.12.13...HEAD
+[2.12.13]: https://github.com/broadinstitute/taigapy/compare/2.12.12...2.12.13
 [2.12.12]: https://github.com/broadinstitute/taigapy/compare/2.12.11...2.12.12
 [2.12.11]: https://github.com/broadinstitute/taigapy/compare/2.12.10...2.12.11
 [2.12.10]: https://github.com/broadinstitute/taigapy/compare/2.12.9...2.12.10
