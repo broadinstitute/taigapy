@@ -137,7 +137,7 @@ new_dataset_version_id = tc.update_dataset(
 new_dataset_version_id = tc.update_dataset(
     dataset_id=dataset_id,
     upload_file_path_dict={'file_updated_or_new_path': 'format'},
-    description='New description for dataset'
+    dataset_description='New description for dataset'
 )
 
 # Update a dataset and add a description of changes for this version
