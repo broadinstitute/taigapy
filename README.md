@@ -1,7 +1,7 @@
 # taigapy
 Library for reading from taiga in python
 
-See [here](https://confluence.broadinstitute.org/display/CPDS/Taiga) for installing taigr, the library for reading from taiga in R
+See [here](https://github.com/broadinstitute/taigr) for installing taigr, the library for reading from taiga in R
 
 ## Token set up
 
