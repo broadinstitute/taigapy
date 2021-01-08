@@ -1033,6 +1033,16 @@ class Taiga2Client:
         See test for full examples
         """
         name, version, file = self._untangle_dataset_id_with_version(taiga_id)
+
+        # load into memory any past id lookups if our cache is empty
+        # this is a flat file updated in append mode which allows for multiple processesto safely work with it
+        canonical_id_cache_path = os.path.join(self.cache_dir, "canonical_id_cache.txt")
+        if len(self.id_to_canonical_id_cache) == 0 and os.path.exists(canonical_id_cache_path):
+            with open(canonical_id_cache_path) as fd:
+                for line in fd:
+                    k,v = line.strip().split("\t")
+                    self.id_to_canonical_id_cache[k] = v
+
         # if we haven't already cached the canonical IDs for all the files in the requested dataset, do so now
         if taiga_id not in self.id_to_canonical_id_cache:
             r = requests.get(
@@ -1040,6 +1050,11 @@ class Taiga2Client:
                 headers=dict(Authorization="Bearer " + self.token),
             )
             jr = r.json()
+
+            def update_cache(key_to_update, value_to_store):
+                self.id_to_canonical_id_cache[key_to_update] = value_to_store
+                with open(canonical_id_cache_path, "at") as fd:
+                    fd.write("{}\t{}\n".format(key_to_update, value_to_store))
 
             if len(jr["datasetVersion"]["datafiles"]) == 1:
                 # only one file, this file must be the one for the taiga id queried
@@ -1053,19 +1068,18 @@ class Taiga2Client:
                 else:
                     # even if not virtual, we need to retrieve the file name (might not have been specified in the input taiga_id param
                     canonical_id = "{}.{}/{}".format(name, version, file["name"])
-                self.id_to_canonical_id_cache[taiga_id] = canonical_id
+                update_cache(taiga_id,canonical_id)
 
             else:  # multiple files
                 for file in jr["datasetVersion"]["datafiles"]:
                     # for each file in the dataset, record it's outward taiga id to canonical taiga id
-                    self.id_to_canonical_id_cache[
-                        "{}.{}/{}".format(name, version, file["name"])
-                    ] = file.get(
+                    update_cache(     "{}.{}/{}".format(name, version, file["name"]), file.get(
                         "underlying_file_id",
                         "{}.{}/{}".format(
                             name, version, file["name"]
                         ),  # the "underlying_file_id" key is only present if virtual. if not, defaults to itself
-                    )
+                    ))
+
 
         return self.id_to_canonical_id_cache[taiga_id]
 
