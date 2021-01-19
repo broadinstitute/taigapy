@@ -868,4 +868,10 @@ class TaigaClient:
         return self.cache.get_full_taiga_id(queried_taiga_id)
 
 
-default_tc = TaigaClient()
+try:
+    default_tc = TaigaClient()
+except Exception as e:
+    print("default_tc could not be set for this reason: {}".format(e))
+    print(
+        "You can import TaigaClient and add your custom options if you would want to customize it to your settings"
+    )
