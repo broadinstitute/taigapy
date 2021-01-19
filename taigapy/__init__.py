@@ -1,3 +1,6 @@
+__version__ = "TODO"
+
+
 import asyncio
 import os
 import tempfile
@@ -42,7 +45,6 @@ from taigapy.custom_exceptions import (
     TaigaRawTypeException,
 )
 
-__version__ = "TODO"
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 

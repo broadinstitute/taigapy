@@ -72,7 +72,14 @@ class TaigaApi:
     def _request_get(
         self, api_endpoint: str, params=None, standard_reponse_handling: bool = True
     ):
+        from taigapy import __version__
+
         url = self.url + api_endpoint
+
+        if params is None:
+            params = {}
+
+        params["taigapy_version"] = __version__
         r = requests.get(
             url,
             stream=True,
@@ -88,10 +95,15 @@ class TaigaApi:
     def _request_post(
         self, api_endpoint: str, data: Mapping, standard_reponse_handling: bool = True
     ):
+        from taigapy import __version__
+
         assert data is not None
+
+        params = {"taigapy_version": __version__}
 
         r = requests.post(
             self.url + api_endpoint,
+            params=params,
             json=data,
             headers=dict(Authorization="Bearer " + self.token),
         )
