@@ -39,8 +39,6 @@ from taigapy.types import (
 from taigapy.custom_exceptions import (
     TaigaDeletedVersionException,
     Taiga404Exception,
-    TaigaServerError,
-    TaigaTokenFileNotFound,
     TaigaCacheFileCorrupted,
     TaigaRawTypeException,
 )
@@ -254,11 +252,8 @@ class TaigaClient:
             except ValueError as e:
                 print(cf.red(str(e)))
                 return None
-        try:
-            self._set_token_and_initialized_api()
-        except TaigaTokenFileNotFound as e:
-            print(cf.red(str(e)))
-            return None
+
+        self._set_token_and_initialized_api()
 
         if not self.api.is_connected():
             return self._get_dataframe_or_path_offline(
@@ -307,7 +302,7 @@ class TaigaClient:
             return self._download_file_and_save_to_cache(
                 query, full_taiga_id, datafile_metadata, get_dataframe
             )
-        except (Taiga404Exception, TaigaServerError, ValueError) as e:
+        except (Taiga404Exception, ValueError) as e:
             print(cf.red(str(e)))
             return None
 
@@ -597,12 +592,7 @@ class TaigaClient:
         Returns:
             Union[DatasetMetadataDict, DatasetVersionMetadataDict] -- See docs at https://github.com/broadinstitute/taigapy for more details
         """
-
-        try:
-            self._set_token_and_initialized_api()
-        except TaigaTokenFileNotFound as e:
-            print(cf.red(str(e)))
-            return None
+        self._set_token_and_initialized_api()
 
         if "." in dataset_id:
             try:
@@ -613,7 +603,7 @@ class TaigaClient:
 
         try:
             return self.api.get_dataset_version_metadata(dataset_id, version)
-        except (Taiga404Exception, TaigaServerError) as e:
+        except (Taiga404Exception) as e:
             print(cf.red(str(e)))
             return None
 
@@ -650,11 +640,7 @@ class TaigaClient:
         Returns:
             Optional[str] -- The id of the new dataset, or None if the operation was not successful.
         """
-        try:
-            self._set_token_and_initialized_api()
-        except TaigaTokenFileNotFound as e:
-            print(cf.red(str(e)))
-            return None
+        self._set_token_and_initialized_api()
 
         if upload_files is None:
             upload_files = []
@@ -736,11 +722,7 @@ class TaigaClient:
         Returns:
             Optional[str] -- The id of the new dataset version, or None if the operation was not successful.
         """
-        try:
-            self._set_token_and_initialized_api()
-        except TaigaTokenFileNotFound as e:
-            print(cf.red(str(e)))
-            return None
+        self._set_token_and_initialized_api()
 
         if upload_files is None:
             upload_files = []
@@ -812,11 +794,7 @@ class TaigaClient:
         Returns:
             Optional[str] -- The canonical ID, or None if no datafile was found.
         """
-        try:
-            self._set_token_and_initialized_api()
-        except TaigaTokenFileNotFound as e:
-            print(cf.red(str(e)))
-            return None
+        self._set_token_and_initialized_api()
 
         full_taiga_id = self.cache.get_full_taiga_id(queried_taiga_id)
         if full_taiga_id is not None:
