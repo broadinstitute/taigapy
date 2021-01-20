@@ -11,6 +11,7 @@ import taigapy.taiga_api
 import taigapy.utils
 from taigapy.utils import format_datafile_id
 
+from taigapy.custom_exceptions import TaigaTokenFileNotFound
 from taigapy.types import DatasetMetadataDict, DatasetVersionMetadataDict
 
 
@@ -83,9 +84,8 @@ class TestInit:
         cache_dir = str(tmpdir.join("cache"))
         tc = TaigaClient(cache_dir=cache_dir, token_path="fake token path")
 
-        assert tc.get(DATAFILE_ID) is None
-        out, err = capsys.readouterr()
-        assert out.startswith("No token file found.")
+        with pytest.raises(TaigaTokenFileNotFound):
+            tc.get(DATAFILE_ID)
 
 
 class TestGet:
