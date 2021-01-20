@@ -840,7 +840,7 @@ class TaigaClient:
                 datafile_id, real_datafile_id, DataFileFormat(f["type"])
             )
 
-            if f["name"] == datafile_metadata.dataset_name:
+            if f["name"] == datafile_metadata.datafile_name:
                 self.cache.add_full_id(
                     queried_taiga_id, datafile_id, datafile_metadata.datafile_format
                 )
