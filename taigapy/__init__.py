@@ -43,7 +43,6 @@ from taigapy.custom_exceptions import (
     TaigaRawTypeException,
 )
 
-
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 
 # global variable to allow people to globally override the location before initializing client
