@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2021-01-21
+
+### Fixed
+- Fixed removing deleted datasets from the cache
+- Fixed getting canonical Taiga IDs for short IDs referencing virtual datafiles
 
 ## [3.0.0] - 2021-01-21
 
@@ -131,7 +136,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.0.0...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.0.1...HEAD
+[3.0.1]: https://github.com/broadinstitute/taigapy/compare/3.0.0...3.0.1
 [3.0.0]: https://github.com/broadinstitute/taigapy/compare/2.12.13...3.0.0
 [2.12.13]: https://github.com/broadinstitute/taigapy/compare/2.12.12...2.12.13
 [2.12.12]: https://github.com/broadinstitute/taigapy/compare/2.12.11...2.12.12
