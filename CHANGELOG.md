@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Some no longer raise exceptions, and instead print an error message and return `None`. These include:
     - Attempting to fetch something from a deleted dataset
     - Attempting to fetch a Raw file
+- Uploading files now occurs concurrently.
 
 ### Removed
 - The `force` parameter is no longer available for various `TaigaClient` functions.
