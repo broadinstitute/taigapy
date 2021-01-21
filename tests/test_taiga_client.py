@@ -246,6 +246,12 @@ class TestGetCanonicalID:
         )
         assert canonical_id == "beat-aml-5d92.14/cPCA_cell_loadings"
 
+    def test_get_canonical_id_short_virtual_taiga_id(self, taigaClient: TaigaClient):
+        canonical_id = taigaClient.get_canonical_id(
+            "small-gecko-virtual-dataset-4fe6.1"
+        )
+        assert canonical_id == "small-gecko-aff0.1/gecko_score"
+
     def test_get_canonical_id_populates_whole_dataset_version(
         self, taigaClient: TaigaClient
     ):
