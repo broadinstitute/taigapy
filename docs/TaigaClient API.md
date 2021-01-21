@@ -25,6 +25,8 @@ Client used to interact with [Taiga](https://github.com/broadinstitute/taiga). K
     Directory where Taiga's cache will live
 - `token_path`: _str_\
     Path to Taiga token. If not specified, will first check `./.taiga-token` then `CACHE_DIR/.taiga-token`.
+- `figshare_map_file`: _str_\
+    Path to Figshare map file, a JSON file with Taiga IDs as keys, and objects of `download_url`, `format`, `column_types`, `encoding` as keys. If specified, will only download files specified in the map, and will download files directly from Figshare.
 
 [Top](#taigapy-documentation)
 

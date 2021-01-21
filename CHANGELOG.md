@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [3.0.0] - 2021-01-21
+
+### Added
+
+- Ability to provide a map of Taiga IDs to Figshare download links to download files directly from Figshare.
+
+### Changed
+
+- `TaigaClient.download_to_cache` no longer supports a `format` parameter. The format of the file downloaded is now determined by the [datafile type](docs/Definitions.md#DataFile_Type) (CSV for "HDF5" and "Columnar" type, plaintext for "Raw" type).
+- Creating and updating a dataset have new formats for the `upload_file` parameter. See [the API documentation](docs/TaigaClient%20API.md#taigapytaigaclientcreatedataset) for more details.
+- Some no longer raise exceptions, and instead print an error message and return `None`. These include:
+    - Attempting to fetch something from a deleted dataset
+    - Attempting to fetch a Raw file
+
+### Removed
+- The `force` parameter is no longer available for various `TaigaClient` functions.
+- UUID (ex: “dafc620dd7824a71a4b3ed42e4995d4e”) is no longer be a supported format for datasets, dataset versions, and datafiles (some may still work, but we won’t guarantee these anymore)
+- `TaigaClient` no longer reads from raw CSVs in the Taiga cache
+
 ## [2.12.13] - 2020-05-13
 
 ### Fixed
@@ -110,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/2.12.13...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.0.0...HEAD
+[3.0.0]: https://github.com/broadinstitute/taigapy/compare/2.12.13...3.0.0
 [2.12.13]: https://github.com/broadinstitute/taigapy/compare/2.12.12...2.12.13
 [2.12.12]: https://github.com/broadinstitute/taigapy/compare/2.12.11...2.12.12
 [2.12.11]: https://github.com/broadinstitute/taigapy/compare/2.12.10...2.12.11
