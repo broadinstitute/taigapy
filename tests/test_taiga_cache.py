@@ -193,4 +193,4 @@ def test_remove_from_cache(populated_cache: TaigaCache):
 
 
 def test_remove_all_from_cache(populated_cache: TaigaCache):
-    populated_cache.remove_all_from_cache
+    populated_cache.remove_all_from_cache("columnar-dataset.1/")

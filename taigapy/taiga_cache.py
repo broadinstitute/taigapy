@@ -368,9 +368,9 @@ class TaigaCache:
             """
             SELECT alias FROM aliases
             WHERE
-                full_taiga_id LIKE '?%'
+                full_taiga_id LIKE ?
             """,
-            (prefix,),
+            (prefix + "%",),
         )
 
         aliases_to_delete = [r[0] for r in c.fetchall()]
@@ -389,10 +389,9 @@ class TaigaCache:
             """
             SELECT full_taiga_id, raw_path, feather_path, datafile_format FROM datafiles
             WHERE
-                full_taiga_id LIKE '?%' or
-                underlyfing_file_id LIKE '?%'
+                full_taiga_id LIKE ?
             """,
-            (prefix, prefix),
+            (prefix + "%",),
         )
 
         datafiles_to_delete = [DataFile(*r) for r in c.fetchall()]
