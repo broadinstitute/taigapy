@@ -184,7 +184,7 @@ class TaigaCache:
             return None
 
         raw_path = datafile.raw_path
-        if not os.path.exists(raw_path):
+        if raw_path is not None and not os.path.exists(raw_path):
             if datafile.feather_path is None:
                 self.remove_from_cache(queried_taiga_id, full_taiga_id)
             return None
