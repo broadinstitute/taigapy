@@ -823,6 +823,10 @@ class TaigaClient:
 
         # Add canonical IDs for all other files in dataset, while we're at it
         for f in dataset_version_metadata["datasetVersion"]["datafiles"]:
+            if "type" not in f.keys():
+                # GCS files do not have type, and are not available to interact with, so skip caching them.
+                continue
+
             datafile_id = format_datafile_id(
                 datafile_metadata.dataset_permaname,
                 datafile_metadata.dataset_version,
