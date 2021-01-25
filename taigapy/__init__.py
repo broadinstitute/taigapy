@@ -838,7 +838,6 @@ class TaigaClient:
                 if "underlying_file_id" not in f
                 else f["underlying_file_id"]
             )
-
             self.cache.add_full_id(
                 datafile_id, real_datafile_id, DataFileFormat(f["type"])
             )
@@ -851,6 +850,25 @@ class TaigaClient:
                 )
 
         return self.cache.get_full_taiga_id(queried_taiga_id)
+
+    def upload_to_gcs(self, queried_taiga_id: str, dest_gcs_path: str) -> bool:
+        """Upload a Taiga datafile to a specified location in Google Cloud Storage.
+
+        The service account taiga-892@cds-logging.iam.gserviceaccount.com must have
+        storage.buckets.create access for this request.
+
+        Arguments:
+            queried_taiga_id {str} -- Taiga ID in the form dataset_permaname.dataset_version/datafile_name or dataset_permaname.dataset_version
+            dest_gcs_path {str} -- Google Storage path to upload to, in the form bucket:path
+
+        Returns:
+            bool -- Whether the file was successfully uploaded
+        """
+        self._set_token_and_initialized_api()
+
+        full_taiga_id = self.get_canonical_id(queried_taiga_id)
+
+        self.api.upload_to_gcs(full_taiga_id, dest_gcs_path)
 
 
 try:
