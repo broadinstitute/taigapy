@@ -6,7 +6,15 @@ import os
 import tempfile
 
 from collections import defaultdict
-from typing import Collection, DefaultDict, List, Optional, Tuple, Union
+from typing import (
+    Collection,
+    DefaultDict,
+    List,
+    MutableSequence,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import aiobotocore
 import colorful as cf
@@ -21,6 +29,8 @@ from taigapy.utils import (
     format_datafile_id_from_datafile_metadata,
     untangle_dataset_id_with_version,
     get_latest_valid_version_from_metadata,
+    modify_upload_files,
+    get_file_hashes,
 )
 from taigapy.types import (
     DataFileFormat,
@@ -28,6 +38,7 @@ from taigapy.types import (
     DatasetVersionState,
     DatasetMetadataDict,
     DatasetVersionMetadataDict,
+    DatasetVersionFiles,
     DataFileMetadata,
     S3Credentials,
     UploadDataFile,
@@ -345,51 +356,11 @@ class TaigaClient:
         print(cf.red("The datafile you requested was not in the cache."))
         return None
 
-    def _validate_upload_files(
-        self,
-        upload_files: Collection[UploadS3DataFileDict],
-        add_taiga_ids: Collection[UploadVirtualDataFileDict],
-        previous_version_taiga_ids: Optional[
-            Collection[UploadVirtualDataFileDict]
-        ] = None,
-    ) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
-        upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
-        upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
-        previous_version_datafiles = (
-            [UploadVirtualDataFile(f) for f in previous_version_taiga_ids]
-            if previous_version_taiga_ids is not None
-            else None
-        )
-
-        # https://github.com/python/typeshed/issues/2383
-        all_upload_datafiles: Collection[
-            UploadDataFile
-        ] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
-
-        datafile_names: DefaultDict[str, int] = defaultdict(int)
-        for upload_datafile in all_upload_datafiles:
-            datafile_names[upload_datafile.file_name] += 1
-
-        duplicate_file_names = [
-            file_name for file_name, count in datafile_names.items() if count > 1
-        ]
-        if len(duplicate_file_names) > 0:
-            raise ValueError(
-                "Multiple files named {}.".format(", ".join(duplicate_file_names))
-            )
-
-        if previous_version_taiga_ids is not None:
-            for upload_datafile in previous_version_datafiles:
-                if upload_datafile.file_name not in datafile_names:
-                    upload_virtual_datafiles.append(upload_datafile)
-
-        return upload_s3_datafiles, upload_virtual_datafiles
-
     def _validate_create_dataset_arguments(
         self,
         dataset_name: str,
-        upload_files: Optional[Collection[UploadS3DataFileDict]],
-        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]],
+        upload_files: MutableSequence[UploadS3DataFileDict],
+        add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
         folder_id: Optional[str],
     ):
         if len(dataset_name) == 0:
@@ -397,7 +368,7 @@ class TaigaClient:
         if len(upload_files) == 0 and len(add_taiga_ids) == 0:
             raise ValueError("upload_files and add_taiga_ids cannot both be empty.")
 
-        upload_s3_datafiles, upload_virtual_datafiles = self._validate_upload_files(
+        upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
             upload_files, add_taiga_ids
         )
 
@@ -414,8 +385,8 @@ class TaigaClient:
         dataset_permaname: Optional[str],
         dataset_version: Optional[DatasetVersion],
         changes_description: Optional[str],
-        upload_files: Optional[Collection[UploadS3DataFileDict]],
-        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]],
+        upload_files: MutableSequence[UploadS3DataFileDict],
+        add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
         add_all_existing_files: bool,
     ) -> Tuple[
         List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
@@ -456,20 +427,11 @@ class TaigaClient:
             dataset_permaname, dataset_version
         )
 
-        if add_all_existing_files:
-            existing_files: List[UploadVirtualDataFileDict] = [
-                {
-                    "taiga_id": format_datafile_id(
-                        dataset_permaname, dataset_version, datafile["name"]
-                    )
-                }
-                for datafile in dataset_version_metadata["datasetVersion"]["datafiles"]
-            ]
-        else:
-            existing_files = None
-
         upload_s3_datafiles, upload_virtual_datafiles = self._validate_upload_files(
-            upload_files, add_taiga_ids, existing_files
+            upload_files,
+            add_taiga_ids,
+            dataset_version_metadata,
+            add_all_existing_files,
         )
 
         return upload_s3_datafiles, upload_virtual_datafiles, dataset_version_metadata
@@ -610,8 +572,8 @@ class TaigaClient:
         self,
         dataset_name: str,
         dataset_description: Optional[str] = None,
-        upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
+        upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
         folder_id: str = None,
     ) -> Optional[str]:
         """Creates a new dataset named dataset_name with local files upload_files and virtual datafiles add_taiga_ids in the folder with id parent_folder_id.
@@ -693,8 +655,8 @@ class TaigaClient:
         dataset_version: Optional[DatasetVersion] = None,
         dataset_description: Optional[str] = None,
         changes_description: Optional[str] = None,
-        upload_files: Optional[Collection[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[Collection[UploadVirtualDataFileDict]] = None,
+        upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
         add_all_existing_files: bool = False,
     ) -> str:
         """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
@@ -723,11 +685,6 @@ class TaigaClient:
         """
         self._set_token_and_initialized_api()
 
-        if upload_files is None:
-            upload_files = []
-        if add_taiga_ids is None:
-            add_taiga_ids = []
-
         try:
             (
                 upload_s3_datafiles,
@@ -738,8 +695,8 @@ class TaigaClient:
                 dataset_permaname,
                 dataset_version,
                 changes_description,
-                upload_files,
-                add_taiga_ids,
+                upload_files or [],
+                add_taiga_ids or [],
                 add_all_existing_files,
             )
         except ValueError as e:
