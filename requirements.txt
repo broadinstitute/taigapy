@@ -1,6 +1,6 @@
 aiobotocore==1.2.0
 colorful==0.5.4
-pandas==1.2.1
+pandas==1.1.5
 pre-commit==2.2.0
 progressbar2==3.50.1
 pyarrow==3.0.0
