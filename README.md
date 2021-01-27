@@ -1,5 +1,5 @@
 # taigapy
-![Tests](https://github.com/broad-institute/taigapy/workflows/.github/workflows/run_tests.yml/badge.svg)
+![Tests](https://github.com/broadinstitute/taigapy/workflows/.github/workflows/run_tests.yml/badge.svg)
 
 Python client for fetching datafiles from and creating/updating datasets in [Taiga](https://github.com/broadinstitute/taiga).
 
