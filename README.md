@@ -1,24 +1,27 @@
 # taigapy
-[![BuildStatus](https://travis-ci.com/broadinstitute/taigapy.svg?token=HXpmsw1k9tRRgrvTq4yb&branch=master)](https://travis-ci.com/github/broadinstitute/taigapy)
+![Tests](https://github.com/broad-institute/taigapy/workflows/.github/workflows/run_tests.yml/badge.svg)
 
 Python client for fetching datafiles from and creating/updating datasets in [Taiga](https://github.com/broadinstitute/taiga).
 
 See [taigr](https://github.com/broadinstitute/taigr) for the R client.
 
 ## Table of Contents
-- [Quickstart](#Quickstart)
-   - [Prerequisites](#Prerequisites)
-   - [Installing](#Installing)
-   - [Usage](#Usage)
-      - [Get datafile](#Get_datafile)
-      - [Download file](#Download_file)
-      - [Create dataset](#Create_dataset)
-      - [Update dataset](#Update_dataset)
-   - [Support](#Support)
-- [Development](#Development)
-   - [Setup](#Setup)
-   - [Running Tests](#Running_Tests)
-   - [Publishing Taigapy](#Publishing_Taigapy)
+- [taigapy](#taigapy)
+  - [Table of Contents](#table-of-contents)
+  - [Quickstart](#quickstart)
+    - [Prerequisites](#prerequisites)
+    - [Installing](#installing)
+    - [Usage](#usage)
+      - [Get datafile](#get-datafile)
+      - [Download file](#download-file)
+      - [Create dataset](#create-dataset)
+      - [Update dataset](#update-dataset)
+      - [Get dataset metadata](#get-dataset-metadata)
+    - [Support](#support)
+  - [Development](#development)
+    - [Setup](#setup)
+    - [Running Tests](#running-tests)
+    - [Publishing Taigapy](#publishing-taigapy)
 
 
 ## Quickstart
