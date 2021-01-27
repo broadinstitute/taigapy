@@ -109,8 +109,8 @@ class TaigaClient:
             and dataset_name is not None
             and dataset_version is None
         ):
-            dataset_metadata: DatasetMetadataDict = self.api.get_dataset_version_metadata(
-                dataset_name, None
+            dataset_metadata: DatasetMetadataDict = (
+                self.api.get_dataset_version_metadata(dataset_name, None)
             )
             dataset_version = get_latest_valid_version_from_metadata(dataset_metadata)
             print(
@@ -286,6 +286,17 @@ class TaigaClient:
         full_taiga_id = format_datafile_id_from_datafile_metadata(datafile_metadata)
         if datafile_metadata.underlying_file_id is not None:
             full_taiga_id = datafile_metadata.underlying_file_id
+
+            underlying_datafile_metadata = self.api.get_datafile_metadata(
+                datafile_metadata.underlying_file_id, None, None, None
+            )
+            if underlying_datafile_metadata.state != DatasetVersionState.approved:
+                print(
+                    cf.orange(
+                        f"The underlying datafile for the file you are trying to download is from a {underlying_datafile_metadata.state.value} dataset version."
+                    )
+                )
+
         get_from_cache = (
             self.cache.get_entry if get_dataframe else self.cache.get_raw_path
         )
@@ -362,9 +373,9 @@ class TaigaClient:
         )
 
         # https://github.com/python/typeshed/issues/2383
-        all_upload_datafiles: Collection[
-            UploadDataFile
-        ] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
+        all_upload_datafiles: Collection[UploadDataFile] = (
+            upload_s3_datafiles + upload_virtual_datafiles
+        )  # type: ignore
 
         datafile_names: DefaultDict[str, int] = defaultdict(int)
         for upload_datafile in all_upload_datafiles:
@@ -452,8 +463,8 @@ class TaigaClient:
                 )
             )
 
-        dataset_version_metadata: DatasetVersionMetadataDict = self.get_dataset_metadata(
-            dataset_permaname, dataset_version
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            self.get_dataset_metadata(dataset_permaname, dataset_version)
         )
 
         if add_all_existing_files:
@@ -581,7 +592,7 @@ class TaigaClient:
         self, dataset_id: str, version: Optional[DatasetVersion] = None
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
         """Get metadata about a dataset
-        
+
         Keyword Arguments:
             id {Optional[str]} -- Datafile ID of the datafile to get, in the form dataset_permaname.dataset_version/datafile_name, or dataset_permaname.dataset_version if there is only one file in the dataset. Required if dataset_name is not provided. Takes precedence if both are provided. (default: {None})
             name {Optional[str]} -- Permaname or id of the dataset with the datafile. Required if id is not provided. Not used if both are provided. (default: {None})
@@ -785,7 +796,7 @@ class TaigaClient:
 
         A canonical ID is of the form dataset_permaname.dataset_version/datafile_name.
 
-        If the datafile specified by queried_taiga_id is a virtual datafile, the canonical ID is that of the underlying datafile. 
+        If the datafile specified by queried_taiga_id is a virtual datafile, the canonical ID is that of the underlying datafile.
 
         Arguments:
             queried_taiga_id {str} -- Taiga ID in the form dataset_permaname.dataset_version/datafile_name or dataset_permaname.dataset_version
@@ -817,8 +828,10 @@ class TaigaClient:
             print(cf.red(str(e)))
             return None
 
-        dataset_version_metadata: DatasetVersionMetadataDict = self.get_dataset_metadata(
-            format_datafile_id_from_datafile_metadata(datafile_metadata)
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            self.get_dataset_metadata(
+                format_datafile_id_from_datafile_metadata(datafile_metadata)
+            )
         )
 
         # Add canonical IDs for all other files in dataset, while we're at it
