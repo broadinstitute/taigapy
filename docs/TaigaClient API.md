@@ -343,3 +343,36 @@ canonical_id = tc.get_canonical_id("achilles-v2-4-6.4")
 ```
 
 [Top](#taigapy-documentation)
+
+## taigapy.TaigaClient.upload_to_gcs
+```python
+taigapy.TaigaClient.get_canonical_id(
+    queried_taiga_id,
+    dest_gcs_path
+)
+```
+Upload a Taiga datafile to a specified location in Google Cloud Storage.
+
+The service account taiga-892@cds-logging.iam.gserviceaccount.com must have storage.buckets.create access for this request. See the [Google Cloud Storage documentation](https://cloud.google.com/storage/docs/access-control/using-iam-permissions#bucket-add) for instructions on how to grant access.
+
+### Parameters
+- `queried_taiga_id`: _str_\
+    Taiga ID in the form `dataset_permaname.dataset_version/datafile_name` or `dataset_permaname.dataset_version`
+- `dest_gcs_path`: _stf_\
+    Google Storage path to upload to, in the form `bucket:path`
+
+### Returns
+`bool`\
+Whether the file was successfully uploaded
+
+### Examples
+```python
+from taigapy import TaigaClient
+
+tc = TaigaClient()
+
+canonical_id = tc.get_canonical_id("achilles-v2-4-6.4/data")
+canonical_id = tc.get_canonical_id("achilles-v2-4-6.4")
+```
+
+[Top](#taigapy-documentation)
