@@ -371,8 +371,7 @@ from taigapy import TaigaClient
 
 tc = TaigaClient()
 
-canonical_id = tc.get_canonical_id("achilles-v2-4-6.4/data")
-canonical_id = tc.get_canonical_id("achilles-v2-4-6.4")
+upload_successful = tc.upload_to_gcs("achilles-v2-4-6.4/data", "some_bucket:some/path.csv")
 ```
 
 [Top](#taigapy-documentation)
