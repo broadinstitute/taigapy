@@ -49,9 +49,7 @@ def find_first_existing(paths: Iterable[str]):
     raise TaigaTokenFileNotFound(paths)
 
 
-def untangle_dataset_id_with_version(
-    taiga_id: str,
-) -> Tuple[str, str, Optional[str]]:
+def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional[str]]:
     """Returns dataset_permaname, dataset_version, and datafile_name from
     `taiga_id` in the form dataset_permaname.version/datafile_name or
     dataset_permaname.version.
@@ -162,7 +160,9 @@ def modify_upload_files(
                         f.get("original_file_sha256") == sha256
                         and f.get("original_file_md5") == md5
                         and (
-                            DATAFILE_UPLOAD_FORMAT_TO_STORAGE_FORMAT[upload_file_dict["format"]]
+                            DATAFILE_UPLOAD_FORMAT_TO_STORAGE_FORMAT[
+                                upload_file_dict["format"]
+                            ]
                             == f.get("type")
                         )
                     )
