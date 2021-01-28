@@ -44,7 +44,9 @@ def _write_csv_to_feather(
         # Feather does not support indexes
         df.reset_index().to_feather(feather_path)
     else:
-        df = pd.read_csv(csv_path, dtype=column_types, encoding=encoding, low_memory=False)
+        df = pd.read_csv(
+            csv_path, dtype=column_types, encoding=encoding, low_memory=False
+        )
         df.to_feather(feather_path)
 
     return df

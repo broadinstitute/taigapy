@@ -59,6 +59,8 @@ DatasetVersionFiles = TypedDict(
         "short_summary": str,
         "type": str,  # DataFileFormat
         "underlying_file_id": Optional[str],
+        "original_file_md5": Optional[str],
+        "original_file_sha256": Optional[str],
     },
 )
 DatasetVersionLongDict = TypedDict(
@@ -198,22 +200,20 @@ class UploadDataFile(ABC):
 
 class UploadS3DataFile(UploadDataFile):
     def __init__(self, upload_s3_file_dict: UploadS3DataFileDict):
+        from taigapy.utils import standardize_file_name
+
         self.file_path = os.path.abspath(upload_s3_file_dict["path"])
         if not os.path.exists(self.file_path):
             raise Exception(
                 "File '{}' does not exist.".format(upload_s3_file_dict["path"])
             )
         self.file_name = upload_s3_file_dict.get(
-            "name", self._standardize_file_name(self.file_path)
+            "name", standardize_file_name(self.file_path)
         )
         self.datafile_format = DataFileUploadFormat(upload_s3_file_dict["format"])
         self.encoding = codecs.lookup(upload_s3_file_dict.get("encoding", "utf-8")).name
         self.bucket: Optional[str] = None
         self.key: Optional[str] = None
-
-    @staticmethod
-    def _standardize_file_name(file_name: str):
-        return os.path.basename(os.path.splitext(file_name)[0])
 
     def add_s3_upload_information(self, bucket: str, key: str):
         self.bucket = bucket

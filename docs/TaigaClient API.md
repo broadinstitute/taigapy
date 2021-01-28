@@ -194,7 +194,7 @@ dataset_version_id = taigapy.TaigaClient.update_dataset(
 ```
 Creates a new version of dataset specified by `dataset_id` or `dataset_name` (and optionally `dataset_version`).
 
-Follows the same rules as [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset)
+Follows the same rules as [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset). Additionally, if a local file listed in `upload_files` matches content (based on SHA256 and MD5 hashes) and [type](./Definitions.md#DataFile_Type)/[format](./Definitions.md#DataFile_Formats) of a datafile in the base dataset version, the local file will not be uploaded, and instead a virtual file will be created based on the existing datafile.
 
 ### Parameters
 See [taigapy.TaigaClient.get parameters](#Parameters-1) for description of `dataset_name`.\
