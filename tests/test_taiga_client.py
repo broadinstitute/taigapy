@@ -221,8 +221,8 @@ class TestGetMetadata:
             DATASET_PERMANAME
         )
 
-        dataset_version_metadata: DatasetVersionMetadataDict = taigaClient.get_dataset_metadata(
-            DATASET_PERMANAME, DATASET_VERSION
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            taigaClient.get_dataset_metadata(DATASET_PERMANAME, DATASET_VERSION)
         )
         keys = dataset_version_metadata.keys()
         assert all(k in keys for k in ["dataset", "datasetVersion"])
@@ -384,8 +384,8 @@ class TestUpdateDataset:
             changes_description="Nothing really",
         )
         assert dataset_version_id is not None
-        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
-            dataset_metadata["permanames"][0], 2
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            localTaigaClient.get_dataset_metadata(dataset_metadata["permanames"][0], 2)
         )
         assert (
             dataset_version_metadata["datasetVersion"]["changes_description"]
@@ -411,8 +411,8 @@ class TestUpdateDataset:
             changes_description="Nothing really",
         )
         assert dataset_version_id is not None
-        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
-            dataset_metadata["permanames"][0], 2
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            localTaigaClient.get_dataset_metadata(dataset_metadata["permanames"][0], 2)
         )
         assert (
             dataset_version_metadata["datasetVersion"]["changes_description"]
@@ -439,8 +439,8 @@ class TestUpdateDataset:
         )
 
         assert dataset_version_id is not None
-        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
-            dataset_metadata["permanames"][0], 2
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            localTaigaClient.get_dataset_metadata(dataset_metadata["permanames"][0], 2)
         )
         assert len(dataset_version_metadata["datasetVersion"]["datafiles"]) == 2
 
@@ -465,8 +465,8 @@ class TestUpdateDataset:
         )
 
         assert dataset_version_id is not None
-        dataset_version_metadata: DatasetVersionMetadataDict = localTaigaClient.get_dataset_metadata(
-            dataset_metadata["permanames"][0], 2
+        dataset_version_metadata: DatasetVersionMetadataDict = (
+            localTaigaClient.get_dataset_metadata(dataset_metadata["permanames"][0], 2)
         )
         assert len(dataset_version_metadata["datasetVersion"]["datafiles"]) == 1
 

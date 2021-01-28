@@ -38,13 +38,15 @@ def _write_csv_to_feather(
 ) -> pd.DataFrame:
     if datafile_format == DataFileFormat.HDF5:
         # https://github.com/pandas-dev/pandas/issues/25067
-        df = pd.read_csv(csv_path, index_col=0, encoding=encoding)
+        df = pd.read_csv(csv_path, index_col=0, encoding=encoding, low_memory=False)
         df = df.astype(float)
 
         # Feather does not support indexes
         df.reset_index().to_feather(feather_path)
     else:
-        df = pd.read_csv(csv_path, dtype=column_types, encoding=encoding)
+        df = pd.read_csv(
+            csv_path, dtype=column_types, encoding=encoding, low_memory=False
+        )
         df.to_feather(feather_path)
 
     return df
