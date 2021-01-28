@@ -25,10 +25,5 @@ A comma-separated values file. Valid CSVs must adhere to the following rules:
 - Fields with commas in the value must be wrapped in quotes.
 Some other notes and caveats:
 - All column names will be parsed as strings
-
-## Column type inference
-For TableCSV/Columnar files, Taiga will attempt to infer the type of all the columns according to the following rules:
-- Fields with values  in `["", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN", "<NA>", "N/A", "NA", "NULL", "NaN", "n/a", "nan", "null"]` will be treated as NA. This is consistent with pandas's default interpretation of CSVs.
-- If all values can be parsed as floats, the column with be assigned type float.
-- Otherwise, the column will be assigned type string.
-When fetching a file using taigapy (or taigr), the DataFrame returned will have these types. Programs using the DataFrame should cast types as appropriate.
+## Canonical Taiga ID
+The canonical ID of a datafile is of the form `dataset_permaname.dataset_version/datafile_name`, and refers the "real" datafile (so in the case of virtual datafiles, the underlying datafile).

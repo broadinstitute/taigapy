@@ -7,6 +7,7 @@
 - [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset)
 - [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdatedataset)
 - [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientgetdatasetmetadata)
+- [taigapy.TaigaClient.get_canonical_id](#taigapytaigaclientgetcanonicalid)
 
 ## taigapy.TaigaClient
 ```python
@@ -314,6 +315,31 @@ tc = TaigaClient()
 dataset_metadata = tc.get_dataset_metadata("achilles-v2-4-6")
 dataset_version_metadata = tc.get_dataset_metadata("achilles-v2-4-6.4")
 dataset_version_metadata = tc.get_dataset_metadata("achilles-v2-4-6", version=4)
+```
+
+[Top](#taigapy-documentation)
+
+## taigapy.TaigaClient.get_canonical_id
+```python
+taigapy.TaigaClient.get_canonical_id(
+    queried_taiga_id,
+)
+```
+Gets the [canonical ID](./Definitions.md#Canonical_Taiga_ID) for the datafile specified by `queried_taiga_id`.
+
+### Parameters
+- `queried_taiga_id`: _str_\
+    Taiga ID in the form `dataset_permaname.dataset_version/datafile_name` or `dataset_permaname.dataset_version`
+
+### Returns
+### Examples
+```python
+from taigapy import TaigaClient
+
+tc = TaigaClient()
+
+canonical_id = tc.get_canonical_id("achilles-v2-4-6.4/data")
+canonical_id = tc.get_canonical_id("achilles-v2-4-6.4")
 ```
 
 [Top](#taigapy-documentation)
