@@ -1,30 +1,12 @@
 # Taigapy Documentation
 
 ## Table of Contents
-- [Taigapy Documentation](#taigapy-documentation)
-  - [Table of Contents](#table-of-contents)
-  - [taigapy.TaigaClient](#taigapytaigaclient)
-    - [Parameters](#parameters)
-  - [taigapy.TaigaClient.get](#taigapytaigaclientget)
-    - [Parameters](#parameters-1)
-    - [Returns](#returns)
-    - [Examples](#examples)
-  - [taigapy.TaigaClient.download_to_cache](#taigapytaigaclientdownload_to_cache)
-    - [Parameters](#parameters-2)
-    - [Returns](#returns-1)
-    - [Examples](#examples-1)
-  - [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreate_dataset)
-    - [Parameters](#parameters-3)
-    - [Returns](#returns-2)
-    - [Examples](#examples-2)
-  - [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdate_dataset)
-    - [Parameters](#parameters-4)
-    - [Returns](#returns-3)
-    - [Examples](#examples-3)
-  - [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientget_dataset_metadata)
-    - [Parameters](#parameters-5)
-    - [Returns](#returns-4)
-    - [Examples](#examples-4)
+- [taigapy.TaigaClient](#taigapytaigaclient)
+- [taigapy.TaigaClient.get](#taigapytaigaclientget)
+- [taigapy.TaigaClient.download_to_cache](#taigapytaigaclientdownloadtocache)
+- [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset)
+- [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdatedataset)
+- [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientgetdatasetmetadata)
 
 ## taigapy.TaigaClient
 ```python
