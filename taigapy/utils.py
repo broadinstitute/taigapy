@@ -33,6 +33,11 @@ DATAFILE_ID_FORMAT_MISSING_DATAFILE = "{dataset_permaname}.{dataset_version}"
 DATAFILE_ID_REGEX_FULL = r"^(.*)\.(\d*)\/(.*)$"
 DATAFILE_ID_REGEX_MISSING_DATAFILE = r"^(.*)\.(\d*)$"
 DATAFILE_CACHE_FORMAT = "{dataset_permaname}_v{dataset_version}_{datafile_name}"
+DATAFILE_UPLOAD_FORMAT_TO_STORAGE_FORMAT = {
+    "NumericMatrixCSV": "HDF5",
+    "TableCSV": "Columnar",
+    "Raw": "Raw",
+}
 
 
 def find_first_existing(paths: Iterable[str]):
@@ -44,7 +49,9 @@ def find_first_existing(paths: Iterable[str]):
     raise TaigaTokenFileNotFound(paths)
 
 
-def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional[str]]:
+def untangle_dataset_id_with_version(
+    taiga_id: str,
+) -> Tuple[str, str, Optional[str]]:
     """Returns dataset_permaname, dataset_version, and datafile_name from
     `taiga_id` in the form dataset_permaname.version/datafile_name or
     dataset_permaname.version.
@@ -53,12 +60,12 @@ def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional
         taiga_id {str} -- Taiga datafile ID in the form
             dataset_permaname.version/datafile_name or
             dataset_permaname.version
-    
+
     Raises:
         Exception: `taiga_id` not in the form
             dataset_permaname.version/datafile_name or
             dataset_permaname.version
-    
+
     Returns:
         Tuple[str, str, Optional[str]] -- dataset_permaname, dataset_version, and
             datafile_name or None
@@ -154,6 +161,10 @@ def modify_upload_files(
                     if (
                         f.get("original_file_sha256") == sha256
                         and f.get("original_file_md5") == md5
+                        and (
+                            DATAFILE_UPLOAD_FORMAT_TO_STORAGE_FORMAT[upload_file_dict["format"]]
+                            == f.get("type")
+                        )
                     )
                 ),
                 None,
@@ -166,7 +177,7 @@ def modify_upload_files(
                 taiga_id = (
                     f"{dataset_permaname}.{dataset_version}/{matching_file['name']}"
                 )
-                add_as_virtual[upload_file_dict["name"]] = (name, taiga_id)
+                add_as_virtual[upload_file_dict["path"]] = (name, taiga_id)
 
         add_taiga_ids.extend(
             {"taiga_id": taiga_id, "name": name}
@@ -176,7 +187,7 @@ def modify_upload_files(
         upload_files = [
             upload_file_dict
             for upload_file_dict in upload_files
-            if upload_file_dict["path"] not in add_taiga_ids
+            if upload_file_dict["path"] not in add_as_virtual
         ]
 
     if add_all_existing_files:
@@ -200,9 +211,9 @@ def modify_upload_files(
     )
 
     # https://github.com/python/typeshed/issues/2383
-    all_upload_datafiles: Collection[
-        UploadDataFile
-    ] = upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
+    all_upload_datafiles: Collection[UploadDataFile] = (
+        upload_s3_datafiles + upload_virtual_datafiles
+    )  # type: ignore
 
     datafile_names: DefaultDict[str, int] = defaultdict(int)
     for upload_datafile in all_upload_datafiles:

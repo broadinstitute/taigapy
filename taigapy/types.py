@@ -7,9 +7,6 @@ from typing import List, Optional, Union
 from typing_extensions import Literal, TypedDict
 
 
-from taigapy.utils import standardize_file_name
-
-
 class DataFileType(Enum):
     S3 = "s3"
     Virtual = "virtual"
@@ -203,6 +200,8 @@ class UploadDataFile(ABC):
 
 class UploadS3DataFile(UploadDataFile):
     def __init__(self, upload_s3_file_dict: UploadS3DataFileDict):
+        from taigapy.utils import standardize_file_name
+
         self.file_path = os.path.abspath(upload_s3_file_dict["path"])
         if not os.path.exists(self.file_path):
             raise Exception(

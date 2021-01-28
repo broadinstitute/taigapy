@@ -30,7 +30,6 @@ from taigapy.utils import (
     untangle_dataset_id_with_version,
     get_latest_valid_version_from_metadata,
     modify_upload_files,
-    get_file_hashes,
 )
 from taigapy.types import (
     DataFileFormat,
@@ -438,7 +437,7 @@ class TaigaClient:
             self.get_dataset_metadata(dataset_permaname, dataset_version)
         )
 
-        upload_s3_datafiles, upload_virtual_datafiles = self._validate_upload_files(
+        upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
             upload_files,
             add_taiga_ids,
             dataset_version_metadata,
