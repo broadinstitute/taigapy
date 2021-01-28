@@ -32,3 +32,6 @@ For TableCSV/Columnar files, Taiga will attempt to infer the type of all the col
 - If all values can be parsed as floats, the column with be assigned type float.
 - Otherwise, the column will be assigned type string.
 When fetching a file using taigapy (or taigr), the DataFrame returned will have these types. Programs using the DataFrame should cast types as appropriate.
+
+## Canonical Taiga ID
+The canonical ID of a datafile is of the form `dataset_permaname.dataset_version/datafile_name`, and refers the "real" datafile (so in the case of virtual datafiles, the underlying datafile).
