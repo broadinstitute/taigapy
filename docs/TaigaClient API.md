@@ -1,12 +1,30 @@
 # Taigapy Documentation
 
 ## Table of Contents
-- [taigapy.TaigaClient](#taigapytaigaclient)
-- [taigapy.TaigaClient.get](#taigapytaigaclientget)
-- [taigapy.TaigaClient.download_to_cache](#taigapytaigaclientdownloadtocache)
-- [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset)
-- [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdatedataset)
-- [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientgetdatasetmetadata)
+- [Taigapy Documentation](#taigapy-documentation)
+  - [Table of Contents](#table-of-contents)
+  - [taigapy.TaigaClient](#taigapytaigaclient)
+    - [Parameters](#parameters)
+  - [taigapy.TaigaClient.get](#taigapytaigaclientget)
+    - [Parameters](#parameters-1)
+    - [Returns](#returns)
+    - [Examples](#examples)
+  - [taigapy.TaigaClient.download_to_cache](#taigapytaigaclientdownload_to_cache)
+    - [Parameters](#parameters-2)
+    - [Returns](#returns-1)
+    - [Examples](#examples-1)
+  - [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreate_dataset)
+    - [Parameters](#parameters-3)
+    - [Returns](#returns-2)
+    - [Examples](#examples-2)
+  - [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdate_dataset)
+    - [Parameters](#parameters-4)
+    - [Returns](#returns-3)
+    - [Examples](#examples-3)
+  - [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientget_dataset_metadata)
+    - [Parameters](#parameters-5)
+    - [Returns](#returns-4)
+    - [Examples](#examples-4)
 
 ## taigapy.TaigaClient
 ```python
@@ -194,7 +212,7 @@ dataset_version_id = taigapy.TaigaClient.update_dataset(
 ```
 Creates a new version of dataset specified by `dataset_id` or `dataset_name` (and optionally `dataset_version`).
 
-Follows the same rules as [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset)
+Follows the same rules as [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset). Additionally, if a local file listed in `upload_files` matches content (based on SHA256 and MD5 hashes) and [type](./Definitions.md#DataFile_Type)/[format](./Definitions.md#DataFile_Formats) of a datafile in the base dataset version, the local file will not be uploaded, and instead a virtual file will be created based on the existing datafile.
 
 ### Parameters
 See [taigapy.TaigaClient.get parameters](#Parameters-1) for description of `dataset_name`.\
