@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2021-01-29
+
+### Added
+- Added `TaigaClient.upload_to_gcs` function that uploads a Taiga file to Google Cloud Storage
 ## [3.1.0] - 2021-01-28
 
 ### Changed
@@ -164,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.1.0...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.2.0...HEAD
+[3.2.0]: https://github.com/broadinstitute/taigapy/compare/3.0.5...3.2.0
 [3.1.0]: https://github.com/broadinstitute/taigapy/compare/3.0.5...3.1.0
 [3.0.5]: https://github.com/broadinstitute/taigapy/compare/3.0.4...3.0.5
 [3.0.4]: https://github.com/broadinstitute/taigapy/compare/3.0.3...3.0.4
