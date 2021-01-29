@@ -358,11 +358,7 @@ class TaigaApi:
     def upload_to_gcs(self, datafile_id: str, dest_gcs_path: str):
         api_endpoint = "/api/datafile/copy_to_google_bucket"
         params = {"datafile_id": datafile_id, "gcs_path": dest_gcs_path}
-
         task_id = self._request_post(api_endpoint=api_endpoint, data=params)
-        import pdb
-
-        pdb.set_trace()
 
         if task_id == "done":
             return
@@ -373,7 +369,5 @@ class TaigaApi:
             return
         else:
             raise ValueError(
-                "Error uploading {}: {}.".format(
-                    session_file.file_name, task_status.message
-                )
+                "Error uploading {}: {}.".format(datafile_id, task_status.message)
             )

@@ -48,6 +48,7 @@ from taigapy.types import (
 )
 from taigapy.custom_exceptions import (
     TaigaDeletedVersionException,
+    TaigaHttpException,
     Taiga404Exception,
     TaigaCacheFileCorrupted,
     TaigaRawTypeException,
@@ -837,7 +838,15 @@ class TaigaClient:
 
         full_taiga_id = self.get_canonical_id(queried_taiga_id)
 
-        self.api.upload_to_gcs(full_taiga_id, dest_gcs_path)
+        if full_taiga_id is None:
+            return False
+
+        try:
+            self.api.upload_to_gcs(full_taiga_id, dest_gcs_path)
+            return True
+        except (ValueError, TaigaHttpException) as e:
+            print(cf.red(str(e)))
+            return False
 
 
 try:

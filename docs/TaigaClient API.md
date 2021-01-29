@@ -353,7 +353,7 @@ taigapy.TaigaClient.get_canonical_id(
 ```
 Upload a Taiga datafile to a specified location in Google Cloud Storage.
 
-The service account taiga-892@cds-logging.iam.gserviceaccount.com must have storage.buckets.create access for this request. See the [Google Cloud Storage documentation](https://cloud.google.com/storage/docs/access-control/using-iam-permissions#bucket-add) for instructions on how to grant access.
+The service account taiga-892@cds-logging.iam.gserviceaccount.com must have `storage.buckets.get` (Storage Legacy Bucket Reader) and `storage.buckets.create` (Storage Legacy Bucket Writer) access for this request. See the [Google Cloud Storage documentation](https://cloud.google.com/storage/docs/access-control/using-iam-permissions#bucket-add) for instructions on how to grant access.
 
 ### Parameters
 - `queried_taiga_id`: _str_\
