@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2021-01-28
+
+### Changed
+- When updating a dataset, local files to be uploaded are checked against the base dataset version. If they have the same content (based on SHA256 and MD5 hashes) and [type](./Definitions.md#DataFile_Type)/[format](./Definitions.md#DataFile_Formats) of a datafile in the base dataset version, the local file will not be uploaded, and instead a virtual file will be created based on the existing datafile.
+
+### Fixed
+- Removed checking for column types existing (endpoint now returns None)
+
 ## [3.0.5] - 2021-01-27
 
 ### Fixed
@@ -156,8 +164,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.0.5...HEAD
-[3.0.5]: https://github.com/broadinstitute/taigapy/compare/3.0.3...3.0.5
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.1.0...HEAD
+[3.1.0]: https://github.com/broadinstitute/taigapy/compare/3.0.5...3.1.0
+[3.0.5]: https://github.com/broadinstitute/taigapy/compare/3.0.4...3.0.5
 [3.0.4]: https://github.com/broadinstitute/taigapy/compare/3.0.3...3.0.4
 [3.0.3]: https://github.com/broadinstitute/taigapy/compare/3.0.2...3.0.3
 [3.0.2]: https://github.com/broadinstitute/taigapy/compare/3.0.1...3.0.2

@@ -233,7 +233,7 @@ class TaigaApi:
 
     def get_column_types(
         self, dataset_permaname: str, dataset_version: str, datafile_name: str
-    ) -> Dict[str, str]:
+    ) -> Optional[Dict[str, str]]:
         api_endpoint = "/api/datafile/column_types"
         params = {
             "dataset_permaname": dataset_permaname,
