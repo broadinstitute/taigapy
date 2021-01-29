@@ -8,6 +8,7 @@
 - [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdatedataset)
 - [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientgetdatasetmetadata)
 - [taigapy.TaigaClient.get_canonical_id](#taigapytaigaclientgetcanonicalid)
+- [taigapy.TaigaClient.upload_to_gcs](#taigapytaigaclientuploadtogcs)
 
 ## taigapy.TaigaClient
 ```python
