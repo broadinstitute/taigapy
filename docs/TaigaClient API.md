@@ -347,7 +347,7 @@ canonical_id = tc.get_canonical_id("achilles-v2-4-6.4")
 
 ## taigapy.TaigaClient.upload_to_gcs
 ```python
-taigapy.TaigaClient.get_canonical_id(
+taigapy.TaigaClient.upload_to_gcs(
     queried_taiga_id,
     dest_gcs_path
 )
@@ -360,7 +360,7 @@ The service account taiga-892@cds-logging.iam.gserviceaccount.com must have `sto
 - `queried_taiga_id`: _str_\
     Taiga ID in the form `dataset_permaname.dataset_version/datafile_name` or `dataset_permaname.dataset_version`
 - `dest_gcs_path`: _stf_\
-    Google Storage path to upload to, in the form `bucket:path`
+    Google Storage path to upload to, in the form `bucket/path`
 
 ### Returns
 `bool`\
@@ -372,7 +372,7 @@ from taigapy import TaigaClient
 
 tc = TaigaClient()
 
-upload_successful = tc.upload_to_gcs("achilles-v2-4-6.4/data", "some_bucket:some/path.csv")
+upload_successful = tc.upload_to_gcs("achilles-v2-4-6.4/data", "bucket/path.csv")
 ```
 
 [Top](#taigapy-documentation)
