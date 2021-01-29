@@ -233,9 +233,6 @@ class TaigaCache:
                     raw_path, queried_taiga_id, full_taiga_id, datafile_format
                 )
                 datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
-            if datafile.feather_path is None:
-                if datafile_format == DataFileFormat.Columnar:
-                    assert column_types is not None
 
                 feather_path = self._get_path_and_make_directories(
                     full_taiga_id, "feather"
