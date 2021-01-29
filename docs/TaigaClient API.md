@@ -2,13 +2,13 @@
 
 ## Table of Contents
 - [taigapy.TaigaClient](#taigapytaigaclient)
-- [taigapy.TaigaClient.get](#taigapytaigaclientget)
-- [taigapy.TaigaClient.download_to_cache](#taigapytaigaclientdownloadtocache)
-- [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreatedataset)
-- [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdatedataset)
-- [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientgetdatasetmetadata)
-- [taigapy.TaigaClient.get_canonical_id](#taigapytaigaclientgetcanonicalid)
-- [taigapy.TaigaClient.upload_to_gcs](#taigapytaigaclientuploadtogcs)
+- [taigapy.TaigaClient.get](#taigapytaigaclient_get)
+- [taigapy.TaigaClient.download_to_cache](#taigapytaigaclientdownload_to_cache)
+- [taigapy.TaigaClient.create_dataset](#taigapytaigaclientcreate_dataset)
+- [taigapy.TaigaClient.update_dataset](#taigapytaigaclientupdate_dataset)
+- [taigapy.TaigaClient.get_dataset_metadata](#taigapytaigaclientget_dataset_metadata)
+- [taigapy.TaigaClient.get_canonical_id](#taigapytaigaclientget_canonical_id)
+- [taigapy.TaigaClient.upload_to_gcs](#taigapytaigaclientupload_to_gcs)
 
 ## taigapy.TaigaClient
 ```python
