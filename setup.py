@@ -8,7 +8,7 @@ install_requires = [
     "nest_asyncio>=1.5.1,<2.0.0",
     "colorful",
     "progressbar2>=3.3.0",
-    "pyarrow>=2.0.0",
+    "pyarrow>=3.0.0,<4.0.0",
 ]
 if sys.version_info < (3, 5):
     install_requires.append("enum34")
