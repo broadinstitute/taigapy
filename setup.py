@@ -5,6 +5,7 @@ install_requires = [
     "requests",
     "pandas>=1.0.0",
     "aiobotocore==1.2.0",
+    "nest_asyncio>=1.5.1,<2.0.0",
     "colorful",
     "progressbar2>=3.3.0",
     "pyarrow>=2.0.0",

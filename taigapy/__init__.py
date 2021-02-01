@@ -18,6 +18,7 @@ from typing import (
 
 import aiobotocore
 import colorful as cf
+import nest_asyncio
 import pandas as pd
 
 from taigapy.taiga_api import TaigaApi
@@ -638,6 +639,7 @@ class TaigaClient:
 
         try:
             loop = asyncio.new_event_loop()
+            nest_asyncio.apply(loop)
             asyncio.set_event_loop(loop)
             upload_session_id = loop.run_until_complete(
                 self._upload_files(upload_s3_datafiles, upload_virtual_datafiles)
@@ -716,6 +718,7 @@ class TaigaClient:
 
         try:
             loop = asyncio.new_event_loop()
+            nest_asyncio.apply(loop)
             asyncio.set_event_loop(loop)
             upload_session_id = loop.run_until_complete(
                 self._upload_files(upload_s3_datafiles, upload_virtual_datafiles)
