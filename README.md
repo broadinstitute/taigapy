@@ -6,22 +6,20 @@ Python client for fetching datafiles from and creating/updating datasets in [Tai
 See [taigr](https://github.com/broadinstitute/taigr) for the R client.
 
 ## Table of Contents
-- [taigapy](#taigapy)
-  - [Table of Contents](#table-of-contents)
-  - [Quickstart](#quickstart)
-    - [Prerequisites](#prerequisites)
-    - [Installing](#installing)
-    - [Usage](#usage)
-      - [Get datafile](#get-datafile)
-      - [Download file](#download-file)
-      - [Create dataset](#create-dataset)
-      - [Update dataset](#update-dataset)
-      - [Get dataset metadata](#get-dataset-metadata)
-    - [Support](#support)
-  - [Development](#development)
-    - [Setup](#setup)
-    - [Running Tests](#running-tests)
-    - [Publishing Taigapy](#publishing-taigapy)
+- [Quickstart](#quickstart)
+  - [Prerequisites](#prerequisites)
+  - [Installing](#installing)
+  - [Usage](#usage)
+    - [Get datafile as dataframe](#get-datafile-as-dataframe)
+    - [Download file](#download-file)
+    - [Create dataset](#create-dataset)
+    - [Update dataset](#update-dataset)
+    - [Get dataset metadata](#get-dataset-metadata)
+- [Support](#support)
+- [Development](#development)
+  - [Setup](#setup)
+  - [Running Tests](#running-tests)
+  - [Publishing Taigapy](#publishing-taigapy)
 
 
 ## Quickstart
@@ -44,7 +42,7 @@ pip install taigapy
 ### Usage
 See [docs](docs/) for the complete documentation.
 
-#### Get datafile
+#### Get datafile as dataframe
 Get a NumericMatrix/HDF5 or TableCSV/Columnar file from Taiga as a [pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/frame.html)
 ```python
 from taigapy import TaigaClient
@@ -115,7 +113,7 @@ new_dataset_id = tc.update_dataset(
 ```
 
 #### Get dataset metadata
-Get metadata about a dataset or dataset version. See fields returned in [TaigaClient API](docs/TaigaClient%20API.md#taigapytaigaclientgetdatasetmetadata)
+Get metadata about a dataset or dataset version. See fields returned in [TaigaClient API](docs/TaigaClient%20API.md#returns-4)
 ```python
 import default_tc as tc
 
