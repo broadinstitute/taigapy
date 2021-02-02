@@ -298,6 +298,7 @@ If a version is specified, returns a dict of
         }],
         "dataset_id": str, # id of dataset
         "description": str, # dataset version description
+        "figshare": dict or not included, # if dataset version is linked with a figshare article, metadata about the article and files uploaded, otherwise key will not be included
         "folders": [], # Legacy, not used
         "id": str, # dataset version id
         "name": str, # dataset version number, as a string
