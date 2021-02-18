@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.2] - 2021-02-18
+
+### Fixed
+- Fixed issue where `TaigaClient.get` cached files under the wrong key when only `name` was supplied
+
 ## [3.2.1] - 2021-02-01
 
 ### Fixed
@@ -174,7 +179,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.2.1...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.2.2...HEAD
+[3.2.2]: https://github.com/broadinstitute/taigapy/compare/3.2.1...3.2.2
 [3.2.1]: https://github.com/broadinstitute/taigapy/compare/3.2.0...3.2.1
 [3.2.0]: https://github.com/broadinstitute/taigapy/compare/3.1.0...3.2.0
 [3.1.0]: https://github.com/broadinstitute/taigapy/compare/3.0.5...3.1.0
