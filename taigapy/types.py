@@ -125,21 +125,22 @@ DataFileMetadataDict = TypedDict(
 
 class DataFileMetadata:
     def __init__(self, datafile_metadata_dict: DataFileMetadataDict):
-        self.dataset_name: str = datafile_metadata_dict.get("dataset_name")
-        self.dataset_permaname: str = datafile_metadata_dict.get("dataset_permaname")
-        self.dataset_version: str = datafile_metadata_dict.get("dataset_version")
-        self.dataset_id: str = datafile_metadata_dict.get("dataset_id")
-        self.dataset_version_id: str = datafile_metadata_dict.get("dataset_version_id")
-        self.datafile_name: str = datafile_metadata_dict.get("datafile_name")
-        self.status: str = datafile_metadata_dict.get("status")
+        self.dataset_name: str = datafile_metadata_dict["dataset_name"]
+        self.dataset_permaname: str = datafile_metadata_dict["dataset_permaname"]
+        self.dataset_version: str = datafile_metadata_dict["dataset_version"]
+        self.dataset_id: str = datafile_metadata_dict["dataset_id"]
+        self.dataset_version_id: str = datafile_metadata_dict["dataset_version_id"]
+        self.datafile_name: str = datafile_metadata_dict["datafile_name"]
+        self.status: str = datafile_metadata_dict["status"]
         self.state: DatasetVersionState = DatasetVersionState(
-            datafile_metadata_dict.get("state")
+            datafile_metadata_dict["state"]
         )
         self.reason_state: Optional[str] = datafile_metadata_dict.get("reason_state")
         self.datafile_type: DataFileType = DataFileType(
-            datafile_metadata_dict.get("datafile_type")
+            datafile_metadata_dict["datafile_type"]
         )
-        self.datafile_format: DataFileFormat = DataFileFormat(
+        # datafile_format does not exist if type is gcs
+        self.datafile_format: Optional[DataFileFormat] = DataFileFormat(
             datafile_metadata_dict.get("datafile_format")
         )
         self.datafile_encoding: Optional[str] = datafile_metadata_dict.get(
@@ -166,12 +167,12 @@ TaskStatusDict = TypedDict(
 
 class TaskStatus:
     def __init__(self, task_status_dict: TaskStatusDict):
-        self.id: str = task_status_dict.get("id")
-        self.state: TaskState = TaskState(task_status_dict.get("state"))
-        self.message: str = task_status_dict.get("message")
-        self.current: float = task_status_dict.get("current")
-        self.total: float = task_status_dict.get("total")
-        self.s3Key: str = task_status_dict.get("s3Key")
+        self.id: str = task_status_dict["id"]
+        self.state: TaskState = TaskState(task_status_dict["state"])
+        self.message: str = task_status_dict["message"]
+        self.current: float = task_status_dict["current"]
+        self.total: float = task_status_dict["total"]
+        self.s3Key: str = task_status_dict["s3Key"]
 
 
 class S3Credentials:

@@ -320,7 +320,7 @@ class TaigaApi:
         upload_session_id: str,
         folder_id: str,
         dataset_name: str,
-        dataset_description: str,
+        dataset_description: Optional[str],
     ) -> str:
         api_endpoint = "/api/dataset"
 

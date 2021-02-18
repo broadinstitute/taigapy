@@ -184,7 +184,7 @@ class TaigaClient:
             dataset_permaname = datafile_metadata.dataset_permaname
             dataset_version = datafile_metadata.dataset_version
             datafile_name = datafile_metadata.datafile_name
-            datafile_format = datafile_metadata.datafile_format
+            datafile_format: DataFileFormat = datafile_metadata.datafile_format
 
             self.api.download_datafile(
                 dataset_permaname, dataset_version, datafile_name, tf.name
@@ -213,7 +213,11 @@ class TaigaClient:
                 datafile_metadata.datafile_encoding,
             )
 
-    def _get_dataframe_or_path_from_figshare(self, taiga_id: str, get_dataframe: bool):
+    def _get_dataframe_or_path_from_figshare(
+        self, taiga_id: Optional[str], get_dataframe: bool
+    ):
+        if taiga_id is None:
+            raise ValueError("Taiga ID must be specified to use figshare_file_map")
         if taiga_id in self.figshare_map:
             figshare_file_metadata = self.figshare_map[taiga_id]
         else:
@@ -276,6 +280,7 @@ class TaigaClient:
             datafile_metadata = self._validate_file_for_download(
                 id, name, str(version) if version is not None else version, file
             )
+            version = datafile_metadata.dataset_version
         except (TaigaDeletedVersionException, ValueError, Exception) as e:
             print(cf.red(str(e)))
             return None
@@ -344,6 +349,14 @@ class TaigaClient:
         if id is not None:
             query = id
         else:
+            if name is None:
+                print(cf.red("If id is not specified, name must be specified"))
+                return None
+
+            if version is None:
+                print(cf.red("Dataset version must be specified"))
+                return None
+
             query = format_datafile_id(name, version, file)
 
         get_from_cache = (
@@ -373,7 +386,7 @@ class TaigaClient:
         dataset_name: str,
         upload_files: MutableSequence[UploadS3DataFileDict],
         add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
-        folder_id: Optional[str],
+        folder_id: str,
     ):
         if len(dataset_name) == 0:
             raise ValueError("dataset_name must be a nonempty string.")
@@ -403,10 +416,6 @@ class TaigaClient:
     ) -> Tuple[
         List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
     ]:
-        if dataset_id is None and dataset_permaname is None:
-            # TODO standardize exceptions
-            raise ValueError("Dataset id or name must be specified.")
-
         if changes_description is None or changes_description == "":
             raise ValueError("Description of changes cannot be empty.")
 
@@ -418,12 +427,15 @@ class TaigaClient:
                     _,
                 ) = untangle_dataset_id_with_version(dataset_id)
             else:
-                dataset_metadata: DatasetMetadataDict = self.get_dataset_metadata(
-                    dataset_id
+                dataset_metadata: DatasetMetadataDict = self._get_dataset_metadata(
+                    dataset_id, None
                 )
                 dataset_permaname = dataset_metadata["permanames"][-1]
+        elif dataset_permaname is not None:
+            dataset_metadata = self._get_dataset_metadata(dataset_permaname, None)
         else:
-            dataset_metadata = self.get_dataset_metadata(dataset_permaname)
+            # TODO standardize exceptions
+            raise ValueError("Dataset id or name must be specified.")
 
         if dataset_version is None:
             dataset_version = get_latest_valid_version_from_metadata(dataset_metadata)
@@ -436,7 +448,7 @@ class TaigaClient:
             )
 
         dataset_version_metadata: DatasetVersionMetadataDict = (
-            self.get_dataset_metadata(dataset_permaname, dataset_version)
+            self._get_dataset_metadata(dataset_permaname, dataset_version)
         )
 
         upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
@@ -504,6 +516,16 @@ class TaigaClient:
 
         return upload_session_id
 
+    def _get_dataset_metadata(
+        self, dataset_id: str, version: Optional[DatasetVersion]
+    ) -> Optional[Union[DatasetMetadataDict, DatasetVersionMetadataDict]]:
+        self._set_token_and_initialized_api()
+
+        if "." in dataset_id:
+            dataset_id, version, _ = untangle_dataset_id_with_version(dataset_id)
+
+        return self.api.get_dataset_version_metadata(dataset_id, version)
+
     # User-facing functions
     def get(
         self,
@@ -553,7 +575,7 @@ class TaigaClient:
 
     def get_dataset_metadata(
         self, dataset_id: str, version: Optional[DatasetVersion] = None
-    ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
+    ) -> Optional[Union[DatasetMetadataDict, DatasetVersionMetadataDict]]:
         """Get metadata about a dataset
 
         Keyword Arguments:
@@ -565,18 +587,9 @@ class TaigaClient:
         Returns:
             Union[DatasetMetadataDict, DatasetVersionMetadataDict] -- See docs at https://github.com/broadinstitute/taigapy for more details
         """
-        self._set_token_and_initialized_api()
-
-        if "." in dataset_id:
-            try:
-                dataset_id, version, _ = untangle_dataset_id_with_version(dataset_id)
-            except ValueError as e:
-                print(cf.red(str(e)))
-                return None
-
         try:
-            return self.api.get_dataset_version_metadata(dataset_id, version)
-        except (Taiga404Exception) as e:
+            return self._get_dataset_metadata(dataset_id, version)
+        except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
             return None
 
@@ -671,7 +684,7 @@ class TaigaClient:
         upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
         add_all_existing_files: bool = False,
-    ) -> str:
+    ) -> Optional[str]:
         """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
 
         Keyword Arguments:
@@ -712,7 +725,7 @@ class TaigaClient:
                 add_taiga_ids or [],
                 add_all_existing_files,
             )
-        except ValueError as e:
+        except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
             return None
 

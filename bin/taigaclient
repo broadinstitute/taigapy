@@ -42,18 +42,19 @@ def fetch(args):
     tc = _get_taiga_client(args)
 
     df_or_path = _fetch(
-        id=args.data_file_id,
-        name=args.name,
-        version=args.version,
-        file=args.file,
+        id=args.data_file_id, name=args.name, version=args.version, file=args.file,
     )
     if df_or_path is None:
         d = {"error": True}
     else:
-        if args.data_file_id is not None:
-            query = args.data_file_id
-        else:
-            query = format_datafile_id(args.name, args.version, args.file)
+        datafile_metadata = tc._validate_file_for_download(
+            args.data_file_id, args.name, args.verison, args.file
+        )
+        query = format_datafile_id(
+            datafile_metadata.dataset_permaname,
+            datafile_metadata.dataset_version,
+            datafile_metadata.datafile_name,
+        )
 
         datafile = tc.cache._get_datafile_from_db(query, query)
         d = {

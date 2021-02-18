@@ -142,6 +142,8 @@ def modify_upload_files(
     dataset_version_metadata: Optional[DatasetVersionMetadataDict] = None,
     add_all_existing_files: bool = False,
 ) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
+    previous_version_taiga_ids: Optional[List[UploadVirtualDataFileDict]] = None
+
     if dataset_version_metadata is not None:
         dataset_permaname = dataset_version_metadata["dataset"]["permanames"][-1]
         dataset_version = dataset_version_metadata["datasetVersion"]["version"]
@@ -152,7 +154,7 @@ def modify_upload_files(
         add_as_virtual = {}
         for upload_file_dict in upload_files:
             sha256, md5 = get_file_hashes(upload_file_dict["path"])
-            matching_file: DatasetVersionFiles = next(
+            matching_file: Optional[DatasetVersionFiles] = next(
                 (
                     f
                     for f in datafiles
@@ -171,7 +173,7 @@ def modify_upload_files(
             )
 
             if matching_file is not None:
-                name = upload_file_dict.get(
+                name: str = upload_file_dict.get(
                     "name", standardize_file_name(upload_file_dict["path"])
                 )
                 taiga_id = (
@@ -190,17 +192,15 @@ def modify_upload_files(
             if upload_file_dict["path"] not in add_as_virtual
         ]
 
-    if add_all_existing_files:
-        previous_version_taiga_ids: List[UploadVirtualDataFileDict] = [
-            {
-                "taiga_id": format_datafile_id(
-                    dataset_permaname, dataset_version, datafile["name"]
-                )
-            }
-            for datafile in dataset_version_metadata["datasetVersion"]["datafiles"]
-        ]
-    else:
-        previous_version_taiga_ids = None
+        if add_all_existing_files:
+            previous_version_taiga_ids = [
+                {
+                    "taiga_id": format_datafile_id(
+                        dataset_permaname, dataset_version, datafile["name"]
+                    )
+                }
+                for datafile in dataset_version_metadata["datasetVersion"]["datafiles"]
+            ]
 
     upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
     upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
@@ -212,8 +212,8 @@ def modify_upload_files(
 
     # https://github.com/python/typeshed/issues/2383
     all_upload_datafiles: Collection[UploadDataFile] = (
-        upload_s3_datafiles + upload_virtual_datafiles
-    )  # type: ignore
+        upload_s3_datafiles + upload_virtual_datafiles  # type: ignore
+    )
 
     datafile_names: DefaultDict[str, int] = defaultdict(int)
     for upload_datafile in all_upload_datafiles:
@@ -227,7 +227,7 @@ def modify_upload_files(
             "Multiple files named {}.".format(", ".join(duplicate_file_names))
         )
 
-    if previous_version_taiga_ids is not None:
+    if previous_version_datafiles is not None:
         for upload_datafile in previous_version_datafiles:
             if upload_datafile.file_name not in datafile_names:
                 upload_virtual_datafiles.append(upload_datafile)

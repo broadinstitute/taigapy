@@ -9,7 +9,7 @@ import pandas as pd
 from taigapy import TaigaClient
 import taigapy.taiga_api
 import taigapy.utils
-from taigapy.utils import format_datafile_id
+from taigapy.utils import format_datafile_id, get_latest_valid_version_from_metadata
 
 from taigapy.custom_exceptions import TaigaTokenFileNotFound
 from taigapy.types import DatasetMetadataDict, DatasetVersionMetadataDict
@@ -102,23 +102,44 @@ class TestGet:
             assert not mock_download_datafile.called
             assert df2.equals(df)
 
+    def test_get_dataset_permaname_only(self, taigaClient: TaigaClient):
+        df = taigaClient.get(name=DATASET_PERMANAME)
+        dataset_metadata = taigaClient.get_dataset_metadata(DATASET_PERMANAME)
+        dataset_version = get_latest_valid_version_from_metadata(dataset_metadata)
+        c = taigaClient.cache.conn.cursor()
+
+        c.execute("SELECT * FROM aliases WHERE alias = ?", (DATASET_PERMANAME,))
+        assert c.fetchone() is None
+
+        c.execute(
+            "SELECT * FROM aliases WHERE alias = ?",
+            (format_datafile_id(DATASET_PERMANAME, dataset_version, None),),
+        )
+        r = c.fetchone()
+
+        assert r is not None
+
     @pytest.mark.parametrize(
         "get_inputs",
         [
-            (
-                dict(id=format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, None))
-            ),  # Datafile ID without file name
-            (
+            pytest.param(
+                dict(id=format_datafile_id(DATASET_PERMANAME, DATASET_VERSION, None)),
+                id="Datafile ID without file name",
+            ),
+            pytest.param(
                 dict(
                     name=DATASET_PERMANAME, version=DATASET_VERSION, file=DATAFILE_NAME
-                )
-            ),  # Dataset name, version, datafile id entered separately
-            (
-                dict(name=DATASET_PERMANAME, version=DATASET_VERSION)
-            ),  # Dataset name, version entered separately, no datafile name
-            (
-                dict(name=DATASET_PERMANAME, file=DATAFILE_NAME)
-            ),  # Dataset name, datafile name entered separately, no dataset version
+                ),
+                id="Dataset name, version, datafile id entered separately",
+            ),
+            pytest.param(
+                dict(name=DATASET_PERMANAME, version=DATASET_VERSION),
+                id="Dataset name, version entered separately, no datafile name",
+            ),
+            pytest.param(
+                dict(name=DATASET_PERMANAME, file=DATAFILE_NAME),
+                id="Dataset name, datafile name entered separately, no dataset version",
+            ),
         ],
     )
     def test_get_input_formats(
