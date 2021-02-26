@@ -39,8 +39,6 @@ def fetch(args):
         _fetch = tc.download_to_cache
         datafile_index = 1  # raw_path
 
-    tc = _get_taiga_client(args)
-
     df_or_path = _fetch(
         id=args.data_file_id, name=args.name, version=args.version, file=args.file,
     )
@@ -48,7 +46,7 @@ def fetch(args):
         d = {"error": True}
     else:
         datafile_metadata = tc._validate_file_for_download(
-            args.data_file_id, args.name, args.verison, args.file
+            args.data_file_id, args.name, args.version, args.file
         )
         query = format_datafile_id(
             datafile_metadata.dataset_permaname,
