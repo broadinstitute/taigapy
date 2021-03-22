@@ -102,6 +102,13 @@ class TestGet:
             assert not mock_download_datafile.called
             assert df2.equals(df)
 
+    def test_get_after_download_to_cache(self, taigaClient: TaigaClient):
+        path = taigaClient.download_to_cache(DATAFILE_ID)
+        assert path is not None
+
+        df = taigaClient.get(DATAFILE_ID)
+        assert df is not None
+
     def test_get_dataset_permaname_only(self, taigaClient: TaigaClient):
         df = taigaClient.get(name=DATASET_PERMANAME)
         dataset_metadata = taigaClient.get_dataset_metadata(DATASET_PERMANAME)

@@ -118,7 +118,7 @@ class TaigaCache:
 
     def _get_datafile_from_db(
         self, queried_taiga_id: str, full_taiga_id: str
-    ) -> DataFile:
+    ) -> Optional[DataFile]:
         c = self.conn.cursor()
         c.execute(GET_QUERY, (queried_taiga_id, full_taiga_id))
 
@@ -202,7 +202,7 @@ class TaigaCache:
 
     def add_entry(
         self,
-        raw_path: Optional[str],
+        raw_path: str,
         queried_taiga_id: str,
         full_taiga_id: str,
         datafile_format: DataFileFormat,
@@ -228,11 +228,15 @@ class TaigaCache:
                 (full_taiga_id, raw_cache_path, feather_path, datafile_format.value),
             )
         else:
-            if datafile.raw_path is None:
-                self.add_raw_entry(
-                    raw_path, queried_taiga_id, full_taiga_id, datafile_format
-                )
-                datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
+            if datafile.raw_path is None or datafile.feather_path is None:
+                if datafile.raw_path is None:
+                    self.add_raw_entry(
+                        raw_path, queried_taiga_id, full_taiga_id, datafile_format
+                    )
+                    datafile = self._get_datafile_from_db(
+                        queried_taiga_id, full_taiga_id
+                    )
+                    assert datafile is not None
 
                 feather_path = self._get_path_and_make_directories(
                     full_taiga_id, "feather"
@@ -332,6 +336,8 @@ class TaigaCache:
 
     def remove_from_cache(self, queried_taiga_id: str, full_taiga_id: str):
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
+        if datafile is None:
+            return
 
         c = self.conn.cursor()
         c.execute(
