@@ -4,55 +4,43 @@ __version__ = "3.2.3"
 import asyncio
 import os
 import tempfile
-
-from collections import defaultdict
-from typing import (
-    Collection,
-    DefaultDict,
-    List,
-    MutableSequence,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import List, MutableSequence, Optional, Tuple, Union
 
 import aiobotocore
 import colorful as cf
 import nest_asyncio
 import pandas as pd
 
+from taigapy.custom_exceptions import (
+    Taiga404Exception,
+    TaigaCacheFileCorrupted,
+    TaigaDeletedVersionException,
+    TaigaHttpException,
+    TaigaRawTypeException,
+)
+from taigapy.figshare import download_file_from_figshare, parse_figshare_map_file
 from taigapy.taiga_api import TaigaApi
 from taigapy.taiga_cache import TaigaCache
-from taigapy.figshare import parse_figshare_map_file, download_file_from_figshare
+from taigapy.types import (
+    DataFileFormat,
+    DataFileMetadata,
+    DatasetMetadataDict,
+    DatasetVersion,
+    DatasetVersionMetadataDict,
+    DatasetVersionState,
+    S3Credentials,
+    UploadS3DataFile,
+    UploadS3DataFileDict,
+    UploadVirtualDataFile,
+    UploadVirtualDataFileDict,
+)
 from taigapy.utils import (
     find_first_existing,
     format_datafile_id,
     format_datafile_id_from_datafile_metadata,
-    untangle_dataset_id_with_version,
     get_latest_valid_version_from_metadata,
     modify_upload_files,
-)
-from taigapy.types import (
-    DataFileFormat,
-    DatasetVersion,
-    DatasetVersionState,
-    DatasetMetadataDict,
-    DatasetVersionMetadataDict,
-    DatasetVersionFiles,
-    DataFileMetadata,
-    S3Credentials,
-    UploadDataFile,
-    UploadS3DataFileDict,
-    UploadS3DataFile,
-    UploadVirtualDataFileDict,
-    UploadVirtualDataFile,
-)
-from taigapy.custom_exceptions import (
-    TaigaDeletedVersionException,
-    TaigaHttpException,
-    Taiga404Exception,
-    TaigaCacheFileCorrupted,
-    TaigaRawTypeException,
+    untangle_dataset_id_with_version,
 )
 
 DEFAULT_TAIGA_URL = "https://cds.team/taiga"

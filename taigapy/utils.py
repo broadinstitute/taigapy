@@ -1,7 +1,7 @@
-from collections import defaultdict
 import hashlib
 import os
 import re
+from collections import defaultdict
 from typing import (
     Collection,
     DefaultDict,
@@ -12,20 +12,18 @@ from typing import (
     Tuple,
 )
 
-
 from taigapy.custom_exceptions import TaigaTokenFileNotFound
 from taigapy.types import (
-    DatasetVersion,
-    DatasetMetadataDict,
-    DatasetVersionMetadataDict,
-    DatasetVersionFiles,
     DataFileMetadata,
+    DatasetMetadataDict,
+    DatasetVersion,
+    DatasetVersionFiles,
+    DatasetVersionMetadataDict,
     UploadDataFile,
+    UploadS3DataFile,
     UploadS3DataFileDict,
     UploadVirtualDataFile,
     UploadVirtualDataFileDict,
-    S3Credentials,
-    UploadS3DataFile,
 )
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"

@@ -1,27 +1,25 @@
-import asyncio
-import re
 import time
-from typing import Any, Dict, Mapping, Optional, Union
+from typing import Dict, Mapping, Optional, Union
 
 import progressbar
 import requests
 
 from taigapy.custom_exceptions import (
-    TaigaHttpException,
     Taiga404Exception,
+    TaigaHttpException,
     TaigaServerError,
 )
 from taigapy.types import (
-    DatasetVersion,
-    DatasetMetadataDict,
-    DatasetVersionMetadataDict,
     DataFileMetadata,
+    DatasetMetadataDict,
+    DatasetVersion,
+    DatasetVersionMetadataDict,
+    S3Credentials,
     TaskState,
     TaskStatus,
-    S3Credentials,
     UploadDataFile,
 )
-from taigapy.utils import untangle_dataset_id_with_version, format_datafile_id
+from taigapy.utils import format_datafile_id, untangle_dataset_id_with_version
 
 CHUNK_SIZE = 1024 * 1024
 

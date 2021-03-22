@@ -1,13 +1,13 @@
 import os
 import shutil
 import sqlite3
+from collections import namedtuple
+from typing import Mapping, Optional
+
 import pandas as pd
 
-from collections import namedtuple
-from typing import Mapping, Optional, Tuple
-
 from taigapy.custom_exceptions import TaigaCacheFileCorrupted, TaigaRawTypeException
-from taigapy.types import DataFileType, DataFileFormat
+from taigapy.types import DataFileFormat
 
 # Also needs to handle case where a virtual dataset contains only one file... ? Should that be an alias?
 

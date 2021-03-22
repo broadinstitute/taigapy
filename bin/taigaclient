@@ -3,14 +3,7 @@ import argparse
 import json
 import os
 
-import colorful
-
-from taigapy import TaigaClient, DEFAULT_TAIGA_URL
-from taigapy.custom_exceptions import (
-    Taiga404Exception,
-    TaigaDeletedVersionException,
-    TaigaClientConnectionException,
-)
+from taigapy import DEFAULT_TAIGA_URL, TaigaClient
 from taigapy.utils import format_datafile_id
 
 
