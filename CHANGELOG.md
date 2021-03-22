@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.4] - 2021-03-22
+
+### Fixed
+- Fixed bug where getting the DataFrame for a datafile failed after downloading the raw file
+
 ## [3.2.3] - 2021-02-26
 
 ### Fixed
@@ -184,7 +189,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.2.3...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.2.4...HEAD
+[3.2.3]: https://github.com/broadinstitute/taigapy/compare/3.2.3...3.2.4
 [3.2.3]: https://github.com/broadinstitute/taigapy/compare/3.2.2...3.2.3
 [3.2.2]: https://github.com/broadinstitute/taigapy/compare/3.2.1...3.2.2
 [3.2.1]: https://github.com/broadinstitute/taigapy/compare/3.2.0...3.2.1
