@@ -7,6 +7,7 @@ import tempfile
 from typing import List, MutableSequence, Optional, Tuple, Union
 
 import aiobotocore
+import boto3
 import colorful as cf
 import nest_asyncio
 import pandas as pd
@@ -467,7 +468,7 @@ class TaigaClient:
             aws_session_token=s3_credentials.session_token,
         ) as s3_client:
             with open(upload_file.file_path, "rb") as f:
-                resp = await s3_client.put_object(Bucket=bucket, Key=key, Body=f.read())
+                resp = await s3_client.put_object(Bucket=bucket, Key=key, Body=f)
         upload_file.add_s3_upload_information(bucket, key)
         print("Finished uploading {} to S3".format(upload_file.file_name))
 
@@ -475,14 +476,13 @@ class TaigaClient:
         await self.api.upload_file_to_taiga(session_id, upload_file)
         print("Finished uploading {} to Taiga".format(upload_file.file_name))
 
-    async def _upload_files(
+    async def _upload_files_async(
         self,
         upload_s3_datafiles: List[UploadS3DataFile],
         upload_virtual_datafiles: List[UploadVirtualDataFile],
-    ) -> str:
-        upload_session_id = self.api.create_upload_session()
-        s3_credentials = self.api.get_s3_credentials()
-
+        upload_session_id: str,
+        s3_credentials: S3Credentials,
+    ):
         tasks = [
             asyncio.ensure_future(
                 self._upload_to_s3_and_request_conversion(
@@ -500,7 +500,71 @@ class TaigaClient:
 
         for upload_file in upload_virtual_datafiles:
             print("Linking virtual file {}".format(upload_file.taiga_id))
-            await self.api.upload_file_to_taiga(upload_session_id, upload_file)
+            self.api.upload_file_to_taiga(upload_session_id, upload_file)
+
+    def _upload_files_serial(
+        self,
+        upload_s3_datafiles: List[UploadS3DataFile],
+        upload_virtual_datafiles: List[UploadVirtualDataFile],
+        upload_session_id: str,
+        s3_credentials: S3Credentials,
+    ):
+        # Configuration of the Boto3 client
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=s3_credentials.access_key_id,
+            aws_secret_access_key=s3_credentials.secret_access_key,
+            aws_session_token=s3_credentials.session_token,
+        )
+
+        for upload_file in upload_s3_datafiles:
+            bucket = s3_credentials.bucket
+            partial_prefix = s3_credentials.prefix
+            key = "{}{}/{}".format(
+                partial_prefix, upload_session_id, upload_file.file_name
+            )
+
+            s3_client.upload_file(upload_file.file_path, bucket, key)
+            upload_file.add_s3_upload_information(bucket, key)
+            print("Finished uploading {} to S3".format(upload_file.file_name))
+
+            print("Uploading {} to Taiga".format(upload_file.file_name))
+            self.api.upload_file_to_taiga(upload_session_id, upload_file)
+            print("Finished uploading {} to Taiga".format(upload_file.file_name))
+
+        for upload_virtual_file in upload_virtual_datafiles:
+            print("Linking virtual file {}".format(upload_virtual_file.taiga_id))
+            self.api.upload_file_to_taiga(upload_session_id, upload_virtual_file)
+
+    def _upload_files(
+        self,
+        upload_s3_datafiles: List[UploadS3DataFile],
+        upload_virtual_datafiles: List[UploadVirtualDataFile],
+        upload_async: bool,
+    ) -> str:
+        upload_session_id = self.api.create_upload_session()
+        s3_credentials = self.api.get_s3_credentials()
+
+        if upload_async:
+            loop = asyncio.new_event_loop()
+            nest_asyncio.apply(loop)
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(
+                self._upload_files_async(
+                    upload_s3_datafiles,
+                    upload_virtual_datafiles,
+                    upload_session_id,
+                    s3_credentials,
+                )
+            )
+            loop.close()
+        else:
+            self._upload_files_serial(
+                upload_s3_datafiles,
+                upload_virtual_datafiles,
+                upload_session_id,
+                s3_credentials,
+            )
 
         return upload_session_id
 
@@ -588,6 +652,7 @@ class TaigaClient:
         upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
         folder_id: str = None,
+        upload_async: bool = True,
     ) -> Optional[str]:
         """Creates a new dataset named dataset_name with local files upload_files and virtual datafiles add_taiga_ids in the folder with id parent_folder_id.
 
@@ -610,6 +675,7 @@ class TaigaClient:
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
                 (default: {None})
             folder_id {str} -- The ID of the containing folder. If not specified, will use home folder of user. (default: {None})
+            upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 
         Returns:
             Optional[str] -- The id of the new dataset, or None if the operation was not successful.
@@ -639,13 +705,9 @@ class TaigaClient:
             return None
 
         try:
-            loop = asyncio.new_event_loop()
-            nest_asyncio.apply(loop)
-            asyncio.set_event_loop(loop)
-            upload_session_id = loop.run_until_complete(
-                self._upload_files(upload_s3_datafiles, upload_virtual_datafiles)
+            upload_session_id = self._upload_files(
+                upload_s3_datafiles, upload_virtual_datafiles, upload_async
             )
-            loop.close()
         except ValueError as e:
             print(cf.red(str(e)))
             return None
@@ -653,6 +715,7 @@ class TaigaClient:
         dataset_id = self.api.create_dataset(
             upload_session_id, folder_id, dataset_name, dataset_description
         )
+
         print(
             cf.green(
                 "Dataset created. Access it directly with this url: {}\n".format(
@@ -672,6 +735,7 @@ class TaigaClient:
         upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
         add_all_existing_files: bool = False,
+        upload_async: bool = True,
     ) -> Optional[str]:
         """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
 
@@ -693,6 +757,7 @@ class TaigaClient:
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
                 (default: {None})
             add_all_existing_files {bool} -- Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in upload_files or add_taiga_ids, that file is ignored. (default: {False})
+            upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 
         Returns:
             Optional[str] -- The id of the new dataset version, or None if the operation was not successful.
@@ -718,13 +783,9 @@ class TaigaClient:
             return None
 
         try:
-            loop = asyncio.new_event_loop()
-            nest_asyncio.apply(loop)
-            asyncio.set_event_loop(loop)
-            upload_session_id = loop.run_until_complete(
-                self._upload_files(upload_s3_datafiles, upload_virtual_datafiles)
+            upload_session_id = self._upload_files(
+                upload_s3_datafiles, upload_virtual_datafiles, upload_async
             )
-            loop.close()
         except ValueError as e:
             print(cf.red(str(e)))
             return None

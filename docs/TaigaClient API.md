@@ -130,6 +130,7 @@ taigapy.TaigaClient.create_dataset(
     upload_files=None,
     add_taiga_ids=None,
     folder_id=None,
+    upload_async=True,
 )
 ```
 Creates a new dataset named `dataset_name` with local files `upload_files` and virtual datafiles `add_taiga_ids` in the folder with id `parent_folder_id`.
@@ -154,6 +155,9 @@ If multiple files in the union of `upload_files` and `add_taiga_ids` share the s
     - `"name"` (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
 - `folder_id`: _str_\
     The ID of the containing folder. If not specified, will use home folder of user.
+- `upload_async`: _bool_\
+    Whether to upload asynchronously (parallel) or in serial
+
 ### Returns
 `str`\
 The id of the new dataset.
@@ -192,6 +196,7 @@ dataset_version_id = taigapy.TaigaClient.update_dataset(
     upload_files=None,
     add_taiga_ids=None,
     add_all_existing_files=True,
+    upload_async=True,
 )
 ```
 Creates a new version of dataset specified by `dataset_id` or `dataset_name` (and optionally `dataset_version`).
@@ -213,6 +218,8 @@ See [taigapy.TaigaClient.create_dataset parameters](#Parameters-3) for descripti
     Description of changes new to this version.
 - `add_all_existing_files`: _bool_\
     Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in `upload_files` or `add_taiga_ids`, that file is ignored.
+- `upload_async`: _bool_\
+    Whether to upload asynchronously (parallel) or in serial
 ### Returns
 `str`\
 The id of the new dataset version.

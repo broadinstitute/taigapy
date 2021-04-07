@@ -167,7 +167,7 @@ class TaigaApi:
         api_endpoint = "/api/user"
         return self._request_get(api_endpoint)
 
-    async def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
+    def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
         api_endpoint = "/api/datafile/{}".format(session_id)
         task_id = self._request_post(
             api_endpoint=api_endpoint, data=session_file.to_api_param()

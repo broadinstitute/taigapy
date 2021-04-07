@@ -300,7 +300,11 @@ class TestGetCanonicalID:
 
 @pytest.mark.local
 class TestCreateDataset:
-    def test_create_dataset(self, localTaigaClient: TaigaClient):
+    @pytest.mark.parametrize(
+        "upload_async",
+        [pytest.param(True, id="Async"), pytest.param(False, id="Serial")],
+    )
+    def test_create_dataset(self, localTaigaClient: TaigaClient, upload_async: bool):
         dataset_id = localTaigaClient.create_dataset(
             "taigapy test_create_dataset",
             dataset_description="Hello world",
@@ -311,6 +315,7 @@ class TestCreateDataset:
                     "encoding": "utf-8",
                 }
             ],
+            upload_async=upload_async,
         )
 
         assert dataset_id is not None
