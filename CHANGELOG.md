@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.1] - 2021-04-07
+### Fixed
+- Typo with async upload
+
 ## [3.3.0] - 2021-04-07
 ### Added
 - Option to upload synchronously (serially) when creating or updating a dataset
@@ -196,7 +200,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaigaClient`'s cache uses feather format instead of pickling
 
 
-[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.3.0...HEAD
+[unreleased]: https://github.com/broadinstitute/taigapy/compare/3.3.1...HEAD
+[3.3.1]: https://github.com/broadinstitute/taigapy/compare/3.3.0...3.3.1
 [3.3.0]: https://github.com/broadinstitute/taigapy/compare/3.2.4...3.3.0
 [3.2.4]: https://github.com/broadinstitute/taigapy/compare/3.2.3...3.2.4
 [3.2.3]: https://github.com/broadinstitute/taigapy/compare/3.2.2...3.2.3
