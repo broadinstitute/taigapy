@@ -473,7 +473,7 @@ class TaigaClient:
         print("Finished uploading {} to S3".format(upload_file.file_name))
 
         print("Uploading {} to Taiga".format(upload_file.file_name))
-        await self.api.upload_file_to_taiga(session_id, upload_file)
+        self.api.upload_file_to_taiga(session_id, upload_file)
         print("Finished uploading {} to Taiga".format(upload_file.file_name))
 
     async def _upload_files_async(
