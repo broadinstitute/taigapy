@@ -1,17 +1,15 @@
 from setuptools import setup, find_packages
-import sys
 
 install_requires = [
     "requests",
-    "pandas>=1.0.0",
-    "aiobotocore==1.2.0",
+    "pandas>=1.0.0,<2.0.0",
+    "aiobotocore>=1.2.0<2.0.0",
+    "boto3>=1.16.0,<1.16.53",
     "nest_asyncio>=1.5.1,<2.0.0",
     "colorful",
-    "progressbar2>=3.3.0",
+    "progressbar2>=3.3.0<4.0.0",
     "pyarrow>=3.0.0,<4.0.0",
 ]
-if sys.version_info < (3, 5):
-    install_requires.append("enum34")
 
 import ast
 import re
