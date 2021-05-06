@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 install_requires = [
     "requests",
     "pandas>=1.0.0,<2.0.0",
-    "aiobotocore>=1.2.0<2.0.0",
+    "aiobotocore==1.2.2",
     "boto3>=1.16.0,<1.16.53",
     "nest_asyncio>=1.5.1,<2.0.0",
     "colorful",
