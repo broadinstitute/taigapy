@@ -55,7 +55,7 @@ df = tc.get("achilles-v2-4-6.4/data") # df is a pandas DataFrame, with data from
 #### Download file
 Download the raw (plaintext of Raw, CSV otherwise) file from Taiga
 ```python
-import default_tc as tc
+from taigapy import default_tc as tc
 
 path = tc.download_to_cache("achilles-v2-4-6.4/data") # path is the local path to the downloaded CSV
 ```
@@ -63,7 +63,7 @@ path = tc.download_to_cache("achilles-v2-4-6.4/data") # path is the local path t
 #### Create dataset
 Create a new dataset in folder with id `folder_id`, with local files `upload_files` and virtual files `add_taiga_ids`.
 ```python
-import default_tc as tc
+from taigapy import default_tc as tc
 
 new_dataset_id = tc.create_dataset(
     "dataset_name",
@@ -89,7 +89,7 @@ new_dataset_id = tc.create_dataset(
 #### Update dataset
 Create a new dataset in folder with id `folder_id`, with local files `upload_files` and virtual files `add_taiga_ids`.
 ```python
-import default_tc as tc
+from taigapy import default_tc as tc
 
 new_dataset_id = tc.update_dataset(
     "dataset_permaname",
@@ -115,7 +115,7 @@ new_dataset_id = tc.update_dataset(
 #### Get dataset metadata
 Get metadata about a dataset or dataset version. See fields returned in [TaigaClient API](docs/TaigaClient%20API.md#returns-4)
 ```python
-import default_tc as tc
+from taigapy import default_tc as tc
 
 metadata = tc.get_dataset_metadata("achilles-v2-4-6.4")
 ```
