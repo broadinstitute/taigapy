@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from taigapy.utils import untangle_dataset_id_with_version, modify_upload_files
+from taigapy.utils import (
+    untangle_dataset_id_with_version,
+    transform_upload_args_to_upload_list,
+)
 from taigapy.types import (
     DatasetVersionMetadataDict,
     UploadS3DataFile,
@@ -284,7 +287,10 @@ def test_modify_upload_files(
         else:
             table_df.to_json(p)
 
-    upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
+    (
+        upload_s3_datafiles,
+        upload_virtual_datafiles,
+    ) = transform_upload_args_to_upload_list(
         upload_files,
         add_taiga_ids,
         dataset_version_metadata,

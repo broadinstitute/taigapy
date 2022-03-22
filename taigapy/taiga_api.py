@@ -221,7 +221,7 @@ class TaigaApi:
         return DataFileMetadata(self._request_get(api_endpoint, params))
 
     def get_dataset_version_metadata(
-        self, dataset_permaname: str, dataset_version: Optional[DatasetVersion]
+        self, dataset_permaname: str, dataset_version: Optional[str]
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
         api_endpoint = "/api/dataset/{}".format(dataset_permaname)
         if dataset_version is not None:
