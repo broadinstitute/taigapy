@@ -251,3 +251,21 @@ class UploadVirtualDataFile(UploadDataFile):
             "filetype": "virtual",
             "existingTaigaId": self.taiga_id,
         }
+
+
+UploadGCSDataFileDict = TypedDict(
+    "UploadGCSDataFileDict", {"gcs_path": str, "name": str}, total=False
+)
+
+
+class UploadGCSDataFile(UploadDataFile):
+    def __init__(self, upload_gsc_file_dict: UploadGCSDataFileDict):
+        self.file_name = upload_gsc_file_dict["name"]
+        self.gcs_path = upload_gsc_file_dict["gcs_path"]
+
+    def to_api_param(self):
+        return {
+            "filename": self.file_name,
+            "filetype": "gcs",
+            "gcsPath": self.gcs_path,
+        }
