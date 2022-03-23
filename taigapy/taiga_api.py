@@ -31,9 +31,11 @@ def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
                 params
             )
         )
-    elif r.status_code == 500:
+
+    if r.status_code == 500:
         raise TaigaServerError()
-    elif r.status_code != 200:
+
+    if r.status_code != 200:
         raise TaigaHttpException("Bad status code: {}".format(r.status_code))
 
     return r.json()
@@ -178,9 +180,7 @@ class TaigaApi:
 
         task_status = self._poll_task(task_id)
 
-        if task_status.state == TaskState.SUCCESS:
-            return
-        else:
+        if task_status.state != TaskState.SUCCESS:
             raise ValueError(
                 "Error uploading {}: {}".format(
                     session_file.file_name, task_status.message
@@ -242,13 +242,15 @@ class TaigaApi:
 
         if r.status_code == 200:
             return r.json()
-        elif r.status_code == 400:
+
+        if r.status_code == 400:
             raise ValueError(
                 "Request was not well formed. Please check your credentials and/or parameters. params: {}".format(
                     params
                 )
             )
-        elif r.status_code == 404:
+
+        if r.status_code == 404:
             raise ValueError(
                 "No datafile found with for dataile id {}".format(
                     format_datafile_id(
@@ -256,7 +258,8 @@ class TaigaApi:
                     )
                 )
             )
-        elif r.status_code == 500:
+
+        if r.status_code == 500:
             raise TaigaServerError()
 
         raise TaigaHttpException(

@@ -2,16 +2,7 @@ import hashlib
 import os
 import re
 from collections import defaultdict
-from typing import (
-    Collection,
-    DefaultDict,
-    Iterable,
-    List,
-    MutableSequence,
-    Sequence,
-    Optional,
-    Tuple,
-)
+from typing import Collection, DefaultDict, Iterable, Sequence, Optional, Tuple
 
 from taigapy.custom_exceptions import TaigaTokenFileNotFound
 from taigapy.types import (
@@ -26,7 +17,6 @@ from taigapy.types import (
     UploadVirtualDataFile,
     UploadVirtualDataFileDict,
     UploadGCSDataFileDict,
-    UploadGCSDataFile
 )
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"
@@ -50,9 +40,7 @@ def find_first_existing(paths: Iterable[str]):
     raise TaigaTokenFileNotFound(paths)
 
 
-def untangle_dataset_id_with_version(
-    taiga_id: str,
-) -> Tuple[str, str, Optional[str]]:
+def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional[str]]:
     """Returns dataset_permaname, dataset_version, and datafile_name from
     `taiga_id` in the form dataset_permaname.version/datafile_name or
     dataset_permaname.version.

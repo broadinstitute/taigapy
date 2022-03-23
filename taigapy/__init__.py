@@ -6,7 +6,7 @@ from .client import TaigaClient
 try:
     default_tc = TaigaClient()
 except Exception as e:
-    print("default_tc could not be set for this reason: {}".format(e))
+    print(f"default_tc could not be set for this reason: {e}")
     print(
         "You can import TaigaClient and add your custom options if you would want to customize it to your settings"
     )
