@@ -33,10 +33,11 @@ echo YOUR_TOKEN_HERE > ~/.taiga/token
 ```
 
 ### Installing
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install taigapy.
+The following script will use the package manager [pip](https://pip.pypa.io/en/stable/) to install taigapy
+in "editable" mode.
 
 ```bash
-pip install taigapy
+./install_prepreqs.sh
 ```
 
 ### Usage
