@@ -287,15 +287,25 @@ def test_modify_upload_files(
         else:
             table_df.to_json(p)
 
-    (
-        upload_s3_datafiles,
-        upload_virtual_datafiles,
-    ) = transform_upload_args_to_upload_list(
+    upload_datafiles = transform_upload_args_to_upload_list(
         upload_files,
         add_taiga_ids,
-        dataset_version_metadata,
-        add_all_existing_files,
+        [],
+        dataset_version_metadata=dataset_version_metadata,
+        add_all_existing_files=add_all_existing_files,
     )
+
+    upload_s3_datafiles = []
+    
+    upload_virtual_datafiles = []
+    for upload_datafile in upload_datafiles:
+        if isinstance(upload_datafile, UploadS3DataFile):
+            upload_s3_datafiles.append(upload_datafile)
+        elif isinstance(upload_datafile, UploadVirtualDataFile):
+            upload_virtual_datafiles.append(upload_datafile)
+        else:
+            raise NotImplementedError()
+
     assert len(upload_s3_datafiles) == len(expected_upload_s3_datafiles_api_params)
     assert all(
         actual.to_api_param() == expected

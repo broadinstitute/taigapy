@@ -25,6 +25,8 @@ from taigapy.types import (
     UploadS3DataFileDict,
     UploadVirtualDataFile,
     UploadVirtualDataFileDict,
+    UploadGCSDataFileDict,
+    UploadGCSDataFile
 )
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"
@@ -144,7 +146,8 @@ def transform_upload_args_to_upload_list(
     *,
     dataset_version_metadata: Optional[DatasetVersionMetadataDict] = None,
     add_all_existing_files: bool = False,
-) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
+) -> Sequence[UploadDataFile]:
+    previous_version_datafiles = []
 
     if dataset_version_metadata is not None:
         dataset_permaname = dataset_version_metadata["dataset"]["permanames"][-1]
@@ -212,8 +215,6 @@ def transform_upload_args_to_upload_list(
             previous_version_datafiles = [
                 UploadVirtualDataFile(f) for f in previous_version_taiga_ids
             ]
-        else:
-            previous_version_datafiles = []
 
     upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
     upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
