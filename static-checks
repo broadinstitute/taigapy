@@ -1,0 +1,9 @@
+#!/bin/bash
+
+pylint --disable invalid-name,\
+line-too-long,\
+missing-function-docstring,\
+missing-class-docstring,\
+missing-module-docstring,consider-using-f-string taigapy 
+
+mypy taigapy
