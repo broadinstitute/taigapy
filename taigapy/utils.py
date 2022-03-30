@@ -6,17 +6,17 @@ from typing import Collection, DefaultDict, Iterable, Sequence, Optional, Tuple
 
 from taigapy.custom_exceptions import TaigaTokenFileNotFound
 from taigapy.types import (
+    UploadGCSDataFileDict,
+    UploadS3DataFile,
+    UploadS3DataFileDict,
     DataFileMetadata,
     DatasetMetadataDict,
     DatasetVersion,
     DatasetVersionFiles,
     DatasetVersionMetadataDict,
     UploadDataFile,
-    UploadS3DataFile,
-    UploadS3DataFileDict,
     UploadVirtualDataFile,
     UploadVirtualDataFileDict,
-    UploadGCSDataFileDict,
 )
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"

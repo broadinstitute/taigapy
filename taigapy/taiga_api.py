@@ -12,7 +12,6 @@ from taigapy.custom_exceptions import (
 from taigapy.types import (
     DataFileMetadata,
     DatasetMetadataDict,
-    DatasetVersion,
     DatasetVersionMetadataDict,
     S3Credentials,
     TaskState,
@@ -60,8 +59,8 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
         " | ",
         progressbar.ETA(),
     ]
-    bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
-    return bar
+    pbar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
+    return pbar
 
 
 class TaigaApi:
@@ -110,8 +109,8 @@ class TaigaApi:
 
         if standard_reponse_handling:
             return _standard_response_handler(r, data)
-        else:
-            return r
+
+        return r
 
     @staticmethod
     def _download_file_from_s3(download_url: str, dest: str):
@@ -125,7 +124,7 @@ class TaigaApi:
         else:
             content_length = int(header_content_length)
 
-        bar = _progressbar_init(max_value=content_length)
+        pbar = _progressbar_init(max_value=content_length)
 
         with open(dest, "wb") as handle:
             if not r.ok:
@@ -141,8 +140,8 @@ class TaigaApi:
                     content_length == progressbar.UnknownLength
                     or total <= content_length
                 ):
-                    bar.update(total)
-            bar.finish()
+                    pbar.update(total)
+            pbar.finish()
 
     def _poll_task(self, task_id: str) -> TaskStatus:
         api_endpoint = "/api/task_status/{}".format(task_id)

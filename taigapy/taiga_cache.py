@@ -176,7 +176,7 @@ class TaigaCache:
             return _read_feather_to_df(
                 datafile.feather_path, DataFileFormat(datafile.datafile_format)
             )
-        except Exception as e:
+        except Exception:
             self.remove_from_cache(queried_taiga_id, full_taiga_id)
             raise TaigaCacheFileCorrupted()
 
@@ -407,7 +407,7 @@ class TaigaCache:
             """.format(
                 ",".join("?" * len(datafiles_to_delete))
             ),
-            tuple([datafile.full_taiga_id for datafile in datafiles_to_delete]),
+            (datafile.full_taiga_id for datafile in datafiles_to_delete),
         )
         c.close()
         self.conn.commit()

@@ -187,7 +187,7 @@ class S3Credentials:
 
 UploadS3DataFileDict = TypedDict(
     "UploadS3DataFileDict",
-    {"path": str, "name": Optional[str], "format": str, "encoding": Optional[str]},
+    {"path": str, "name": str, "format": str, "encoding": str},
     total=False,
 )
 
@@ -264,8 +264,4 @@ class UploadGCSDataFile(UploadDataFile):
         self.gcs_path = upload_gsc_file_dict["gcs_path"]
 
     def to_api_param(self):
-        return {
-            "filename": self.file_name,
-            "filetype": "gcs",
-            "gcsPath": self.gcs_path,
-        }
+        return {"filename": self.file_name, "filetype": "gcs", "gcsPath": self.gcs_path}
