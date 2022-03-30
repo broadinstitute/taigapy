@@ -8,13 +8,9 @@ class TaigaHttpException(Exception):
 class Taiga404Exception(TaigaHttpException):
     """Exception to retrieve a NotFound returned by Taiga"""
 
-    pass
-
 
 class TaigaDeletedVersionException(TaigaHttpException):
     """Exception to retrieve a deleted dataset version"""
-
-    pass
 
 
 class TaigaServerError(TaigaHttpException):
@@ -29,13 +25,9 @@ class TaigaServerError(TaigaHttpException):
 class TaigaRawTypeException(Exception):
     """Exception when we are trying to get a file from a Table or Matrix format, whereas it is Raw data"""
 
-    pass
-
 
 class TaigaClientConnectionException(Exception):
     """Exception when we are unable to connect to Taiga"""
-
-    pass
 
 
 class TaigaTokenFileNotFound(Exception):

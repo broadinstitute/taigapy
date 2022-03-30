@@ -8,7 +8,7 @@ install_requires = [
     "nest_asyncio>=1.5.1,<2.0.0",
     "colorful",
     "progressbar2>=3.3.0<4.0.0",
-    "pyarrow>=3.0.0,<4.0.0",
+    "pyarrow>=7.0.0,<8.0.0",
 ]
 
 import ast

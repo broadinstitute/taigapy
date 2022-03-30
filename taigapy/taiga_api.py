@@ -12,7 +12,6 @@ from taigapy.custom_exceptions import (
 from taigapy.types import (
     DataFileMetadata,
     DatasetMetadataDict,
-    DatasetVersion,
     DatasetVersionMetadataDict,
     S3Credentials,
     TaskState,
@@ -31,9 +30,11 @@ def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
                 params
             )
         )
-    elif r.status_code == 500:
+
+    if r.status_code == 500:
         raise TaigaServerError()
-    elif r.status_code != 200:
+
+    if r.status_code != 200:
         raise TaigaHttpException("Bad status code: {}".format(r.status_code))
 
     return r.json()
@@ -58,8 +59,8 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
         " | ",
         progressbar.ETA(),
     ]
-    bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
-    return bar
+    pbar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
+    return pbar
 
 
 class TaigaApi:
@@ -108,8 +109,8 @@ class TaigaApi:
 
         if standard_reponse_handling:
             return _standard_response_handler(r, data)
-        else:
-            return r
+
+        return r
 
     @staticmethod
     def _download_file_from_s3(download_url: str, dest: str):
@@ -123,7 +124,7 @@ class TaigaApi:
         else:
             content_length = int(header_content_length)
 
-        bar = _progressbar_init(max_value=content_length)
+        pbar = _progressbar_init(max_value=content_length)
 
         with open(dest, "wb") as handle:
             if not r.ok:
@@ -139,8 +140,8 @@ class TaigaApi:
                     content_length == progressbar.UnknownLength
                     or total <= content_length
                 ):
-                    bar.update(total)
-            bar.finish()
+                    pbar.update(total)
+            pbar.finish()
 
     def _poll_task(self, task_id: str) -> TaskStatus:
         api_endpoint = "/api/task_status/{}".format(task_id)
@@ -178,9 +179,7 @@ class TaigaApi:
 
         task_status = self._poll_task(task_id)
 
-        if task_status.state == TaskState.SUCCESS:
-            return
-        else:
+        if task_status.state != TaskState.SUCCESS:
             raise ValueError(
                 "Error uploading {}: {}".format(
                     session_file.file_name, task_status.message
@@ -221,7 +220,7 @@ class TaigaApi:
         return DataFileMetadata(self._request_get(api_endpoint, params))
 
     def get_dataset_version_metadata(
-        self, dataset_permaname: str, dataset_version: Optional[DatasetVersion]
+        self, dataset_permaname: str, dataset_version: Optional[str]
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
         api_endpoint = "/api/dataset/{}".format(dataset_permaname)
         if dataset_version is not None:
@@ -242,13 +241,15 @@ class TaigaApi:
 
         if r.status_code == 200:
             return r.json()
-        elif r.status_code == 400:
+
+        if r.status_code == 400:
             raise ValueError(
                 "Request was not well formed. Please check your credentials and/or parameters. params: {}".format(
                     params
                 )
             )
-        elif r.status_code == 404:
+
+        if r.status_code == 404:
             raise ValueError(
                 "No datafile found with for dataile id {}".format(
                     format_datafile_id(
@@ -256,7 +257,8 @@ class TaigaApi:
                     )
                 )
             )
-        elif r.status_code == 500:
+
+        if r.status_code == 500:
             raise TaigaServerError()
 
         raise TaigaHttpException(

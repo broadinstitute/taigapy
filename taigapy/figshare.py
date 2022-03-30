@@ -24,7 +24,7 @@ FigshareFileMetadata = TypedDict(
 def parse_figshare_map_file(figshare_map_file: str) -> Dict[str, FigshareFileMetadata]:
     if not os.path.exists(figshare_map_file):
         raise ValueError(
-            "Could not find figshare_map_file at {}.".format(parse_figshare_map_file)
+            f"Could not find figshare_map_file at {parse_figshare_map_file}."
         )
 
     with open(figshare_map_file) as f:
@@ -45,7 +45,7 @@ def parse_figshare_map_file(figshare_map_file: str) -> Dict[str, FigshareFileMet
             datafile_format == DataFileFormat.Columnar
             and file_info.get("column_types") is None
         ):
-            raise ValueError("{} is missing column types".format(taiga_id))
+            raise ValueError(f"{taiga_id} is missing column types")
 
     return figshare_map
 
