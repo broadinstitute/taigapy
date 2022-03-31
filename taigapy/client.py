@@ -394,8 +394,9 @@ class TaigaClient:
         dataset_permaname: Optional[str],
         dataset_version: Optional[DatasetVersion],
         changes_description: Optional[str],
-        upload_files: MutableSequence[UploadS3DataFileDict],
-        add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
+        upload_files: Sequence[UploadS3DataFileDict],
+        add_taiga_ids: Sequence[UploadVirtualDataFileDict],
+        add_gcs_files: Sequence[UploadGCSDataFileDict],
         add_all_existing_files: bool,
     ) -> Tuple[List[UploadDataFile], DatasetVersionMetadataDict]:
         # FIXME: this needs to be corrected for new signature
@@ -437,6 +438,7 @@ class TaigaClient:
         all_uploads = transform_upload_args_to_upload_list(
             upload_files,
             add_taiga_ids,
+            add_gcs_files,
             dataset_version_metadata,
             add_all_existing_files,
         )
@@ -536,9 +538,7 @@ class TaigaClient:
                 raise Exception(f"Unknown upload type: {type(upload)}")
 
     def _upload_files(
-        self,
-        all_uploads: List[UploadDataFile],
-        upload_async: bool,
+        self, all_uploads: List[UploadDataFile], upload_async: bool
     ) -> str:
         upload_session_id = self.api.create_upload_session()
         s3_credentials = self.api.get_s3_credentials()
@@ -548,19 +548,11 @@ class TaigaClient:
             nest_asyncio.apply(loop)
             asyncio.set_event_loop(loop)
             loop.run_until_complete(
-                self._upload_files_async(
-                    all_uploads,
-                    upload_session_id,
-                    s3_credentials,
-                )
+                self._upload_files_async(all_uploads, upload_session_id, s3_credentials)
             )
             loop.close()
         else:
-            self._upload_files_serial(
-                all_uploads,
-                upload_session_id,
-                s3_credentials,
-            )
+            self._upload_files_serial(all_uploads, upload_session_id, s3_credentials)
 
         return upload_session_id
 
@@ -646,9 +638,9 @@ class TaigaClient:
         self,
         dataset_name: str,
         dataset_description: Optional[str] = None,
-        upload_files: Optional[List[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[List[UploadVirtualDataFileDict]] = None,
-        add_gcs_files: Optional[List[UploadGCSDataFileDict]] = None,
+        upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
+        add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
         folder_id: str = None,
         upload_async: bool = True,
     ) -> Optional[str]:
@@ -694,7 +686,7 @@ class TaigaClient:
             if folder_id is None:
                 folder_id = self.api.get_user()["home_folder_id"]
             (all_uploads) = self._preprocess_create_dataset_arguments(
-                dataset_name, upload_files, add_taiga_ids, folder_id
+                dataset_name, upload_files, add_taiga_ids, add_gcs_files, folder_id
             )
         except ValueError as e:
             print(cf.red(str(e)))
@@ -726,8 +718,9 @@ class TaigaClient:
         dataset_version: Optional[DatasetVersion] = None,
         dataset_description: Optional[str] = None,
         changes_description: Optional[str] = None,
-        upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
+        upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
+        add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
         add_all_existing_files: bool = False,
         upload_async: bool = True,
     ) -> Optional[str]:
@@ -769,6 +762,7 @@ class TaigaClient:
                 changes_description,
                 upload_files or [],
                 add_taiga_ids or [],
+                add_gcs_files or [],
                 add_all_existing_files,
             )
         except (ValueError, Taiga404Exception) as e:

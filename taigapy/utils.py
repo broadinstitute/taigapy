@@ -26,7 +26,7 @@ from taigapy.types import (
     UploadVirtualDataFile,
     UploadVirtualDataFileDict,
     UploadGCSDataFileDict,
-    UploadGCSDataFile
+    UploadGCSDataFile,
 )
 
 DATAFILE_ID_FORMAT = "{dataset_permaname}.{dataset_version}/{datafile_name}"
@@ -50,9 +50,7 @@ def find_first_existing(paths: Iterable[str]):
     raise TaigaTokenFileNotFound(paths)
 
 
-def untangle_dataset_id_with_version(
-    taiga_id: str,
-) -> Tuple[str, str, Optional[str]]:
+def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional[str]]:
     """Returns dataset_permaname, dataset_version, and datafile_name from
     `taiga_id` in the form dataset_permaname.version/datafile_name or
     dataset_permaname.version.
@@ -218,10 +216,13 @@ def transform_upload_args_to_upload_list(
 
     upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
     upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
+    upload_gcs_files = [UploadGCSDataFile(f) for f in add_gcs_files]
 
     # https://github.com/python/typeshed/issues/2383
     all_upload_datafiles: Collection[UploadDataFile] = (
-        upload_s3_datafiles + upload_virtual_datafiles + add_gcs_files  # type: ignore
+        upload_s3_datafiles
+        + upload_virtual_datafiles
+        + upload_gcs_files  # type: ignore
     )
 
     datafile_names: DefaultDict[str, int] = defaultdict(int)

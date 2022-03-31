@@ -328,6 +328,10 @@ class TaigaApi:
             "datasetName": dataset_name,
             "datasetDescription": dataset_description,
         }
+
+        import pdb
+
+        pdb.set_trace()
         return self._request_post(api_endpoint, data=new_dataset_params)
 
     def update_dataset(
