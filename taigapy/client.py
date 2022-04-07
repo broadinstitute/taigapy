@@ -175,15 +175,13 @@ class TaigaClient:
                 dataset_permaname, dataset_version, datafile_name, tf.name
             )
 
-            import pdb
-
-            pdb.set_trace()
             if not get_dataframe:
                 return self.cache.add_raw_entry(
                     tf.name,
                     query,
                     full_taiga_id,
                     DataFileFormat(datafile_metadata.datafile_format),
+                    datafile_metadata.gcs_file_extension,
                 )
 
             column_types = None
@@ -199,6 +197,7 @@ class TaigaClient:
                 datafile_format,
                 column_types,
                 datafile_metadata.datafile_encoding,
+                datafile_metadata.gcs_file_extension,
             )
 
     def _get_dataframe_or_path_from_figshare(

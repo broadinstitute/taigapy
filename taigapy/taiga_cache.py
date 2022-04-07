@@ -208,6 +208,7 @@ class TaigaCache:
         datafile_format: DataFileFormat,
         column_types: Optional[Mapping[str, str]],
         encoding: Optional[str],
+        gcs_file_extension: str = "",
     ) -> pd.DataFrame:
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
         assert datafile_format != DataFileFormat.Raw
@@ -282,14 +283,16 @@ class TaigaCache:
         queried_taiga_id: str,
         full_taiga_id: str,
         datafile_format: DataFileFormat,
+        gcs_file_extension: str = "",
     ) -> str:
         "Copies the file at `raw_path` into the cache directory, and stores an entry in the cache."
         datafile = self._get_datafile_from_db(queried_taiga_id, full_taiga_id)
 
         cache_file_extension = "txt" if datafile_format == DataFileFormat.Raw else "csv"
-        import pdb
 
-        pdb.set_trace()
+        if gcs_file_extension != "":
+            cache_file_extension = gcs_file_extension.replace(".", "")
+
         cache_file_path = self._get_path_and_make_directories(
             full_taiga_id, cache_file_extension
         )

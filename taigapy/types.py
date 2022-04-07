@@ -154,6 +154,11 @@ class DataFileMetadata:
         )
 
         self.gcs_path: str = datafile_metadata_dict.get("gcs_path", "")
+        self.gcs_file_extension = (
+            ""
+            if datafile_metadata_dict.get("gcs_path", "") == ""
+            else os.path.splitext(datafile_metadata_dict.get("gcs_path", ""))[1]
+        )
 
 
 TaskStatusDict = TypedDict(
