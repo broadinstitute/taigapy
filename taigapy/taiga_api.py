@@ -11,6 +11,7 @@ from taigapy.custom_exceptions import (
 )
 from taigapy.types import (
     DataFileMetadata,
+    DataFileType,
     DatasetMetadataDict,
     DatasetVersion,
     DatasetVersionMetadataDict,
@@ -19,7 +20,11 @@ from taigapy.types import (
     TaskStatus,
     UploadDataFile,
 )
-from taigapy.utils import format_datafile_id, untangle_dataset_id_with_version
+from taigapy.utils import (
+    format_datafile_id,
+    parse_gcs_path,
+    untangle_dataset_id_with_version,
+)
 
 CHUNK_SIZE = 1024 * 1024
 
@@ -78,6 +83,7 @@ class TaigaApi:
             params = {}
 
         params["taigapy_version"] = __version__
+
         r = requests.get(
             url,
             stream=True,
@@ -110,6 +116,27 @@ class TaigaApi:
             return _standard_response_handler(r, data)
         else:
             return r
+
+    @staticmethod
+    def _download_file_from_gcs(gcs_path: str, dest: str):
+        from google.cloud import storage, exceptions
+
+        try:
+            storage_client = storage.Client()
+            bucket_name, file_name = parse_gcs_path(gcs_path)
+            bucket = storage_client.get_bucket(bucket_name)
+            blob = bucket.get_blob(file_name)
+
+            """content_length = (
+                    progressbar.UnknownLength
+                )  # type: Union[progressbar.UnknownLength, int]
+
+
+            bar = _progressbar_init(max_value=content_length)
+            with open(dest, "wb") as handle:"""
+            blob.download_to_filename(dest)
+        except exceptions.NotFound:
+            raise Exception(f"Error fetching {file_name}")
 
     @staticmethod
     def _download_file_from_s3(download_url: str, dest: str):
@@ -281,10 +308,14 @@ class TaigaApi:
         }
 
         r = self._request_get(endpoint, params, standard_reponse_handling=False)
+
         if r.status_code == 200:
             datafile_metadata = DataFileMetadata(r.json())
             download_url = datafile_metadata.urls[0]
-            self._download_file_from_s3(download_url, dest)
+            if datafile_metadata.datafile_type == DataFileType.GCS:
+                self._download_file_from_gcs(datafile_metadata.gcs_path, dest)
+            else:
+                self._download_file_from_s3(download_url, dest)
         elif r.status_code == 202:
             task_status = self._poll_task(r.json())
             if task_status.state == TaskState.FAILURE:
@@ -329,9 +360,6 @@ class TaigaApi:
             "datasetDescription": dataset_description,
         }
 
-        import pdb
-
-        pdb.set_trace()
         return self._request_post(api_endpoint, data=new_dataset_params)
 
     def update_dataset(

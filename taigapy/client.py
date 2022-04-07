@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 import os
 import tempfile
 from typing import List, MutableSequence, Optional, Sequence, Tuple, Union
@@ -8,6 +9,7 @@ import boto3
 import colorful as cf
 import nest_asyncio
 import pandas as pd
+from google.cloud import storage
 
 from taigapy.custom_exceptions import (
     Taiga404Exception,
@@ -173,6 +175,9 @@ class TaigaClient:
                 dataset_permaname, dataset_version, datafile_name, tf.name
             )
 
+            import pdb
+
+            pdb.set_trace()
             if not get_dataframe:
                 return self.cache.add_raw_entry(
                     tf.name,
@@ -374,10 +379,16 @@ class TaigaClient:
     ):
         if len(dataset_name) == 0:
             raise ValueError("dataset_name must be a nonempty string.")
-        if len(upload_files) == 0 and len(add_taiga_ids) == 0:
-            raise ValueError("upload_files and add_taiga_ids cannot both be empty.")
+        if (
+            len(upload_files) == 0
+            and len(add_taiga_ids) == 0
+            and len(add_gcs_files) == 0
+        ):
+            raise ValueError(
+                "upload_files, add_taiga_ids, and add_gcs_files cannot all be empty."
+            )
 
-        (all_uploads,) = transform_upload_args_to_upload_list(
+        (all_uploads) = transform_upload_args_to_upload_list(
             upload_files, add_taiga_ids, add_gcs_files
         )
 
@@ -532,7 +543,7 @@ class TaigaClient:
                 upload, UploadGCSDataFile
             ):
                 upload_virtual_file = upload
-                print("Linking virtual file {}".format(upload_virtual_file.taiga_id))
+                print("Linking virtual file {}".format(upload_virtual_file.file_name))
                 self.api.upload_file_to_taiga(upload_session_id, upload_virtual_file)
             else:
                 raise Exception(f"Unknown upload type: {type(upload)}")
@@ -612,6 +623,7 @@ class TaigaClient:
         Returns:
             str -- The path of the downloaded file.
         """
+
         return self._get_dataframe_or_path(id, name, version, file, get_dataframe=False)
 
     def get_dataset_metadata(
@@ -653,18 +665,18 @@ class TaigaClient:
 
         Keyword Arguments:
             dataset_description {Optional[str]} -- Description of the dataset. (default: {None})
-            upload_files {Optional[List[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
+            upload_files {Optional[Sequence[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
                 - d["path"] is the path of the file to upload
                 - d["name"] is what the file should be named in the dataset. Uses the base name of the file if not provided
                 - d["format"] is the Format of the file (as a string).
                 And optionally,
                 - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
                 (default: {None})
-            add_taiga_ids {Optional[List[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
+            add_taiga_ids {Optional[Sequence[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
                 - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
                 (default: {None})
-            add_gcs_files {Optional[List[Dict[str, str]]} -- List of GCS objects to add where each dictionary has the keys
+            add_gcs_files {Optional[Sequence[Dict[str, str]]} -- List of GCS objects to add where each dictionary has the keys
                 - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
                 - "name" for what the datafile should be called in the new dataset
             folder_id {str} -- The ID of the containing folder. If not specified, will use home folder of user. (default: {None})
@@ -688,6 +700,7 @@ class TaigaClient:
             (all_uploads) = self._preprocess_create_dataset_arguments(
                 dataset_name, upload_files, add_taiga_ids, add_gcs_files, folder_id
             )
+
         except ValueError as e:
             print(cf.red(str(e)))
             return None
@@ -732,17 +745,20 @@ class TaigaClient:
             dataset_version {Optional[Union[str, int]]} -- Dataset version to base the new version off of. If not specified, will use the latest version. (default: {None})
             dataset_description {Optional[str]} -- Description of new dataset version. Uses previous version's description if not specified. (default: {None})
             changes_description {Optional[str]} -- Description of changes new to this version, required. (default: {None})
-            upload_files {Optional[List[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
+            upload_files {Optional[Sequence[Dict[str, str]]]} -- Sequence of files to upload, where files are provided as dictionary objects d where
                 - d["path"] is the path of the file to upload
                 - d["name"] is what the file should be named in the dataset. Uses the base name of the file if not provided
                 - d["format"] is the Format of the file (as a string).
                 And optionally,
                 - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
                 (default: {None})
-            add_taiga_ids {Optional[List[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
+            add_taiga_ids {Optional[Sequence[Dict[str, str]]]} -- Sequence of virtual datafiles to add, where files are provided as dictionary objects with keys
                 - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
                 (default: {None})
+            add_gcs_files {Optional[Sequence[Dict[str, str]]} -- Sequence of GCS objects to add where each dictionary has the keys
+                - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
+                - "name" for what the datafile should be called in the new dataset
             add_all_existing_files {bool} -- Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in upload_files or add_taiga_ids, that file is ignored. (default: {False})
             upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 

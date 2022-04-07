@@ -17,6 +17,7 @@ class DataFileFormat(Enum):
     HDF5 = "HDF5"
     Columnar = "Columnar"
     Raw = "Raw"
+    default = ""
 
 
 class DataFileUploadFormat(Enum):
@@ -115,10 +116,11 @@ DataFileMetadataDict = TypedDict(
         "state": str,
         "reason_state": str,
         "datafile_type": str,
-        "datafile_format": str,
+        "datafile_format": Optional[str],
         "datafile_encoding": str,
         "urls": Optional[List[str]],
         "underlying_file_id": Optional[str],
+        "gcs_path": str,
     },
 )
 
@@ -141,7 +143,7 @@ class DataFileMetadata:
         )
         # datafile_format does not exist if type is gcs
         self.datafile_format: Optional[DataFileFormat] = DataFileFormat(
-            datafile_metadata_dict.get("datafile_format")
+            datafile_metadata_dict.get("datafile_format", "")
         )
         self.datafile_encoding: Optional[str] = datafile_metadata_dict.get(
             "datafile_encoding"
@@ -150,6 +152,8 @@ class DataFileMetadata:
         self.underlying_file_id: Optional[str] = datafile_metadata_dict.get(
             "underlying_file_id"
         )
+
+        self.gcs_path: str = datafile_metadata_dict.get("gcs_path", "")
 
 
 TaskStatusDict = TypedDict(
@@ -264,8 +268,4 @@ class UploadGCSDataFile(UploadDataFile):
         self.gcs_path = upload_gsc_file_dict["gcs_path"]
 
     def to_api_param(self):
-        return {
-            "filename": self.file_name,
-            "filetype": "gcs",
-            "gcsPath": self.gcs_path,
-        }
+        return {"filename": self.file_name, "filetype": "gcs", "gcsPath": self.gcs_path}

@@ -94,6 +94,22 @@ def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional
     return dataset_permaname, dataset_version, datafile_name
 
 
+def parse_gcs_path(gcs_path: str) -> Tuple[str, str]:
+    # remove prefix
+    if gcs_path.startswith("gs://"):
+        gcs_path = gcs_path.replace("gs://", "")
+
+    if "/" not in gcs_path:
+        raise ValueError(
+            "Invalid GCS path. '{}' is not in the form 'bucket_name/object_name'".format(
+                gcs_path
+            )
+        )
+
+    bucket_name, object_name = gcs_path.split("/", 1)
+    return bucket_name, object_name
+
+
 def format_datafile_id(
     dataset_permaname: str,
     dataset_version: DatasetVersion,
@@ -141,7 +157,6 @@ def transform_upload_args_to_upload_list(
     upload_files: Sequence[UploadS3DataFileDict],
     add_taiga_ids: Sequence[UploadVirtualDataFileDict],
     add_gcs_files: Sequence[UploadGCSDataFileDict],
-    *,
     dataset_version_metadata: Optional[DatasetVersionMetadataDict] = None,
     add_all_existing_files: bool = False,
 ) -> Sequence[UploadDataFile]:
