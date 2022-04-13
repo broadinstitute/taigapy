@@ -9,7 +9,6 @@ import boto3
 import colorful as cf
 import nest_asyncio
 import pandas as pd
-from google.cloud import storage
 
 from taigapy.custom_exceptions import (
     Taiga404Exception,

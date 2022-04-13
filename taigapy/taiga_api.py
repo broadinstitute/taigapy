@@ -127,14 +127,29 @@ class TaigaApi:
             bucket = storage_client.get_bucket(bucket_name)
             blob = bucket.get_blob(file_name)
 
-            """content_length = (
+            if not blob.size:
+                content_length = (
                     progressbar.UnknownLength
                 )  # type: Union[progressbar.UnknownLength, int]
+            else:
+                content_length = int(blob.size)
 
+            bar = _progressbar_init(max_value=blob.size)
+            if not blob:
+                raise Exception(f"Error fetching {file_name}")
 
-            bar = _progressbar_init(max_value=content_length)
-            with open(dest, "wb") as handle:"""
+            total = 0
+            for block in range(0, blob.size):
+                total += block
+                # total can be slightly superior to content_length
+                if (
+                    content_length == progressbar.UnknownLength
+                    or total <= content_length
+                ):
+                    bar.update(total)
+
             blob.download_to_filename(dest)
+            bar.finish()
         except exceptions.NotFound:
             raise Exception(f"Error fetching {file_name}")
 
