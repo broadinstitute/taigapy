@@ -1,8 +1,7 @@
 import asyncio
-from datetime import timedelta
 import os
 import tempfile
-from typing import List, MutableSequence, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import aiobotocore
 import boto3
