@@ -138,10 +138,7 @@ def modify_upload_files(
     upload_files: MutableSequence[UploadS3DataFileDict],
     add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
     dataset_version_metadata: Optional[DatasetVersionMetadataDict] = None,
-    add_all_existing_files: bool = False,
 ) -> Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile]]:
-    previous_version_taiga_ids: Optional[List[UploadVirtualDataFileDict]] = None
-
     if dataset_version_metadata is not None:
         dataset_permaname = dataset_version_metadata["dataset"]["permanames"][-1]
         dataset_version = dataset_version_metadata["datasetVersion"]["version"]
@@ -190,23 +187,8 @@ def modify_upload_files(
             if upload_file_dict["path"] not in add_as_virtual
         ]
 
-        if add_all_existing_files:
-            previous_version_taiga_ids = [
-                {
-                    "taiga_id": format_datafile_id(
-                        dataset_permaname, dataset_version, datafile["name"]
-                    )
-                }
-                for datafile in dataset_version_metadata["datasetVersion"]["datafiles"]
-            ]
-
     upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
     upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
-    previous_version_datafiles = (
-        [UploadVirtualDataFile(f) for f in previous_version_taiga_ids]
-        if previous_version_taiga_ids is not None
-        else None
-    )
 
     # https://github.com/python/typeshed/issues/2383
     all_upload_datafiles: Collection[UploadDataFile] = (
@@ -224,11 +206,6 @@ def modify_upload_files(
         raise ValueError(
             "Multiple files named {}.".format(", ".join(duplicate_file_names))
         )
-
-    if previous_version_datafiles is not None:
-        for upload_datafile in previous_version_datafiles:
-            if upload_datafile.file_name not in datafile_names:
-                upload_virtual_datafiles.append(upload_datafile)
 
     return upload_s3_datafiles, upload_virtual_datafiles
 

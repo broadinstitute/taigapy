@@ -42,6 +42,7 @@ from taigapy.utils import (
 )
 from .consts import DEFAULT_TAIGA_URL, DEFAULT_CACHE_DIR, CACHE_FILE
 
+
 class TaigaClient:
     def __init__(
         self,
@@ -391,7 +392,6 @@ class TaigaClient:
         changes_description: Optional[str],
         upload_files: MutableSequence[UploadS3DataFileDict],
         add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
-        add_all_existing_files: bool,
     ) -> Tuple[
         List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
     ]:
@@ -431,13 +431,15 @@ class TaigaClient:
         )
 
         upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
-            upload_files,
-            add_taiga_ids,
-            dataset_version_metadata,
-            add_all_existing_files,
+            upload_files, add_taiga_ids, dataset_version_metadata
         )
 
-        return upload_s3_datafiles, upload_virtual_datafiles, dataset_version_metadata
+        return (
+            upload_s3_datafiles,
+            upload_virtual_datafiles,
+            dataset_version_metadata,
+            dataset_permaname,
+        )
 
     async def _upload_to_s3_and_request_conversion(
         self,
@@ -493,11 +495,7 @@ class TaigaClient:
             self.api.upload_file_to_taiga(upload_session_id, upload_file)
 
     def _upload_files_serial(
-        self,
-        upload_s3_datafiles: List[UploadS3DataFile],
-        upload_virtual_datafiles: List[UploadVirtualDataFile],
-        upload_session_id: str,
-        s3_credentials: S3Credentials,
+        self, upload_s3_datafiles: List[UploadS3DataFile], s3_credentials: S3Credentials
     ):
         # Configuration of the Boto3 client
         s3_client = boto3.client(
@@ -510,21 +508,11 @@ class TaigaClient:
         for upload_file in upload_s3_datafiles:
             bucket = s3_credentials.bucket
             partial_prefix = s3_credentials.prefix
-            key = "{}{}/{}".format(
-                partial_prefix, upload_session_id, upload_file.file_name
-            )
+            key = "{}/{}".format(partial_prefix, upload_file.file_name)
 
             s3_client.upload_file(upload_file.file_path, bucket, key)
             upload_file.add_s3_upload_information(bucket, key)
             print("Finished uploading {} to S3".format(upload_file.file_name))
-
-            print("Uploading {} to Taiga".format(upload_file.file_name))
-            self.api.upload_file_to_taiga(upload_session_id, upload_file)
-            print("Finished uploading {} to Taiga".format(upload_file.file_name))
-
-        for upload_virtual_file in upload_virtual_datafiles:
-            print("Linking virtual file {}".format(upload_virtual_file.taiga_id))
-            self.api.upload_file_to_taiga(upload_session_id, upload_virtual_file)
 
     def _upload_files(
         self,
@@ -532,10 +520,10 @@ class TaigaClient:
         upload_virtual_datafiles: List[UploadVirtualDataFile],
         upload_async: bool,
     ) -> str:
-        upload_session_id = self.api.create_upload_session()
         s3_credentials = self.api.get_s3_credentials()
 
         if upload_async:
+            upload_session_id = self.api.create_upload_session()
             loop = asyncio.new_event_loop()
             nest_asyncio.apply(loop)
             asyncio.set_event_loop(loop)
@@ -549,14 +537,7 @@ class TaigaClient:
             )
             loop.close()
         else:
-            self._upload_files_serial(
-                upload_s3_datafiles,
-                upload_virtual_datafiles,
-                upload_session_id,
-                s3_credentials,
-            )
-
-        return upload_session_id
+            self._upload_files_serial(upload_s3_datafiles, s3_credentials)
 
     def _get_dataset_metadata(
         self, dataset_id: str, version: Optional[DatasetVersion]
@@ -722,8 +703,8 @@ class TaigaClient:
         dataset_version: Optional[DatasetVersion] = None,
         dataset_description: Optional[str] = None,
         changes_description: Optional[str] = None,
-        upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
+        upload_files: Optional[List[UploadS3DataFileDict]] = [],
+        add_taiga_ids: Optional[List[UploadVirtualDataFileDict]] = [],
         add_all_existing_files: bool = False,
         upload_async: bool = True,
     ) -> Optional[str]:
@@ -759,6 +740,7 @@ class TaigaClient:
                 upload_s3_datafiles,
                 upload_virtual_datafiles,
                 dataset_version_metadata,
+                dataset_permaname_confirmed,
             ) = self._validate_update_dataset_arguments(
                 dataset_id,
                 dataset_permaname,
@@ -766,14 +748,14 @@ class TaigaClient:
                 changes_description,
                 upload_files or [],
                 add_taiga_ids or [],
-                add_all_existing_files,
             )
         except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
             return None
 
         try:
-            upload_session_id = self._upload_files(
+            # This just uses the s3 client to upload s3 info. TODO go back and fix the async version
+            self._upload_files(
                 upload_s3_datafiles, upload_virtual_datafiles, upload_async
             )
         except ValueError as e:
@@ -788,9 +770,13 @@ class TaigaClient:
 
         new_dataset_version_id = self.api.update_dataset(
             dataset_version_metadata["dataset"]["id"],
-            upload_session_id,
             dataset_description,
             changes_description,
+            dataset_version,
+            dataset_permaname_confirmed,
+            upload_files,
+            add_taiga_ids,
+            add_all_existing_files,
         )
 
         print(

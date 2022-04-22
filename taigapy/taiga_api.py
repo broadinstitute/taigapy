@@ -1,5 +1,6 @@
 import time
-from typing import Dict, Mapping, Optional, Union
+from typing import Dict, List, Mapping, MutableSequence, Optional, Union
+from xmlrpc.client import Boolean, boolean
 
 import progressbar
 import requests
@@ -18,6 +19,8 @@ from taigapy.types import (
     TaskState,
     TaskStatus,
     UploadDataFile,
+    UploadS3DataFileDict,
+    UploadVirtualDataFileDict,
 )
 from taigapy.utils import format_datafile_id, untangle_dataset_id_with_version
 
@@ -333,14 +336,25 @@ class TaigaApi:
     def update_dataset(
         self,
         dataset_id: str,
-        session_id: str,
         description: str,
         changes_description: Optional[str],
+        dataset_version: str,
+        dataset_permaname: str,
+        upload_files: List[UploadS3DataFileDict] = [],
+        add_taiga_ids: List[UploadVirtualDataFileDict] = [],
+        add_existing_files: bool = False,
     ) -> str:
+        # import pdb; pdb.set_trace()
+        # assert len(add_taiga_ids) > 0 | len(upload_files) > 0, f"{len(add_taiga_ids) > 0}, {len(upload_files) > 0}"
+
         params = {
             "datasetId": dataset_id,
-            "sessionId": session_id,
             "newDescription": description,
+            "datasetVersion": dataset_version,
+            "datasetPermaname": dataset_permaname,
+            "uploadFiles": upload_files,
+            "taigaIdsToAdd": add_taiga_ids,
+            "addExistingFiles": add_existing_files,
         }
         if changes_description is not None:
             params["changesDescription"] = changes_description
