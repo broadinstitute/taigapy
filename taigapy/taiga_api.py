@@ -15,6 +15,7 @@ from taigapy.types import (
     DatasetMetadataDict,
     DatasetVersion,
     DatasetVersionMetadataDict,
+    DatasetVersionShortDict,
     S3Credentials,
     TaskState,
     TaskStatus,
@@ -343,6 +344,7 @@ class TaigaApi:
         upload_files: List[UploadS3DataFileDict] = [],
         add_taiga_ids: List[UploadVirtualDataFileDict] = [],
         add_existing_files: bool = False,
+        versions: List[DatasetVersionShortDict] = [],
     ) -> str:
         # import pdb; pdb.set_trace()
         # assert len(add_taiga_ids) > 0 | len(upload_files) > 0, f"{len(add_taiga_ids) > 0}, {len(upload_files) > 0}"
@@ -355,6 +357,7 @@ class TaigaApi:
             "uploadFiles": upload_files,
             "taigaIdsToAdd": add_taiga_ids,
             "addExistingFiles": add_existing_files,
+            "versions": versions,
         }
         if changes_description is not None:
             params["changesDescription"] = changes_description
