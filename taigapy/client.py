@@ -391,7 +391,6 @@ class TaigaClient:
         changes_description: Optional[str],
         upload_files: MutableSequence[UploadS3DataFileDict],
         add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
-        add_all_existing_files: bool,
     ) -> Tuple[
         List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
     ]:
@@ -432,9 +431,7 @@ class TaigaClient:
 
         upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
             upload_files,
-            add_taiga_ids,
-            dataset_version_metadata,
-            add_all_existing_files,
+            add_taiga_ids
         )
 
         return upload_s3_datafiles, upload_virtual_datafiles, dataset_version_metadata
@@ -766,7 +763,6 @@ class TaigaClient:
                 changes_description,
                 upload_files or [],
                 add_taiga_ids or [],
-                add_all_existing_files,
             )
         except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
@@ -791,6 +787,8 @@ class TaigaClient:
             upload_session_id,
             dataset_description,
             changes_description,
+            dataset_version_metadata.get("dataset_version", None),
+            add_all_existing_files
         )
 
         print(
