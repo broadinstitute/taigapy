@@ -787,7 +787,7 @@ class TaigaClient:
             upload_session_id,
             dataset_description,
             changes_description,
-            dataset_version_metadata.get("dataset_version", None),
+            dataset_version_metadata["datasetVersion"],
             add_all_existing_files
         )
 
