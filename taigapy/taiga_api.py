@@ -383,11 +383,15 @@ class TaigaApi:
         session_id: str,
         description: str,
         changes_description: Optional[str],
+        dataset_version: Optional[str],
+        add_existing_files: bool = False
     ) -> str:
         params = {
             "datasetId": dataset_id,
             "sessionId": session_id,
             "newDescription": description,
+            "datasetVersion": dataset_version,
+            "addExistingFiles": add_existing_files
         }
         if changes_description is not None:
             params["changesDescription"] = changes_description

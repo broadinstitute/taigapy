@@ -6,8 +6,6 @@ from typing import (
     Collection,
     DefaultDict,
     Iterable,
-    List,
-    MutableSequence,
     Sequence,
     Optional,
     Tuple,
@@ -158,9 +156,7 @@ def transform_upload_args_to_upload_list(
     add_taiga_ids: Sequence[UploadVirtualDataFileDict],
     add_gcs_files: Sequence[UploadGCSDataFileDict],
     dataset_version_metadata: Optional[DatasetVersionMetadataDict] = None,
-    add_all_existing_files: bool = False,
 ) -> Sequence[UploadDataFile]:
-    previous_version_datafiles = []
 
     if dataset_version_metadata is not None:
         dataset_permaname = dataset_version_metadata["dataset"]["permanames"][-1]
@@ -214,21 +210,6 @@ def transform_upload_args_to_upload_list(
             if upload_file_dict["path"] not in add_as_virtual
         ]
 
-        if add_all_existing_files:
-            previous_version_taiga_ids = [
-                {
-                    "taiga_id": format_datafile_id(
-                        dataset_permaname, dataset_version, datafile["name"]
-                    )
-                }
-                for datafile in dataset_version_metadata["datasetVersion"]["datafiles"]
-            ]
-
-            # translate prev taiga_ids into UploadVirtualDataFile records
-            previous_version_datafiles = [
-                UploadVirtualDataFile(f) for f in previous_version_taiga_ids
-            ]
-
     upload_s3_datafiles = [UploadS3DataFile(f) for f in upload_files]
     upload_virtual_datafiles = [UploadVirtualDataFile(f) for f in add_taiga_ids]
     upload_gcs_files = [UploadGCSDataFile(f) for f in add_gcs_files]
@@ -251,10 +232,6 @@ def transform_upload_args_to_upload_list(
         raise ValueError(
             "Multiple files named {}.".format(", ".join(duplicate_file_names))
         )
-
-    for upload_datafile in previous_version_datafiles:
-        if upload_datafile.file_name not in datafile_names:
-            all_upload_datafiles.append(upload_datafile)
 
     return all_upload_datafiles
 

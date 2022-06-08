@@ -405,9 +405,9 @@ class TaigaClient:
         upload_files: Sequence[UploadS3DataFileDict],
         add_taiga_ids: Sequence[UploadVirtualDataFileDict],
         add_gcs_files: Sequence[UploadGCSDataFileDict],
-        add_all_existing_files: bool,
-    ) -> Tuple[List[UploadDataFile], DatasetVersionMetadataDict]:
-        # FIXME: this needs to be corrected for new signature
+    ) -> Tuple[
+        List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
+    ]:
         if changes_description is None or changes_description == "":
             raise ValueError("Description of changes cannot be empty.")
 
@@ -448,7 +448,6 @@ class TaigaClient:
             add_taiga_ids,
             add_gcs_files,
             dataset_version_metadata,
-            add_all_existing_files,
         )
 
         return all_uploads, dataset_version_metadata
@@ -775,8 +774,7 @@ class TaigaClient:
                 changes_description,
                 upload_files or [],
                 add_taiga_ids or [],
-                add_gcs_files or [],
-                add_all_existing_files,
+                add_gcs_files or []
             )
         except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
@@ -799,6 +797,8 @@ class TaigaClient:
             upload_session_id,
             dataset_description,
             changes_description,
+            dataset_version,
+            add_all_existing_files
         )
 
         print(

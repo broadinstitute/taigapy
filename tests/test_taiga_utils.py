@@ -1,6 +1,6 @@
 import copy
 import py
-from typing import Dict, MutableSequence, Optional, List
+from typing import Dict, Sequence, Optional, List
 
 import numpy as np
 import pandas as pd
@@ -163,17 +163,13 @@ expected_upload_virtual_datafiles_api_params: List[Dict] = [
         "existingTaigaId": "foo.1/no_name",
     },
 ]
-expected_add_existing_datafiles_api_params: List[Dict] = [
+
+expected_matching_datafiles_api_params: List[Dict] = [
     {
         "filename": "matching_datafile",
         "filetype": "virtual",
         "existingTaigaId": "dataset-0001.1/matching_datafile",
-    },
-    {
-        "filename": "non_matching_datafile",
-        "filetype": "virtual",
-        "existingTaigaId": "dataset-0001.1/non_matching_datafile",
-    },
+    }
 ]
 
 matrix_df = pd.DataFrame({"a": [2.1, np.nan], "b": [1.1, 1.4]}, index=["c", "d"])
@@ -181,14 +177,14 @@ table_df = pd.DataFrame({"a": [2.1, np.nan], "b": ["one", "two"]})
 
 
 @pytest.mark.parametrize(
-    "upload_files,add_taiga_ids,dataset_version_metadata,add_all_existing_files,expected_upload_s3_datafiles_api_params,expected_upload_virtual_datafiles_api_params",
+    "upload_files,add_taiga_ids,dataset_version_metadata,expected_upload_s3_datafiles_api_params,expected_upload_virtual_datafiles_api_params,expected_matching_datafiles_api_params",
     [
         pytest.param(
             copy.deepcopy(upload_files),
             [],
             None,
-            False,
             expected_upload_s3_datafiles_api_params,
+            [],
             [],
             id="create dataset, only upload files",
         ),
@@ -196,83 +192,78 @@ table_df = pd.DataFrame({"a": [2.1, np.nan], "b": ["one", "two"]})
             [],
             copy.deepcopy(add_taiga_ids),
             None,
-            False,
             [],
             expected_upload_virtual_datafiles_api_params,
+            [],
             id="create dataset, only virtual files",
         ),
         pytest.param(
             copy.deepcopy(upload_files),
             copy.deepcopy(add_taiga_ids),
             None,
-            False,
             expected_upload_s3_datafiles_api_params,
             expected_upload_virtual_datafiles_api_params,
+            [],
             id="create dataset, both upload and virtual files",
         ),
         pytest.param(
             copy.deepcopy(upload_files),
             [],
             dataset_version_metadata,
-            False,
             [
                 f
                 for f in expected_upload_s3_datafiles_api_params
                 if f["filename"] != "matching_datafile"
             ],
-            [
-                f
-                for f in expected_add_existing_datafiles_api_params
-                if f["filename"] == "matching_datafile"
-            ],
+            [],
+            expected_matching_datafiles_api_params,
             id="update dataset, only upload files, skip existsing files",
         ),
         pytest.param(
             copy.deepcopy(upload_files),
             [],
             dataset_version_metadata,
-            True,
             [
                 f
                 for f in expected_upload_s3_datafiles_api_params
                 if f["filename"] != "matching_datafile"
             ],
-            expected_add_existing_datafiles_api_params,
+            [],
+            expected_matching_datafiles_api_params,
             id="update dataset, only upload files, add existing files",
         ),
         pytest.param(
             [],
             copy.deepcopy(add_taiga_ids),
             dataset_version_metadata,
-            True,
             [],
             expected_upload_virtual_datafiles_api_params
-            + expected_add_existing_datafiles_api_params,
+            ,
+            [],
             id="update dataset, only virtual files",
         ),
         pytest.param(
             copy.deepcopy(upload_files),
             copy.deepcopy(add_taiga_ids),
             dataset_version_metadata,
-            True,
             [
                 f
                 for f in expected_upload_s3_datafiles_api_params
                 if f["filename"] != "matching_datafile"
             ],
-            expected_upload_virtual_datafiles_api_params
-            + expected_add_existing_datafiles_api_params,
+            expected_upload_virtual_datafiles_api_params,
+            expected_matching_datafiles_api_params,
             id="update dataset, both upload and virtual files",
         ),
     ],
 )
 def test_modify_upload_files(
-    upload_files: MutableSequence[UploadS3DataFileDict],
-    add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
+    upload_files: Sequence[UploadS3DataFileDict],
+    add_taiga_ids: Sequence[UploadVirtualDataFileDict],
     dataset_version_metadata: Optional[DatasetVersionMetadataDict],
-    add_all_existing_files: bool,
     expected_upload_s3_datafiles_api_params: List[Dict],
     expected_upload_virtual_datafiles_api_params: List[Dict],
+    expected_matching_datafiles_api_params: List[Dict],
     tmpdir: py._path.local.LocalPath,
 ):
     for upload_file_dict in upload_files:
@@ -291,8 +282,7 @@ def test_modify_upload_files(
         upload_files,
         add_taiga_ids,
         [],
-        dataset_version_metadata=dataset_version_metadata,
-        add_all_existing_files=add_all_existing_files,
+        dataset_version_metadata=dataset_version_metadata
     )
 
     upload_s3_datafiles = []
@@ -315,11 +305,11 @@ def test_modify_upload_files(
     )
 
     assert len(upload_virtual_datafiles) == len(
-        expected_upload_virtual_datafiles_api_params
+        expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params
     )
     assert all(
         actual.to_api_param() == expected
         for (actual, expected) in zip(
-            upload_virtual_datafiles, expected_upload_virtual_datafiles_api_params
+            upload_virtual_datafiles, (expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params)
         )
     )
