@@ -1,7 +1,7 @@
 import asyncio
 import os
 import tempfile
-from typing import List, MutableSequence, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import aiobotocore
 import boto3
@@ -31,16 +31,20 @@ from taigapy.types import (
     UploadS3DataFileDict,
     UploadVirtualDataFile,
     UploadVirtualDataFileDict,
+    UploadGCSDataFileDict,
+    UploadGCSDataFile,
+    UploadDataFile,
 )
 from taigapy.utils import (
     find_first_existing,
     format_datafile_id,
     format_datafile_id_from_datafile_metadata,
     get_latest_valid_version_from_metadata,
-    modify_upload_files,
+    transform_upload_args_to_upload_list,
     untangle_dataset_id_with_version,
 )
 from .consts import DEFAULT_TAIGA_URL, DEFAULT_CACHE_DIR, CACHE_FILE
+
 
 class TaigaClient:
     def __init__(
@@ -175,6 +179,7 @@ class TaigaClient:
                     query,
                     full_taiga_id,
                     DataFileFormat(datafile_metadata.datafile_format),
+                    datafile_metadata.gcs_file_extension,
                 )
 
             column_types = None
@@ -190,6 +195,7 @@ class TaigaClient:
                 datafile_format,
                 column_types,
                 datafile_metadata.datafile_encoding,
+                datafile_metadata.gcs_file_extension,
             )
 
     def _get_dataframe_or_path_from_figshare(
@@ -360,20 +366,27 @@ class TaigaClient:
         print(cf.red("The datafile you requested was not in the cache."))
         return None
 
-    def _validate_create_dataset_arguments(
+    def _preprocess_create_dataset_arguments(
         self,
         dataset_name: str,
-        upload_files: MutableSequence[UploadS3DataFileDict],
-        add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
+        upload_files: Sequence[UploadS3DataFileDict],
+        add_taiga_ids: Sequence[UploadVirtualDataFileDict],
+        add_gcs_files: Sequence[UploadGCSDataFileDict],
         folder_id: str,
     ):
         if len(dataset_name) == 0:
             raise ValueError("dataset_name must be a nonempty string.")
-        if len(upload_files) == 0 and len(add_taiga_ids) == 0:
-            raise ValueError("upload_files and add_taiga_ids cannot both be empty.")
+        if (
+            len(upload_files) == 0
+            and len(add_taiga_ids) == 0
+            and len(add_gcs_files) == 0
+        ):
+            raise ValueError(
+                "upload_files, add_taiga_ids, and add_gcs_files cannot all be empty."
+            )
 
-        upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
-            upload_files, add_taiga_ids
+        (all_uploads) = transform_upload_args_to_upload_list(
+            upload_files, add_taiga_ids, add_gcs_files
         )
 
         try:
@@ -381,7 +394,7 @@ class TaigaClient:
         except Taiga404Exception:
             raise ValueError("No folder found with id {}.".format(folder_id))
 
-        return upload_s3_datafiles, upload_virtual_datafiles
+        return all_uploads
 
     def _validate_update_dataset_arguments(
         self,
@@ -389,8 +402,9 @@ class TaigaClient:
         dataset_permaname: Optional[str],
         dataset_version: Optional[DatasetVersion],
         changes_description: Optional[str],
-        upload_files: MutableSequence[UploadS3DataFileDict],
-        add_taiga_ids: MutableSequence[UploadVirtualDataFileDict],
+        upload_files: Sequence[UploadS3DataFileDict],
+        add_taiga_ids: Sequence[UploadVirtualDataFileDict],
+        add_gcs_files: Sequence[UploadGCSDataFileDict],
     ) -> Tuple[
         List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict
     ]:
@@ -429,12 +443,14 @@ class TaigaClient:
             self._get_dataset_metadata(dataset_permaname, dataset_version)
         )
 
-        upload_s3_datafiles, upload_virtual_datafiles = modify_upload_files(
+        all_uploads = transform_upload_args_to_upload_list(
             upload_files,
-            add_taiga_ids
+            add_taiga_ids,
+            add_gcs_files,
+            dataset_version_metadata,
         )
 
-        return upload_s3_datafiles, upload_virtual_datafiles, dataset_version_metadata
+        return all_uploads, dataset_version_metadata
 
     async def _upload_to_s3_and_request_conversion(
         self,
@@ -491,8 +507,7 @@ class TaigaClient:
 
     def _upload_files_serial(
         self,
-        upload_s3_datafiles: List[UploadS3DataFile],
-        upload_virtual_datafiles: List[UploadVirtualDataFile],
+        uploads: List[UploadDataFile],
         upload_session_id: str,
         s3_credentials: S3Credentials,
     ):
@@ -504,30 +519,33 @@ class TaigaClient:
             aws_session_token=s3_credentials.session_token,
         )
 
-        for upload_file in upload_s3_datafiles:
-            bucket = s3_credentials.bucket
-            partial_prefix = s3_credentials.prefix
-            key = "{}{}/{}".format(
-                partial_prefix, upload_session_id, upload_file.file_name
-            )
+        for upload in uploads:
+            if isinstance(upload, UploadS3DataFile):
+                upload_file = upload
+                bucket = s3_credentials.bucket
+                partial_prefix = s3_credentials.prefix
+                key = "{}{}/{}".format(
+                    partial_prefix, upload_session_id, upload_file.file_name
+                )
 
-            s3_client.upload_file(upload_file.file_path, bucket, key)
-            upload_file.add_s3_upload_information(bucket, key)
-            print("Finished uploading {} to S3".format(upload_file.file_name))
+                s3_client.upload_file(upload_file.file_path, bucket, key)
+                upload_file.add_s3_upload_information(bucket, key)
+                print("Finished uploading {} to S3".format(upload_file.file_name))
 
-            print("Uploading {} to Taiga".format(upload_file.file_name))
-            self.api.upload_file_to_taiga(upload_session_id, upload_file)
-            print("Finished uploading {} to Taiga".format(upload_file.file_name))
-
-        for upload_virtual_file in upload_virtual_datafiles:
-            print("Linking virtual file {}".format(upload_virtual_file.taiga_id))
-            self.api.upload_file_to_taiga(upload_session_id, upload_virtual_file)
+                print("Uploading {} to Taiga".format(upload_file.file_name))
+                self.api.upload_file_to_taiga(upload_session_id, upload_file)
+                print("Finished uploading {} to Taiga".format(upload_file.file_name))
+            elif isinstance(upload, UploadVirtualDataFile) or isinstance(
+                upload, UploadGCSDataFile
+            ):
+                upload_virtual_file = upload
+                print("Linking virtual file {}".format(upload_virtual_file.file_name))
+                self.api.upload_file_to_taiga(upload_session_id, upload_virtual_file)
+            else:
+                raise Exception(f"Unknown upload type: {type(upload)}")
 
     def _upload_files(
-        self,
-        upload_s3_datafiles: List[UploadS3DataFile],
-        upload_virtual_datafiles: List[UploadVirtualDataFile],
-        upload_async: bool,
+        self, all_uploads: List[UploadDataFile], upload_async: bool
     ) -> str:
         upload_session_id = self.api.create_upload_session()
         s3_credentials = self.api.get_s3_credentials()
@@ -537,30 +555,21 @@ class TaigaClient:
             nest_asyncio.apply(loop)
             asyncio.set_event_loop(loop)
             loop.run_until_complete(
-                self._upload_files_async(
-                    upload_s3_datafiles,
-                    upload_virtual_datafiles,
-                    upload_session_id,
-                    s3_credentials,
-                )
+                self._upload_files_async(all_uploads, upload_session_id, s3_credentials)
             )
             loop.close()
         else:
-            self._upload_files_serial(
-                upload_s3_datafiles,
-                upload_virtual_datafiles,
-                upload_session_id,
-                s3_credentials,
-            )
+            self._upload_files_serial(all_uploads, upload_session_id, s3_credentials)
 
         return upload_session_id
 
     def _get_dataset_metadata(
-        self, dataset_id: str, version: Optional[DatasetVersion]
+        self, dataset_id: str, version: Optional[str]
     ) -> Optional[Union[DatasetMetadataDict, DatasetVersionMetadataDict]]:
         self._set_token_and_initialized_api()
 
         if "." in dataset_id:
+            assert version is None
             dataset_id, version, _ = untangle_dataset_id_with_version(dataset_id)
 
         return self.api.get_dataset_version_metadata(dataset_id, version)
@@ -610,6 +619,7 @@ class TaigaClient:
         Returns:
             str -- The path of the downloaded file.
         """
+
         return self._get_dataframe_or_path(id, name, version, file, get_dataframe=False)
 
     def get_dataset_metadata(
@@ -636,8 +646,9 @@ class TaigaClient:
         self,
         dataset_name: str,
         dataset_description: Optional[str] = None,
-        upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
+        upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
+        add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
         folder_id: str = None,
         upload_async: bool = True,
     ) -> Optional[str]:
@@ -650,17 +661,20 @@ class TaigaClient:
 
         Keyword Arguments:
             dataset_description {Optional[str]} -- Description of the dataset. (default: {None})
-            upload_files {Optional[List[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
+            upload_files {Optional[Sequence[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
                 - d["path"] is the path of the file to upload
                 - d["name"] is what the file should be named in the dataset. Uses the base name of the file if not provided
                 - d["format"] is the Format of the file (as a string).
                 And optionally,
                 - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
                 (default: {None})
-            add_taiga_ids {Optional[List[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
+            add_taiga_ids {Optional[Sequence[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
                 - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
                 (default: {None})
+            add_gcs_files {Optional[Sequence[Dict[str, str]]} -- List of GCS objects to add where each dictionary has the keys
+                - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
+                - "name" for what the datafile should be called in the new dataset
             folder_id {str} -- The ID of the containing folder. If not specified, will use home folder of user. (default: {None})
             upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 
@@ -673,28 +687,22 @@ class TaigaClient:
             upload_files = []
         if add_taiga_ids is None:
             add_taiga_ids = []
+        if add_gcs_files is None:
+            add_gcs_files = []
 
         try:
             if folder_id is None:
                 folder_id = self.api.get_user()["home_folder_id"]
-            (
-                upload_s3_datafiles,
-                upload_virtual_datafiles,
-            ) = self._validate_create_dataset_arguments(
-                dataset_name, upload_files, add_taiga_ids, folder_id
+            (all_uploads) = self._preprocess_create_dataset_arguments(
+                dataset_name, upload_files, add_taiga_ids, add_gcs_files, folder_id
             )
+
         except ValueError as e:
             print(cf.red(str(e)))
             return None
 
-        if upload_s3_datafiles is None:
-            # User declined to upload to public folder
-            return None
-
         try:
-            upload_session_id = self._upload_files(
-                upload_s3_datafiles, upload_virtual_datafiles, upload_async
-            )
+            upload_session_id = self._upload_files(all_uploads, upload_async)
         except ValueError as e:
             print(cf.red(str(e)))
             return None
@@ -719,8 +727,9 @@ class TaigaClient:
         dataset_version: Optional[DatasetVersion] = None,
         dataset_description: Optional[str] = None,
         changes_description: Optional[str] = None,
-        upload_files: Optional[MutableSequence[UploadS3DataFileDict]] = None,
-        add_taiga_ids: Optional[MutableSequence[UploadVirtualDataFileDict]] = None,
+        upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
+        add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
+        add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
         add_all_existing_files: bool = False,
         upload_async: bool = True,
     ) -> Optional[str]:
@@ -732,17 +741,20 @@ class TaigaClient:
             dataset_version {Optional[Union[str, int]]} -- Dataset version to base the new version off of. If not specified, will use the latest version. (default: {None})
             dataset_description {Optional[str]} -- Description of new dataset version. Uses previous version's description if not specified. (default: {None})
             changes_description {Optional[str]} -- Description of changes new to this version, required. (default: {None})
-            upload_files {Optional[List[Dict[str, str]]]} -- List of files to upload, where files are provided as dictionary objects d where
+            upload_files {Optional[Sequence[Dict[str, str]]]} -- Sequence of files to upload, where files are provided as dictionary objects d where
                 - d["path"] is the path of the file to upload
                 - d["name"] is what the file should be named in the dataset. Uses the base name of the file if not provided
                 - d["format"] is the Format of the file (as a string).
                 And optionally,
                 - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
                 (default: {None})
-            add_taiga_ids {Optional[List[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
+            add_taiga_ids {Optional[Sequence[Dict[str, str]]]} -- Sequence of virtual datafiles to add, where files are provided as dictionary objects with keys
                 - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
                 (default: {None})
+            add_gcs_files {Optional[Sequence[Dict[str, str]]} -- Sequence of GCS objects to add where each dictionary has the keys
+                - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
+                - "name" for what the datafile should be called in the new dataset
             add_all_existing_files {bool} -- Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in upload_files or add_taiga_ids, that file is ignored. (default: {False})
             upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 
@@ -753,8 +765,7 @@ class TaigaClient:
 
         try:
             (
-                upload_s3_datafiles,
-                upload_virtual_datafiles,
+                all_uploads,
                 dataset_version_metadata,
             ) = self._validate_update_dataset_arguments(
                 dataset_id,
@@ -763,15 +774,14 @@ class TaigaClient:
                 changes_description,
                 upload_files or [],
                 add_taiga_ids or [],
+                add_gcs_files or []
             )
         except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
             return None
 
         try:
-            upload_session_id = self._upload_files(
-                upload_s3_datafiles, upload_virtual_datafiles, upload_async
-            )
+            upload_session_id = self._upload_files(all_uploads, upload_async)
         except ValueError as e:
             print(cf.red(str(e)))
             return None
@@ -900,12 +910,3 @@ class TaigaClient:
         except (ValueError, TaigaHttpException) as e:
             print(cf.red(str(e)))
             return False
-
-
-try:
-    default_tc = TaigaClient()
-except Exception as e:
-    print("default_tc could not be set for this reason: {}".format(e))
-    print(
-        "You can import TaigaClient and add your custom options if you would want to customize it to your settings"
-    )

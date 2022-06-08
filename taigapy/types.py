@@ -17,6 +17,7 @@ class DataFileFormat(Enum):
     HDF5 = "HDF5"
     Columnar = "Columnar"
     Raw = "Raw"
+    default = ""
 
 
 class DataFileUploadFormat(Enum):
@@ -115,10 +116,11 @@ DataFileMetadataDict = TypedDict(
         "state": str,
         "reason_state": str,
         "datafile_type": str,
-        "datafile_format": str,
+        "datafile_format": Optional[str],
         "datafile_encoding": str,
         "urls": Optional[List[str]],
         "underlying_file_id": Optional[str],
+        "gcs_path": str,
     },
 )
 
@@ -141,7 +143,7 @@ class DataFileMetadata:
         )
         # datafile_format does not exist if type is gcs
         self.datafile_format: Optional[DataFileFormat] = DataFileFormat(
-            datafile_metadata_dict.get("datafile_format")
+            datafile_metadata_dict.get("datafile_format", "")
         )
         self.datafile_encoding: Optional[str] = datafile_metadata_dict.get(
             "datafile_encoding"
@@ -149,6 +151,13 @@ class DataFileMetadata:
         self.urls: Optional[List[str]] = datafile_metadata_dict.get("urls")
         self.underlying_file_id: Optional[str] = datafile_metadata_dict.get(
             "underlying_file_id"
+        )
+
+        self.gcs_path: str = datafile_metadata_dict.get("gcs_path", "")
+        self.gcs_file_extension = (
+            ""
+            if datafile_metadata_dict.get("gcs_path", "") == ""
+            else os.path.splitext(datafile_metadata_dict.get("gcs_path", ""))[1]
         )
 
 
@@ -251,3 +260,17 @@ class UploadVirtualDataFile(UploadDataFile):
             "filetype": "virtual",
             "existingTaigaId": self.taiga_id,
         }
+
+
+UploadGCSDataFileDict = TypedDict(
+    "UploadGCSDataFileDict", {"gcs_path": str, "name": str}, total=False
+)
+
+
+class UploadGCSDataFile(UploadDataFile):
+    def __init__(self, upload_gsc_file_dict: UploadGCSDataFileDict):
+        self.file_name = upload_gsc_file_dict["name"]
+        self.gcs_path = upload_gsc_file_dict["gcs_path"]
+
+    def to_api_param(self):
+        return {"filename": self.file_name, "filetype": "gcs", "gcsPath": self.gcs_path}
