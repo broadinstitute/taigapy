@@ -282,8 +282,7 @@ def test_modify_upload_files(
         upload_files,
         add_taiga_ids,
         [],
-        dataset_version_metadata=dataset_version_metadata,
-        add_all_existing_files=add_all_existing_files,
+        dataset_version_metadata=dataset_version_metadata
     )
 
     upload_s3_datafiles = []
