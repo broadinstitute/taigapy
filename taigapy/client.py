@@ -481,8 +481,7 @@ class TaigaClient:
 
     async def _upload_files_async(
         self,
-        upload_s3_datafiles: List[UploadS3DataFile],
-        upload_virtual_datafiles: List[UploadVirtualDataFile],
+        uploads: List[UploadDataFile],
         upload_session_id: str,
         s3_credentials: S3Credentials,
     ):
@@ -492,7 +491,8 @@ class TaigaClient:
                     upload_session_id, f, s3_credentials
                 )
             )
-            for f in upload_s3_datafiles
+            for f in uploads
+            if isinstance(f, UploadS3DataFile)
         ]
         try:
             await asyncio.gather(*tasks)
@@ -501,9 +501,12 @@ class TaigaClient:
                 t.cancel()
             raise e
 
-        for upload_file in upload_virtual_datafiles:
-            print("Linking virtual file {}".format(upload_file.taiga_id))
-            self.api.upload_file_to_taiga(upload_session_id, upload_file)
+        for upload_file in uploads:
+            if isinstance(upload_file, UploadVirtualDataFile) or isinstance(
+                upload_file, UploadGCSDataFile
+            ):
+                print("Linking virtual file {}".format(upload_file.taiga_id))
+                self.api.upload_file_to_taiga(upload_session_id, upload_file)
 
     def _upload_files_serial(
         self,
@@ -774,7 +777,7 @@ class TaigaClient:
                 changes_description,
                 upload_files or [],
                 add_taiga_ids or [],
-                add_gcs_files or []
+                add_gcs_files or [],
             )
         except (ValueError, Taiga404Exception) as e:
             print(cf.red(str(e)))
@@ -798,7 +801,7 @@ class TaigaClient:
             dataset_description,
             changes_description,
             dataset_version,
-            add_all_existing_files
+            add_all_existing_files,
         )
 
         print(
