@@ -505,7 +505,7 @@ class TaigaClient:
             if isinstance(upload_file, UploadVirtualDataFile) or isinstance(
                 upload_file, UploadGCSDataFile
             ):
-                print("Linking virtual file {}".format(upload_file.taiga_id))
+                print("Linking virtual file {}".format(upload_file.file_name))
                 self.api.upload_file_to_taiga(upload_session_id, upload_file)
 
     def _upload_files_serial(
