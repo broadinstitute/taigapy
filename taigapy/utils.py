@@ -6,8 +6,6 @@ from typing import (
     Collection,
     DefaultDict,
     Iterable,
-    List,
-    MutableSequence,
     Sequence,
     Optional,
     Tuple,

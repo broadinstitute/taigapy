@@ -1,6 +1,6 @@
 import copy
 import py
-from typing import Dict, MutableSequence, Optional, List
+from typing import Dict, Sequence, Optional, List
 
 import numpy as np
 import pandas as pd
