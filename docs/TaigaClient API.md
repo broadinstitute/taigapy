@@ -129,13 +129,14 @@ taigapy.TaigaClient.create_dataset(
     dataset_description=None,
     upload_files=None,
     add_taiga_ids=None,
+    add_gcs_files=None,
     folder_id=None,
     upload_async=True,
 )
 ```
-Creates a new dataset named `dataset_name` with local files `upload_files` and virtual datafiles `add_taiga_ids` in the folder with id `parent_folder_id`.
+Creates a new dataset named `dataset_name` with local files `upload_files`, google cloud storage file pointers `add_gcs_files,` and virtual datafiles `add_taiga_ids` in the folder with id `parent_folder_id`.
 
-If multiple files in the union of `upload_files` and `add_taiga_ids` share the same name, Taiga will throw and error and the dataset will not be created.
+If multiple files in the union of `upload_files`, `add_gcs_files,` and `add_taiga_ids` share the same name, Taiga will throw and error and the dataset will not be created.
 
 ### Parameters
 - `dataset_name`: _str_\
@@ -153,6 +154,10 @@ If multiple files in the union of `upload_files` and `add_taiga_ids` share the s
     List of virtual datafiles to add, where files are provided as dictionary objects with keys
     - `"taiga_id"` equal to the Taiga ID of the reference datafile in `dataset_permaname.dataset_version/datafile_name` format
     - `"name"` (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
+- `add_gcs_files`: _list[dict[str, str]]_\
+    Sequence of GCS objects to add where each dictionary has the keys
+    - `"gcs_path"` the GCS path (must start with "gs://...") of the object to associate with the provided name
+    - `"name"` "name" for what the datafile should be called in the new dataset
 - `folder_id`: _str_\
     The ID of the containing folder. If not specified, will use home folder of user.
 - `upload_async`: _bool_\
@@ -195,6 +200,7 @@ dataset_version_id = taigapy.TaigaClient.update_dataset(
     changes_description=None,
     upload_files=None,
     add_taiga_ids=None,
+    add_gcs_files=None,
     add_all_existing_files=True,
     upload_async=True,
 )
@@ -205,7 +211,7 @@ Follows the same rules as [taigapy.TaigaClient.create_dataset](#taigapytaigaclie
 
 ### Parameters
 See [taigapy.TaigaClient.get parameters](#Parameters-1) for description of `dataset_name`.\
-See [taigapy.TaigaClient.create_dataset parameters](#Parameters-3) for description of `upload_files`, `add_taiga_ids`.
+See [taigapy.TaigaClient.create_dataset parameters](#Parameters-3) for description of `upload_files`, `add_taiga_ids`, and `add_gcs_files`.
 - `dataset_id`: _str_\
     Generated id or id in the format `dataset_permaname.dataset_version`
 - `dataset_permaname`: _str_\
@@ -217,7 +223,7 @@ See [taigapy.TaigaClient.create_dataset parameters](#Parameters-3) for descripti
 - `changes_description`: _str_\
     Description of changes new to this version.
 - `add_all_existing_files`: _bool_\
-    Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in `upload_files` or `add_taiga_ids`, that file is ignored.
+    Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in `upload_files`, `add_gcs_files`, or `add_taiga_ids`, that file is ignored.
 - `upload_async`: _bool_\
     Whether to upload asynchronously (parallel) or in serial
 ### Returns
