@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.4] - 2022-06-09
+### Added
+- tc.create_dataset, tc.update_dataset, and tc.download_to_cache now support gcs path files
+- Data file read access is logged
+- Improved parallel uploads
+
 ## [3.3.3] - 2022-4-1
 ### Fixed
 - Changed to more lax library requirements
