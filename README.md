@@ -82,6 +82,12 @@ new_dataset_id = tc.create_dataset(
             "name": "name in new dataset" # optional, will use name in referenced dataset if not provided (required if there is a name collision)
         }
     ],
+    add_gcs_files=[
+        {
+            "gcs_path": "gs://bucket_name/file_name.extension",
+            "name": "name of file in dataset",
+        }
+    ],
     folder_id="folder_id", # optional, will default to your home folder if not provided
 )
 ```
@@ -106,6 +112,12 @@ new_dataset_id = tc.update_dataset(
         {
             "taiga_id": "achilles-v2-4-6.4/data",
             "name": "name in new dataset" # optional, will use name in referenced dataset if not provided (required if there is a name collision)
+        }
+    ],
+    add_gcs_files=[
+        {
+            "gcs_path": "gs://bucket_name/file_name.extension",
+            "name": "name of file in dataset",
         }
     ],
     add_all_existing_files=True, # If True, will add all files from the base dataset version, except files with the same names as those in upload_files or add_taiga_ids
