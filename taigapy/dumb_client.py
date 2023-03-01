@@ -1,6 +1,5 @@
 import pandas as pd
-import shelve
-from typing import TypeVar, Generic, Optional, Dict, List
+from typing import Optional, Dict, List
 import os
 from .taiga_api import TaigaApi
 import re
@@ -9,30 +8,14 @@ import tempfile
 from dataclasses import dataclass
 import boto3
 import colorful as cf
+import uuid
+from typing import Callable, Tuple
+from .types import DatasetVersionMetadataDict
+from .simple_cache import Cache
 
 from taigapy.types import (
-    S3Credentials,
-    #     DataFileFormat,
-    #     DataFileMetadata,
-    #     DatasetMetadataDict,
-    #     DatasetVersion,
-    #     DatasetVersionMetadataDict,
-    #     DatasetVersionState,
-    #     S3Credentials,
-    #     UploadS3DataFile,
-    #     UploadS3DataFileDict,
-    #     UploadVirtualDataFile,
-    #     UploadVirtualDataFileDict,
-    #     UploadGCSDataFileDict,
-    #     UploadGCSDataFile,
-    #     UploadDataFile,
+    S3Credentials
 )
-
-
-# class Structure(Enum):
-#     TABLE = auto()
-#     MATRIX = auto()
-#     UNSTRUCTURED = auto()
 
 class LocalFormat(Enum):
     HDF5_MATRIX = "hdf5_matrix"
@@ -47,24 +30,13 @@ class TaigaStorageFormat(Enum):
     RAW_PARQUET_TABLE = "raw_parquet_table"
     RAW_BYTES = "raw_bytes"
 
-
-V = TypeVar("V")
-
-# todo:
-# 1. write end-to-end integration test
-#   still need to write tests for updating datasets
-# 2. make mock taiga client which simulates submissions and responses
-
-
 @dataclass
 class DataFileID:
     permaname: str
     version: int
     name: str
 
-
 DATAFILE_ID_PATTERN = "([a-z0-9]+)\\.([0-9]+)/(.*)"
-
 
 def _parse_datafile_id(datafile_id):
     m = re.match(DATAFILE_ID_PATTERN, datafile_id)
@@ -74,42 +46,6 @@ def _parse_datafile_id(datafile_id):
     else:
         return None
 
-
-import shelve
-
-
-class Cache(Generic[V]):
-    def __init__(self, filename: str) -> None:
-        super().__init__()
-        self.in_memory_cache = {}
-        self.filename = filename
-
-    def _ensure_parent_dir_exists(self):
-        parent = os.path.dirname(self.filename)
-        if not os.path.exists(parent):
-            os.makedirs(parent)
-
-    def get(self, key: str, default: Optional[V]) -> V:
-        if key in self.in_memory_cache:
-            return self.in_memory_cache[key]
-
-        self._ensure_parent_dir_exists()
-        with shelve.open(self.filename) as s:
-            if key in s:
-                value = s[key]
-                self.in_memory_cache[key] = value
-                return value
-            else:
-                return default
-
-    def put(self, key: str, value: V):
-        self._ensure_parent_dir_exists()
-        with shelve.open(self.filename) as s:
-            if key in s:
-                assert s[key] == value
-            else:
-                s[key] = value
-                self.in_memory_cache[key] = value
 
 
 @dataclass
@@ -157,10 +93,6 @@ class GCSReference(File):
     gs_path: str
 
 
-import uuid
-from typing import Callable, Tuple
-from .types import DatasetVersionMetadataDict
-
 Uploader = Callable[[str], Tuple[str, str]]
 
 
@@ -187,64 +119,47 @@ def create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
     return upload_session_id, upload
 
 
-# type_to_structure = {
-#     "HDF5": Structure.MATRIX,
-#     "Columnar": Structure.TABLE,
-#     "Raw": Structure.UNSTRUCTURED
-# }
-
 @dataclass
 class MinDataFileMetadata:
     type: str
     metadata : Dict[str, str]
 
-    @property
-    def structure(self):
-        return type_to_structure[self.type]
-
 class Client:
     def __init__(self, cache_dir: str, api: TaigaApi):
+        # caches canonical ID for each Taiga ID
         self.canonical_id_cache: Cache[str, str] = Cache(
             os.path.join(cache_dir, "canonical_id.cache")
         )
+
+        # caches local path to file for each (canonical_id, format)
         self.internal_format_cache: Cache[str, str] = Cache(
             os.path.join(cache_dir, "internal_format.cache")
         )
-        # todo: define MinDataFileMetadata (Do not use DataFileMetadata because it's too much work)
+
+        # caches min datafile metadata given a (non canonical) datafile ID
         self.datafile_metadata_cache: Cache[str, MinDataFileMetadata] = Cache(
+            os.path.join(cache_dir, "dataset_version.cache")
+        )
+
+        # caches dataset version metadata given a dataset version ID
+        self.dataset_version_cache : Cache[str, DatasetVersionMetadataDict] = Cache(
             os.path.join(cache_dir, "datafile_metadata.cache")
         )
+
+        # path to where to store downloaded files
         self.download_cache_dir = os.path.join(cache_dir, "downloaded")
         self.api = api
 
     def _add_file_to_cache(
-        self, full_metadata: DatasetVersionMetadataDict, data_file_metadata_dict
+        self, data_file_metadata_dict
     ):
         canonical_id = data_file_metadata_dict["underlying_file_id"]
         datafile_id = data_file_metadata_dict["id"]
         if canonical_id is None:
             canonical_id = datafile_id
         assert re.match(DATAFILE_ID_PATTERN, datafile_id)
-        print(f"adding {datafile_id} -> {canonical_id}")
-        print(f"adding {canonical_id} -> {canonical_id}")
         self.canonical_id_cache.put(datafile_id, canonical_id)
         self.canonical_id_cache.put(canonical_id, canonical_id)
-
-        # data_file_metadata_dict = dict(data_file_metadata_dict)
-        # data_file_metadata_dict["dataset_name"] = full_metadata["dataset"]["name"]
-        # data_file_metadata_dict["dataset_permaname"] = full_metadata["dataset"][
-        #     "permanames"
-        # ][0]
-        # data_file_metadata_dict["dataset_version"] = full_metadata["datasetVersion"][
-        #     "version"
-        # ]
-        # data_file_metadata_dict["dataset_id"] = full_metadata["dataset"]["permanames"][
-        #     0
-        # ]
-        # data_file_metadata_dict["dataset_version_id"] = "...."
-        # data_file_metadata_dict["datafile_name"] = data_file_metadata_dict["name"]
-        # data_file_metadata_dict["status"] = "ok"
-        # data_file_metadata_dict["state"] = full_metadata["datasetVersion"]["state"]
 
         self.datafile_metadata_cache.put(
             datafile_id, MinDataFileMetadata(
@@ -254,15 +169,18 @@ class Client:
 
     def _ensure_dataset_version_cached(self, permaname, version) -> bool:
         "returns False if this dataset version could not be found"
-        full_metadata = self.api.get_dataset_version_metadata(
-            dataset_permaname=permaname, dataset_version=version
-        )
-        if full_metadata is None:
-            return False
-        else:
-            for file in full_metadata["datasetVersion"]["datafiles"]:
-                self._add_file_to_cache(full_metadata, file)
-            return True
+        key = f"{permaname}.{version}"
+        dataset_version = self.dataset_version_cache.get(key)
+        if dataset_version is None:
+            full_metadata = self.api.get_dataset_version_metadata(
+                dataset_permaname=permaname, dataset_version=version
+            )
+            if full_metadata is None:
+                return False
+            else:
+                for file in full_metadata["datasetVersion"]["datafiles"]:
+                    self._add_file_to_cache(file)
+        return True
 
     def get_canonical_id(self, datafile_id: str) -> str:
         """
