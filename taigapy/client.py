@@ -3,10 +3,8 @@ import os
 import tempfile
 from typing import List, Optional, Sequence, Tuple, Union
 
-import aiobotocore
 import boto3
 import colorful as cf
-import nest_asyncio
 import pandas as pd
 
 from taigapy.custom_exceptions import (
@@ -452,62 +450,6 @@ class TaigaClient:
 
         return all_uploads, dataset_version_metadata
 
-    async def _upload_to_s3_and_request_conversion(
-        self,
-        session_id: str,
-        upload_file: UploadS3DataFile,
-        s3_credentials: S3Credentials,
-    ):
-        print("Uploading {} to S3".format(upload_file.file_name))
-        bucket = s3_credentials.bucket
-        partial_prefix = s3_credentials.prefix
-        key = "{}{}/{}".format(partial_prefix, session_id, upload_file.file_name)
-
-        session = aiobotocore.get_session()
-        async with session.create_client(
-            "s3",
-            aws_access_key_id=s3_credentials.access_key_id,
-            aws_secret_access_key=s3_credentials.secret_access_key,
-            aws_session_token=s3_credentials.session_token,
-        ) as s3_client:
-            with open(upload_file.file_path, "rb") as f:
-                resp = await s3_client.put_object(Bucket=bucket, Key=key, Body=f)
-        upload_file.add_s3_upload_information(bucket, key)
-        print("Finished uploading {} to S3".format(upload_file.file_name))
-
-        print("Uploading {} to Taiga".format(upload_file.file_name))
-        self.api.upload_file_to_taiga(session_id, upload_file)
-        print("Finished uploading {} to Taiga".format(upload_file.file_name))
-
-    async def _upload_files_async(
-        self,
-        uploads: List[UploadDataFile],
-        upload_session_id: str,
-        s3_credentials: S3Credentials,
-    ):
-        tasks = [
-            asyncio.ensure_future(
-                self._upload_to_s3_and_request_conversion(
-                    upload_session_id, f, s3_credentials
-                )
-            )
-            for f in uploads
-            if isinstance(f, UploadS3DataFile)
-        ]
-        try:
-            await asyncio.gather(*tasks)
-        except Exception as e:
-            for t in tasks:
-                t.cancel()
-            raise e
-
-        for upload_file in uploads:
-            if isinstance(upload_file, UploadVirtualDataFile) or isinstance(
-                upload_file, UploadGCSDataFile
-            ):
-                print("Linking virtual file {}".format(upload_file.file_name))
-                self.api.upload_file_to_taiga(upload_session_id, upload_file)
-
     def _upload_files_serial(
         self,
         uploads: List[UploadDataFile],
@@ -553,16 +495,7 @@ class TaigaClient:
         upload_session_id = self.api.create_upload_session()
         s3_credentials = self.api.get_s3_credentials()
 
-        if upload_async:
-            loop = asyncio.new_event_loop()
-            nest_asyncio.apply(loop)
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(
-                self._upload_files_async(all_uploads, upload_session_id, s3_credentials)
-            )
-            loop.close()
-        else:
-            self._upload_files_serial(all_uploads, upload_session_id, s3_credentials)
+        self._upload_files_serial(all_uploads, upload_session_id, s3_credentials)
 
         return upload_session_id
 
@@ -733,8 +666,7 @@ class TaigaClient:
         upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
         add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
-        add_all_existing_files: bool = False,
-        upload_async: bool = True,
+        add_all_existing_files: bool = False
     ) -> Optional[str]:
         """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
 
@@ -759,7 +691,6 @@ class TaigaClient:
                 - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
                 - "name" for what the datafile should be called in the new dataset
             add_all_existing_files {bool} -- Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in upload_files or add_taiga_ids, that file is ignored. (default: {False})
-            upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 
         Returns:
             Optional[str] -- The id of the new dataset version, or None if the operation was not successful.
@@ -784,7 +715,7 @@ class TaigaClient:
             return None
 
         try:
-            upload_session_id = self._upload_files(all_uploads, upload_async)
+            upload_session_id = self._upload_files(all_uploads)
         except ValueError as e:
             print(cf.red(str(e)))
             return None

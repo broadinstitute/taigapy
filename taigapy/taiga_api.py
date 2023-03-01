@@ -68,6 +68,9 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
 
 
 class TaigaApi:
+    url : str
+    token : str
+
     def __init__(self, url: str, token: str):
         self.url = url
         self.token = token
@@ -209,10 +212,15 @@ class TaigaApi:
         api_endpoint = "/api/user"
         return self._request_get(api_endpoint)
 
-    def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
+    def upload_file_to_taiga(self, session_id: str, session_file: Union[UploadDataFile, Dict]):
+        if isinstance(session_file, dict):
+            api_params = session_file
+        else:
+            api_params = session_file.to_api_param()
+
         api_endpoint = "/api/datafile/{}".format(session_id)
         task_id = self._request_post(
-            api_endpoint=api_endpoint, data=session_file.to_api_param()
+            api_endpoint=api_endpoint, data=api_params
         )
 
         if task_id == "done":

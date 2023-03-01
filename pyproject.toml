@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "taigapy"
+version = "3.3.4"
+description = "Client library for fetching data from Taiga"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.28.2"
+pandas = ">=1.0.0,<2.0.0"
+boto3 = "^1.26.0"
+colorful = "^0.5.5"
+progressbar2 = ">=3.3.0,<4.0.0"
+pyarrow = ">3.0.0"
+pytest = "^7.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
