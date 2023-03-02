@@ -671,6 +671,7 @@ class TaigaClient:
                 And optionally,
                 - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
                 (default: {None})
+                - "custom_metadata" is an optional json encoded dictionary, with keys representing the metadata name, and values representing the metadata value
             add_taiga_ids {Optional[Sequence[Dict[str, str]]]} -- List of virtual datafiles to add, where files are provided as dictionary objects with keys
                 - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
@@ -678,6 +679,7 @@ class TaigaClient:
             add_gcs_files {Optional[Sequence[Dict[str, str]]} -- List of GCS objects to add where each dictionary has the keys
                 - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
                 - "name" for what the datafile should be called in the new dataset
+                - "custom_metadata" is an optional json encoded dictionary, with keys representing the metadata name, and values representing the metadata value
             folder_id {str} -- The ID of the containing folder. If not specified, will use home folder of user. (default: {None})
             upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 
@@ -751,6 +753,7 @@ class TaigaClient:
                 And optionally,
                 - d["encoding"] is the character encoding of the file. Uses "UTF-8" if not provided
                 (default: {None})
+                - "custom_metadata" is an optional json encoded dictionary, with keys representing the metadata name, and values representing the metadata value
             add_taiga_ids {Optional[Sequence[Dict[str, str]]]} -- Sequence of virtual datafiles to add, where files are provided as dictionary objects with keys
                 - "taiga_id" equal to the Taiga ID of the reference datafile in dataset_permaname.dataset_version/datafile_name format
                 - "name" (optional) for what the virtual datafile should be called in the new dataset (will use the reference datafile name if not provided).
@@ -758,6 +761,7 @@ class TaigaClient:
             add_gcs_files {Optional[Sequence[Dict[str, str]]} -- Sequence of GCS objects to add where each dictionary has the keys
                 - "gcs_path" the GCS path (must start with "gs://...") of the object to associate with the provided name
                 - "name" for what the datafile should be called in the new dataset
+                - "custom_metadata" is an optional json encoded dictionary, with keys representing the metadata name, and values representing the metadata value
             add_all_existing_files {bool} -- Whether to add all files from the base dataset version as virtual datafiles in the new dataset version. If a name collides with one in upload_files or add_taiga_ids, that file is ignored. (default: {False})
             upload_async {bool} -- Whether to upload asynchronously (parallel) or in serial
 

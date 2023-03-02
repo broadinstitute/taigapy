@@ -3,7 +3,7 @@ import os
 
 from abc import ABC
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from typing_extensions import Literal, TypedDict
 
 
@@ -62,6 +62,7 @@ DatasetVersionFiles = TypedDict(
         "underlying_file_id": Optional[str],
         "original_file_md5": Optional[str],
         "original_file_sha256": Optional[str],
+        "custom_metadata": Optional[Dict[str, Any]],
     },
 )
 DatasetVersionLongDict = TypedDict(
@@ -196,13 +197,20 @@ class S3Credentials:
 
 UploadS3DataFileDict = TypedDict(
     "UploadS3DataFileDict",
-    {"path": str, "name": Optional[str], "format": str, "encoding": Optional[str]},
+    {
+        "path": str,
+        "name": Optional[str],
+        "format": str,
+        "encoding": Optional[str],
+        "custom_metadata": Optional[Dict[str, Any]],
+    },
     total=False,
 )
 
 
 class UploadDataFile(ABC):
     file_name: str
+    custom_metadata: Optional[Dict[str, Any]]
 
     def to_api_param(self):
         pass
@@ -220,6 +228,7 @@ class UploadS3DataFile(UploadDataFile):
         self.file_name = upload_s3_file_dict.get(
             "name", standardize_file_name(self.file_path)
         )
+        self.custom_metadata = upload_s3_file_dict.get("custom_metadata", None)
         self.datafile_format = DataFileUploadFormat(upload_s3_file_dict["format"])
         self.encoding = codecs.lookup(upload_s3_file_dict.get("encoding", "utf-8")).name
         self.bucket: Optional[str] = None
@@ -233,6 +242,7 @@ class UploadS3DataFile(UploadDataFile):
         return {
             "filename": self.file_name,
             "filetype": "s3",
+            "custom_metadata": self.custom_metadata,
             "s3Upload": {
                 "format": self.datafile_format.value,
                 "bucket": self.bucket,
@@ -243,7 +253,9 @@ class UploadS3DataFile(UploadDataFile):
 
 
 UploadVirtualDataFileDict = TypedDict(
-    "UploadVirtualDataFileDict", {"taiga_id": str, "name": str}, total=False
+    "UploadVirtualDataFileDict",
+    {"taiga_id": str, "name": str, "custom_metadata": Optional[Dict[str, Any]]},
+    total=False,
 )
 
 
@@ -253,17 +265,21 @@ class UploadVirtualDataFile(UploadDataFile):
         self.file_name = upload_virtual_file_dict.get(
             "name", self.taiga_id.split("/", 1)[1]
         )
+        self.custom_metadata = upload_virtual_file_dict.get("custom_metadata", None)
 
     def to_api_param(self):
         return {
             "filename": self.file_name,
+            "custom_metadata": self.custom_metadata,
             "filetype": "virtual",
             "existingTaigaId": self.taiga_id,
         }
 
 
 UploadGCSDataFileDict = TypedDict(
-    "UploadGCSDataFileDict", {"gcs_path": str, "name": str}, total=False
+    "UploadGCSDataFileDict",
+    {"gcs_path": str, "name": str, "custom_metadata": Optional[Dict[str, Any]]},
+    total=False,
 )
 
 
@@ -271,6 +287,12 @@ class UploadGCSDataFile(UploadDataFile):
     def __init__(self, upload_gsc_file_dict: UploadGCSDataFileDict):
         self.file_name = upload_gsc_file_dict["name"]
         self.gcs_path = upload_gsc_file_dict["gcs_path"]
+        self.custom_metadata = upload_gsc_file_dict.get("custom_metadata", None)
 
     def to_api_param(self):
-        return {"filename": self.file_name, "filetype": "gcs", "gcsPath": self.gcs_path}
+        return {
+            "filename": self.file_name,
+            "filetype": "gcs",
+            "gcsPath": self.gcs_path,
+            "custom_metadata": self.custom_metadata,
+        }
