@@ -77,7 +77,7 @@ def test_add_entry(
 
 
 @pytest.fixture
-def populated_cache(tmpdir: py._path.local.LocalPath):
+def populated_cache(tmpdir):
     cache = TaigaCache(str(tmpdir), str(tmpdir.join(CACHE_FILE)))
 
     p = tmpdir.join("foobar.csv")

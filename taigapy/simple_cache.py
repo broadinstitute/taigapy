@@ -1,4 +1,5 @@
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Optional
+
 import shelve # TODO: Switch away from shelve to sqlite shelve to avoid concurrency corruption
 import os
 

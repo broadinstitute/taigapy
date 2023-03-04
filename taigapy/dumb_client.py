@@ -12,6 +12,7 @@ import uuid
 from typing import Callable, Tuple
 from .types import DatasetVersionMetadataDict
 from .simple_cache import Cache
+from .types import DataFileUploadFormat
 
 from taigapy.types import (
     S3Credentials
@@ -73,13 +74,13 @@ class DatasetVersion:
 @dataclass
 class File:
     name: str
-    metadata: Dict[str, str]
+    metadata: Dict[str, str] 
 
 
 @dataclass
 class UploadedFile(File):
     local_path: str
-    format: str
+    format: LocalFormat
     encoding: str = "utf8"
 
 
@@ -170,7 +171,7 @@ class Client:
     def _ensure_dataset_version_cached(self, permaname, version) -> bool:
         "returns False if this dataset version could not be found"
         key = f"{permaname}.{version}"
-        dataset_version = self.dataset_version_cache.get(key)
+        dataset_version = self.dataset_version_cache.get(key, None)
         if dataset_version is None:
             full_metadata = self.api.get_dataset_version_metadata(
                 dataset_permaname=permaname, dataset_version=version
@@ -265,22 +266,39 @@ class Client:
         return upload_session_id
 
     def _upload_file(self, upload_session_id, uploader: Uploader, upload: File):
+        # one method for each type of file we can upload
         def _upload_uploaded_file(upload_file: UploadedFile):
             bucket, key = uploader(upload_file.local_path)
 
             print("Uploading {} to Taiga".format(upload_file.local_path))
+            metadata = dict(upload_file.metadata)
+            if upload_file.format == LocalFormat.CSV_MATRIX:
+                taiga_format = DataFileUploadFormat.NumericMatrixCSV
+            elif upload_file.format == LocalFormat.CSV_TABLE:
+                taiga_format = DataFileUploadFormat.TableCSV
+            elif upload_file.format == LocalFormat.HDF5_MATRIX:
+                taiga_format = DataFileUploadFormat.Raw
+                metadata["client_storage_format"] = TaigaStorageFormat.RAW_HDF5_MATRIX.value
+            elif upload_file.format == LocalFormat.PARQUET_TABLE:
+                taiga_format = DataFileUploadFormat.Raw
+                metadata["client_storage_format"] = TaigaStorageFormat.RAW_PARQUET_TABLE.value
+            elif upload_file.format == LocalFormat.RAW:
+                taiga_format = DataFileUploadFormat.Raw
+            else:
+                raise Exception(f"Unknown format: {upload_file.format}")
+            
             self.api.upload_file_to_taiga(
                 upload_session_id,
                 {
                     "filename": upload_file.name,
                     "filetype": "s3",
                     "s3Upload": {
-                        "format": upload_file.format,
+                        "format": taiga_format.value,
                         "bucket": bucket,
                         "key": key,
                         "encoding": upload_file.encoding,
                     },
-                    "metadata": upload_file.metadata,
+                    "metadata": metadata,
                 },
             )
 
@@ -483,242 +501,8 @@ def convert_csv_to_hdf5(csv_path: str, hdf5_path: str):
 
 
 def convert_csv_to_parquet(csv_path: str, parquet_path: str):
-    df = df.read_csv(csv_path)
+    df = pd.read_csv(csv_path)
     write_parquet(df, parquet_path)
 
 
 ################
-
-import pytest
-
-sample_matrix = pd.DataFrame(data={"a": [1.2, 2.0], "b": [2.1, 3.0]}, index=["x", "y"])
-sample_table = pd.DataFrame(data={"a": [1.2, 2.0], "b": [2.1, 3.0]})
-
-
-writers_by_format = {
-    LocalFormat.HDF5_MATRIX.value: write_hdf5,
-    LocalFormat.PARQUET_TABLE.value: write_parquet,
-    LocalFormat.CSV_TABLE.value: lambda df, dest: df.to_csv(dest, index=False),
-    LocalFormat.CSV_MATRIX.value: lambda df, dest: df.to_csv(dest, index=True),
-}
-
-from unittest.mock import create_autospec
-
-
-@pytest.fixture
-def mock_client(tmpdir, s3_mock_client):
-    api = create_autospec(TaigaApi)
-    api.url = "https://mock/"
-    api.get_s3_credentials.return_value = S3Credentials(
-        {
-            "accessKeyId": "a",
-            "bucket": "bucket",
-            "expiration": "expiration",
-            "prefix": "prefix",
-            "secretAccessKey": "secretAccessKey",
-            "sessionToken": "sessionToken",
-        }
-    )
-
-    sessions = {}
-    dataset_versions: Dict[str, DatasetVersion] = {}
-    s3_objects = {}
-    datafiles_by_id = {}
-
-    def _upload_file(local_path, bucket, key):
-        with open(local_path, "rb") as fd:
-            bytes = fd.read()
-        s3_objects[f"{bucket}/{key}"] = bytes
-    s3_mock_client.upload_file.side_effect = _upload_file
-
-    from typing import Union
-    from .types import DatasetMetadataDict, DatasetVersionMetadataDict
-
-    def _get_dataset_version_metadata(
-        dataset_permaname: str, dataset_version: Optional[str]
-    ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
-        version = dataset_version
-        dataset_version = dataset_versions.get(f"{dataset_permaname}.{version}")
-        if dataset_version is None:
-            return None
-
-        assert version is not None
-        return {
-            "dataset": {"name": "name", "permanames": [dataset_permaname]},
-            "datasetVersion": {
-                "can_edit": True,
-                "can_view": True,
-                #        "creation_date": "",
-                #        "creator": User,
-                "datafiles": [
-                    {
-                        "allowed_conversion_type": ["raw"],
-                        "datafile_type": "s3",
-                        "id": f"{dataset_permaname}.{version}/{file.name}",
-                        "name": file.name,
-                        "short_summary": "",
-                        "type": file.format,
-                        "underlying_file_id": None,
-                        "original_file_md5": None,
-                        "original_file_sha256": None,
-                        "metadata": file.metadata
-                    }
-                    for file in dataset_version.files
-                ],
-                "dataset_id": str,
-                "description": str,
-                #        "folders": List[Folder],  # empty list (TODO: remove)
-                #        "id": str,
-                #        "name": str,
-                #        "reason_state": str,
-                "state": "Approved",
-                "version": version,
-            },
-        }
-
-    api.get_dataset_version_metadata.side_effect = _get_dataset_version_metadata
-
-    def _create_dataset(
-        upload_session_id: str,
-        folder_id: str,
-        dataset_name: str,
-        dataset_description: Optional[str],
-    ):
-        files = sessions[upload_session_id]
-
-        permaname = uuid.uuid4().hex
-        version = 1
-
-        version_files = []
-        for f in files:
-            if f["s3Upload"]["format"] == "csv_matrix":
-                format = "HDF5"
-                # simulate conversion
-                f = dict(f)
-                f["s3Upload"]["key"] = uuid.uuid4().hex
-                with tempfile.NamedTemporaryFile(mode="wb") as fd:
-                    s3_objects
-                    convert_csv_to_hdf5(csv_bytes, fd.name)
-                    fd.seek(0)
-                    hdf5_bytes = fd.read()
-                s3_objects[f["s3Upload"]["key"]] = hdf5_bytes
-            elif f["s3Upload"]["format"] == "csv_table":
-                format = "Columnar"
-            else:
-                assert f["s3Upload"]["format"] == "raw"
-                format = "Raw"
-
-            datafile_id = f"{permaname}.{version}/{f['filename']}"
-            version_files.append(
-                DatasetVersionFile(
-                    name=f["filename"],
-                    metadata=f["metadata"],
-                    format=format,
-                    gs_path=None,
-                    datafile_id=datafile_id,
-                )
-                )
-            datafiles_by_id[datafile_id] = f
-
-        dataset_version = DatasetVersion(
-            permanames=[permaname],
-            version_number=version,
-            version_id=uuid.uuid4().hex,
-            description=dataset_description,
-            files=version_files,
-        )
-
-        dataset_versions[f"{permaname}.1"] = dataset_version
-
-        return dataset_version
-
-    api.create_dataset.side_effect = _create_dataset
-
-    def _upload_file_to_taiga(session_id: str, session_file):
-        if isinstance(session_file, dict):
-            api_params = session_file
-        else:
-            api_params = session_file.to_api_param()
-
-        for k, v in api_params.get('metadata', {}).items():
-            assert isinstance(k, str)
-            assert isinstance(v, str)
-
-        sessions[session_id].append(api_params)
-
-    api.upload_file_to_taiga.side_effect = _upload_file_to_taiga
-
-    def _create_session():
-        session_id = uuid.uuid4().hex
-        sessions[session_id] = []
-        return session_id
-
-    api.create_upload_session.side_effect = _create_session
-
-    def _download_datafile(dataset_permaname: str,
-        dataset_version: str,
-        datafile_name: str,
-        dest: str):
-        key = f"{dataset_permaname}.{dataset_version}/{datafile_name}"
-        f = datafiles_by_id[key]
-        bytes = s3_objects[f["s3Upload"]["bucket"]+"/"+f["s3Upload"]["key"]]
-        with open(dest, "wb") as fd:
-            fd.write(bytes)
-    api.download_datafile.side_effect = _download_datafile
-
-    client = Client(str(tmpdir.join("cache")), api)
-    return client
-
-
-@pytest.fixture
-def s3_mock_client(monkeypatch):
-    import unittest.mock
-
-    mock_s3_client_fn = unittest.mock.MagicMock()
-    mock_s3_client = unittest.mock.MagicMock()
-    mock_s3_client_fn.return_value = mock_s3_client
-    monkeypatch.setattr(boto3, "client", mock_s3_client_fn)
-    return mock_s3_client
-
-
-def test_upload_hdf5(
-    mock_client: Client, tmpdir,  s3_mock_client
-):
-    _test_upload_hdf5(mock_client, tmpdir, sample_matrix, LocalFormat.CSV_MATRIX.value, s3_mock_client)
-
-@pytest.mark.parametrize(
-    "df,format",
-    [
-        (sample_matrix, LocalFormat.HDF5_MATRIX.value),
-        (sample_table, LocalFormat.PARQUET_TABLE.value),
-        (sample_matrix, LocalFormat.CSV_MATRIX.value),
-        (sample_table, LocalFormat.CSV_TABLE.value),
-    ],
-)
-def _test_upload_hdf5(
-    mock_client: Client, tmpdir, df: pd.DataFrame, format: str, s3_mock_client
-):
-    sample_file = tmpdir.join("file")
-    writers_by_format[format](df, str(sample_file))
-
-    metadata = {}
-    if format == LocalFormat.HDF5_MATRIX.value:
-        metadata["client_storage_format"] = TaigaStorageFormat.RAW_HDF5_MATRIX.value
-    elif format == LocalFormat.PARQUET_TABLE.value:
-        metadata["client_storage_format"] = TaigaStorageFormat.RAW_PARQUET_TABLE.value
-
-    version = mock_client.create_dataset(
-        "test",
-        "desc",
-        [
-            UploadedFile(
-                name="matrix", metadata=metadata, local_path=str(sample_file), format=format
-            )
-        ],
-    )
-    assert len(version.files) == 1
-    file = version.files[0]
-
-    fetched_df = mock_client.get(file.datafile_id)
-
-    assert df.equals(fetched_df)
