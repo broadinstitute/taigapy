@@ -8,16 +8,21 @@ import colorful as cf
 import uuid
 from taigapy.types import DatasetVersionMetadataDict
 from taigapy.types import DataFileUploadFormat
-from taigapy.dumb_client import LocalFormat, DatasetVersion, write_hdf5, write_parquet, TaigaStorageFormat, Client, UploadedFile, DatasetVersionFile, convert_csv_to_hdf5
-from taigapy.types import (
-    S3Credentials
+from taigapy.dumb_client import (
+    LocalFormat,
+    DatasetVersion,
+    TaigaStorageFormat,
+    Client,
+    UploadedFile,
+    DatasetVersionFile,
 )
+from taigapy.format_utils import write_hdf5, write_parquet, convert_csv_to_hdf5
+from taigapy.types import S3Credentials
 
 import pytest
 
 sample_matrix = pd.DataFrame(data={"a": [1.2, 2.0], "b": [2.1, 3.0]}, index=["x", "y"])
 sample_table = pd.DataFrame(data={"a": [1.2, 2.0], "b": [2.1, 3.0]})
-
 
 
 from unittest.mock import create_autospec
@@ -51,6 +56,7 @@ def mock_client(tmpdir, s3_mock_client):
         with open(local_path, "rb") as fd:
             bytes = fd.read()
         s3_objects[f"{bucket}/{key}"] = bytes
+
     s3_mock_client.upload_file.side_effect = _upload_file
 
     def _get_dataset_version_metadata(
@@ -81,7 +87,7 @@ def mock_client(tmpdir, s3_mock_client):
                         "underlying_file_id": None,
                         # "original_file_md5": None,
                         # "original_file_sha256": None,
-                        "metadata": file.metadata
+                        "custom_metadata": file.custom_metadata,
                     }
                     for file in dataset_version.files
                 ],
@@ -115,7 +121,9 @@ def mock_client(tmpdir, s3_mock_client):
                 format = "HDF5"
                 # simulate conversion
                 # fetch the original bytes
-                csv_bytes = s3_objects[f["s3Upload"]["bucket"]+"/"+f["s3Upload"]["key"]]
+                csv_bytes = s3_objects[
+                    f["s3Upload"]["bucket"] + "/" + f["s3Upload"]["key"]
+                ]
 
                 # convert csv to HDF5
                 with tempfile.NamedTemporaryFile(mode="wb") as csv_fd:
@@ -131,7 +139,9 @@ def mock_client(tmpdir, s3_mock_client):
                 # create a new key, and update the data for that key in s3
                 f = dict(f)
                 f["s3Upload"]["key"] = uuid.uuid4().hex
-                s3_objects[f["s3Upload"]["bucket"]+"/"+f["s3Upload"]["key"]] = hdf5_bytes
+                s3_objects[
+                    f["s3Upload"]["bucket"] + "/" + f["s3Upload"]["key"]
+                ] = hdf5_bytes
             elif f["s3Upload"]["format"] == DataFileUploadFormat.TableCSV.value:
                 format = "Columnar"
             else:
@@ -142,12 +152,12 @@ def mock_client(tmpdir, s3_mock_client):
             version_files.append(
                 DatasetVersionFile(
                     name=f["filename"],
-                    metadata=f["metadata"],
+                    custom_metadata=f["custom_metadata"],
                     format=format,
                     gs_path=None,
                     datafile_id=datafile_id,
                 )
-                )
+            )
             datafiles_by_id[datafile_id] = f
 
         dataset_version = DatasetVersion(
@@ -170,7 +180,7 @@ def mock_client(tmpdir, s3_mock_client):
         else:
             api_params = session_file.to_api_param()
 
-        for k, v in api_params.get('metadata', {}).items():
+        for k, v in api_params.get("metadata", {}).items():
             assert isinstance(k, str)
             assert isinstance(v, str)
 
@@ -185,21 +195,24 @@ def mock_client(tmpdir, s3_mock_client):
 
     api.create_upload_session.side_effect = _create_session
 
-    def _download_datafile(dataset_permaname: str,
-        dataset_version: str,
-        datafile_name: str,
-        dest: str):
+    def _download_datafile(
+        dataset_permaname: str, dataset_version: str, datafile_name: str, dest: str
+    ):
         key = f"{dataset_permaname}.{dataset_version}/{datafile_name}"
         f = datafiles_by_id[key]
-        s3_key = f["s3Upload"]["bucket"]+"/"+f["s3Upload"]["key"]
+        s3_key = f["s3Upload"]["bucket"] + "/" + f["s3Upload"]["key"]
         bytes = s3_objects[s3_key]
         with open(dest, "wb") as fd:
             fd.write(bytes)
-        print(f"Fetched {s3_key} from s3 and got {len(bytes)} bytes and writing to {dest}")
+        print(
+            f"Fetched {s3_key} from s3 and got {len(bytes)} bytes and writing to {dest}"
+        )
+
     api.download_datafile.side_effect = _download_datafile
 
     client = Client(str(tmpdir.join("cache")), api)
     return client
+
 
 @pytest.fixture
 def s3_mock_client(monkeypatch):
@@ -218,20 +231,47 @@ writers_by_format = {
     LocalFormat.HDF5_MATRIX.value: write_hdf5,
     LocalFormat.PARQUET_TABLE.value: write_parquet,
     LocalFormat.CSV_TABLE.value: write_csv_table,
-    LocalFormat.CSV_MATRIX.value: write_csv_matrix
+    LocalFormat.CSV_MATRIX.value: write_csv_matrix,
 }
+
 
 @pytest.mark.parametrize(
     "df,write_initial_file,upload_format,expected_taiga_format",
     [
-        (sample_matrix, write_hdf5, LocalFormat.HDF5_MATRIX, TaigaStorageFormat.RAW_HDF5_MATRIX.value),
-       (sample_matrix, write_csv_matrix, LocalFormat.CSV_MATRIX, TaigaStorageFormat.HDF5_MATRIX.value),
-       (sample_table, write_parquet, LocalFormat.PARQUET_TABLE, TaigaStorageFormat.RAW_PARQUET_TABLE),
-        (sample_table, write_csv_table, LocalFormat.CSV_TABLE, TaigaStorageFormat.CSV_TABLE),
+        (
+            sample_matrix,
+            write_hdf5,
+            LocalFormat.HDF5_MATRIX,
+            TaigaStorageFormat.RAW_HDF5_MATRIX.value,
+        ),
+        (
+            sample_matrix,
+            write_csv_matrix,
+            LocalFormat.CSV_MATRIX,
+            TaigaStorageFormat.HDF5_MATRIX.value,
+        ),
+        (
+            sample_table,
+            write_parquet,
+            LocalFormat.PARQUET_TABLE,
+            TaigaStorageFormat.RAW_PARQUET_TABLE,
+        ),
+        (
+            sample_table,
+            write_csv_table,
+            LocalFormat.CSV_TABLE,
+            TaigaStorageFormat.CSV_TABLE,
+        ),
     ],
 )
 def test_upload_hdf5(
-    mock_client: Client, tmpdir, df: pd.DataFrame, write_initial_file, upload_format: LocalFormat, expected_taiga_format: TaigaStorageFormat, s3_mock_client
+    mock_client: Client,
+    tmpdir,
+    df: pd.DataFrame,
+    write_initial_file,
+    upload_format: LocalFormat,
+    expected_taiga_format: TaigaStorageFormat,
+    s3_mock_client,
 ):
     sample_file = tmpdir.join("file")
     write_initial_file(df, str(sample_file))
@@ -241,10 +281,10 @@ def test_upload_hdf5(
         "desc",
         [
             UploadedFile(
-                name="matrix", 
-                local_path=str(sample_file), 
+                name="matrix",
+                local_path=str(sample_file),
                 format=upload_format,
-                metadata = {}
+                custom_metadata={},
             )
         ],
     )

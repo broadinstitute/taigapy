@@ -1,15 +1,18 @@
 from typing import TypeVar, Generic, Optional
 import pickle
 
-import shelve # TODO: Switch away from shelve to sqlite shelve to avoid corruption in the event of concurrency
+import shelve  # TODO: Switch away from shelve to sqlite shelve to avoid corruption in the event of concurrency
 import os
 
 V = TypeVar("V")
+
+
 class Cache(Generic[V]):
     """
     A write through in-memory cache, backed by disk. Keys must always be strings, but values can be any 
     pickle-able type.
     """
+
     def __init__(self, filename: str) -> None:
         super().__init__()
         self.in_memory_cache = {}
@@ -27,8 +30,8 @@ class Cache(Generic[V]):
         self._ensure_parent_dir_exists()
         with shelve.open(self.filename) as s:
             if key in s:
-                # If we have a value we 
-                # cannot reconstruct, consider that as 
+                # If we have a value we
+                # cannot reconstruct, consider that as
                 # the same as missing and return `default`
                 try:
                     value = s[key]

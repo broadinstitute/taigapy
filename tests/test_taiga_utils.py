@@ -59,13 +59,7 @@ dataset_version_metadata: DatasetVersionMetadataDict = {
         "id": "dataset-id",
         "name": "Dataset",
         "permanames": ["dataset-0001"],
-        "versions": [
-            {
-                "id": "version-id-1",
-                "name": "1",
-                "state": "approved",
-            }
-        ],
+        "versions": [{"id": "version-id-1", "name": "1", "state": "approved",}],
     },
     "datasetVersion": {
         "can_edit": True,
@@ -157,11 +151,7 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
 ]
 expected_upload_virtual_datafiles_api_params: List[Dict] = [
     {"filename": "Bar", "filetype": "virtual", "existingTaigaId": "foo.1/bar"},
-    {
-        "filename": "no_name",
-        "filetype": "virtual",
-        "existingTaigaId": "foo.1/no_name",
-    },
+    {"filename": "no_name", "filetype": "virtual", "existingTaigaId": "foo.1/no_name",},
 ]
 
 expected_matching_datafiles_api_params: List[Dict] = [
@@ -237,8 +227,7 @@ table_df = pd.DataFrame({"a": [2.1, np.nan], "b": ["one", "two"]})
             copy.deepcopy(add_taiga_ids),
             dataset_version_metadata,
             [],
-            expected_upload_virtual_datafiles_api_params
-            ,
+            expected_upload_virtual_datafiles_api_params,
             [],
             id="update dataset, only virtual files",
         ),
@@ -282,11 +271,11 @@ def test_modify_upload_files(
         upload_files,
         add_taiga_ids,
         [],
-        dataset_version_metadata=dataset_version_metadata
+        dataset_version_metadata=dataset_version_metadata,
     )
 
     upload_s3_datafiles = []
-    
+
     upload_virtual_datafiles = []
     for upload_datafile in upload_datafiles:
         if isinstance(upload_datafile, UploadS3DataFile):
@@ -305,11 +294,16 @@ def test_modify_upload_files(
     )
 
     assert len(upload_virtual_datafiles) == len(
-        expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params
+        expected_upload_virtual_datafiles_api_params
+        + expected_matching_datafiles_api_params
     )
     assert all(
         actual.to_api_param() == expected
         for (actual, expected) in zip(
-            upload_virtual_datafiles, (expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params)
+            upload_virtual_datafiles,
+            (
+                expected_upload_virtual_datafiles_api_params
+                + expected_matching_datafiles_api_params
+            ),
         )
     )

@@ -442,10 +442,7 @@ class TaigaClient:
         )
 
         all_uploads = transform_upload_args_to_upload_list(
-            upload_files,
-            add_taiga_ids,
-            add_gcs_files,
-            dataset_version_metadata,
+            upload_files, add_taiga_ids, add_gcs_files, dataset_version_metadata,
         )
 
         return all_uploads, dataset_version_metadata
@@ -666,7 +663,7 @@ class TaigaClient:
         upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
         add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
-        add_all_existing_files: bool = False
+        add_all_existing_files: bool = False,
     ) -> Optional[str]:
         """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
 

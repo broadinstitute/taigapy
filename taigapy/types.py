@@ -125,6 +125,7 @@ DataFileMetadataDict = TypedDict(
 )
 from typing import Dict
 
+
 class DataFileMetadata:
     def __init__(self, datafile_metadata_dict: DataFileMetadataDict):
         self.dataset_name: str = datafile_metadata_dict["dataset_name"]
@@ -134,7 +135,7 @@ class DataFileMetadata:
         self.dataset_version_id: str = datafile_metadata_dict["dataset_version_id"]
         self.datafile_name: str = datafile_metadata_dict["datafile_name"]
         self.status: str = datafile_metadata_dict["status"]
-        self.metadata : Dict[str, str] = datafile_metadata_dict.get("metadata", {})
+        self.metadata: Dict[str, str] = datafile_metadata_dict.get("metadata", {})
         self.state: DatasetVersionState = DatasetVersionState(
             datafile_metadata_dict["state"]
         )

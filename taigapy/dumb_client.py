@@ -13,11 +13,11 @@ from typing import Callable, Tuple
 from .types import DatasetVersionMetadataDict
 from .simple_cache import Cache
 from .types import DataFileUploadFormat
-from .format_utils import read_hdf5, read_parquet, convert_csv_to_hdf5, convert_csv_to_parquet
+from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 
-#from taigapy.types import (
+# from taigapy.types import (
 #    S3Credentials
-#)
+# )
 
 # the different formats that we might store files as locally
 class LocalFormat(Enum):
@@ -25,6 +25,7 @@ class LocalFormat(Enum):
     PARQUET_TABLE = "parquet_table"
     CSV_TABLE = "csv_table"
     CSV_MATRIX = "csv_matrix"
+
 
 # the different formats files might be stored in on Taiga.
 class TaigaStorageFormat(Enum):
@@ -34,13 +35,16 @@ class TaigaStorageFormat(Enum):
     RAW_PARQUET_TABLE = "raw_parquet_table"
     RAW_BYTES = "raw_bytes"
 
+
 @dataclass
 class DataFileID:
     permaname: str
     version: int
     name: str
 
-DATAFILE_ID_PATTERN = "([a-z0-9]+)\\.([0-9]+)/(.*)"
+
+DATAFILE_ID_PATTERN = "([a-z0-9-]+)\\.([0-9]+)/(.*)"
+
 
 def _parse_datafile_id(datafile_id):
     "Split a datafile id into its components"
@@ -51,10 +55,11 @@ def _parse_datafile_id(datafile_id):
     else:
         return None
 
+
 @dataclass
 class DatasetVersionFile:
     name: str
-    metadata: Dict[str, str]
+    custom_metadata: Dict[str, str]
     gs_path: Optional[str]
     datafile_id: str
     format: str
@@ -80,8 +85,9 @@ class File:
     this class directly, but instead create an instance of UploadedFile, TaigaReference or 
     GCSReference depending on the type of file.
     """
+
     name: str
-    metadata: Dict[str, str] 
+    custom_metadata: Dict[str, str]
 
 
 @dataclass
@@ -102,6 +108,7 @@ class GCSReference(File):
 
 
 Uploader = Callable[[str], Tuple[str, str]]
+
 
 def _create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
     "Used to encapsulate the logic for uploading to s3"
@@ -130,10 +137,14 @@ def _create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
 @dataclass
 class MinDataFileMetadata:
     type: str
-    metadata : Dict[str, str]
+    custom_metadata: Dict[str, str]
+
 
 class Client:
     def __init__(self, cache_dir: str, api: TaigaApi):
+        assert api is not None
+        assert cache_dir is not None
+
         # caches canonical ID for each Taiga ID
         self.canonical_id_cache: Cache[str, str] = Cache(
             os.path.join(cache_dir, "canonical_id.cache")
@@ -150,7 +161,7 @@ class Client:
         )
 
         # caches dataset version metadata given a dataset version ID
-        self.dataset_version_cache : Cache[str, DatasetVersionMetadataDict] = Cache(
+        self.dataset_version_cache: Cache[str, DatasetVersionMetadataDict] = Cache(
             os.path.join(cache_dir, "datafile_metadata.cache")
         )
 
@@ -158,24 +169,26 @@ class Client:
         self.download_cache_dir = os.path.join(cache_dir, "downloaded")
         self.api = api
 
-    def _add_file_to_cache(
-        self, data_file_metadata_dict
-    ):
-        canonical_id = data_file_metadata_dict["underlying_file_id"]
-        datafile_id = data_file_metadata_dict["id"]
+    def _add_file_to_cache(self, permaname, version, data_file_metadata_dict):
+        canonical_id = data_file_metadata_dict.get("underlying_file_id")
+        datafile_id = f"{permaname}.{version}/{ data_file_metadata_dict['name'] }"
         if canonical_id is None:
             canonical_id = datafile_id
-        assert re.match(DATAFILE_ID_PATTERN, datafile_id)
+        assert re.match(
+            DATAFILE_ID_PATTERN, datafile_id
+        ), f"{repr(datafile_id)} does not look like a datafile ID"
         self.canonical_id_cache.put(datafile_id, canonical_id)
         self.canonical_id_cache.put(canonical_id, canonical_id)
 
         self.datafile_metadata_cache.put(
-            datafile_id, MinDataFileMetadata(
+            datafile_id,
+            MinDataFileMetadata(
                 type=data_file_metadata_dict["type"],
-                metadata=data_file_metadata_dict["metadata"])
+                custom_metadata=data_file_metadata_dict["custom_metadata"],
+            ),
         )
 
-    def _ensure_dataset_version_cached(self, permaname : str, version : int) -> bool:
+    def _ensure_dataset_version_cached(self, permaname: str, version: int) -> bool:
         "returns False if this dataset version could not be found"
         key = f"{permaname}.{version}"
         dataset_version = self.dataset_version_cache.get(key, None)
@@ -187,7 +200,11 @@ class Client:
                 return False
             else:
                 for file in full_metadata["datasetVersion"]["datafiles"]:
-                    self._add_file_to_cache(file)
+                    self._add_file_to_cache(
+                        full_metadata["dataset"]["permanames"][0],
+                        full_metadata["datasetVersion"]["version"],
+                        file,
+                    )
         return True
 
     def get_canonical_id(self, datafile_id: str) -> str:
@@ -219,10 +236,16 @@ class Client:
             return None
 
         taiga_format = self._get_taiga_storage_format(canonical_id)
-        if taiga_format in (TaigaStorageFormat.HDF5_MATRIX, TaigaStorageFormat.RAW_HDF5_MATRIX):
+        if taiga_format in (
+            TaigaStorageFormat.HDF5_MATRIX,
+            TaigaStorageFormat.RAW_HDF5_MATRIX,
+        ):
             path = self.download_to_cache(datafile_id, LocalFormat.HDF5_MATRIX)
             result = read_hdf5(path)
-        elif taiga_format in (TaigaStorageFormat.CSV_TABLE, TaigaStorageFormat.RAW_PARQUET_TABLE):
+        elif taiga_format in (
+            TaigaStorageFormat.CSV_TABLE,
+            TaigaStorageFormat.RAW_PARQUET_TABLE,
+        ):
             path = self.download_to_cache(datafile_id, LocalFormat.PARQUET_TABLE)
             result = read_parquet(path)
         else:
@@ -244,10 +267,15 @@ class Client:
 
         taiga_format = self._get_taiga_storage_format(canonical_id)
         if requested_format == LocalFormat.HDF5_MATRIX:
-            if taiga_format == TaigaStorageFormat.HDF5_MATRIX or taiga_format == TaigaStorageFormat.RAW_HDF5_MATRIX:
+            if (
+                taiga_format == TaigaStorageFormat.HDF5_MATRIX
+                or taiga_format == TaigaStorageFormat.RAW_HDF5_MATRIX
+            ):
                 local_path = self._download_to_cache(canonical_id)
             else:
-                raise Exception(f"Requested {requested_format} but taiga_format={taiga_format}")
+                raise Exception(
+                    f"Requested {requested_format} but taiga_format={taiga_format}"
+                )
         elif requested_format == LocalFormat.PARQUET_TABLE:
             if taiga_format == TaigaStorageFormat.CSV_TABLE:
                 csv_path = self._download_to_cache(canonical_id)
@@ -256,9 +284,13 @@ class Client:
             elif taiga_format == TaigaStorageFormat.RAW_PARQUET_TABLE:
                 local_path = self._download_to_cache(canonical_id)
             else:
-                raise Exception(f"Requested {requested_format} but taiga_format={taiga_format}")
+                raise Exception(
+                    f"Requested {requested_format} but taiga_format={taiga_format}"
+                )
         else:
-            raise Exception(f"Requested {requested_format} but taiga_format={taiga_format}")
+            raise Exception(
+                f"Requested {requested_format} but taiga_format={taiga_format}"
+            )
 
         self.internal_format_cache.put(key, local_path)
         assert local_path is not None
@@ -278,22 +310,26 @@ class Client:
             bucket, key = uploader(upload_file.local_path)
 
             print("Uploading {} to Taiga".format(upload_file.local_path))
-            metadata = dict(upload_file.metadata)
+            custom_metadata = dict(upload_file.custom_metadata)
             if upload_file.format == LocalFormat.CSV_MATRIX:
                 taiga_format = DataFileUploadFormat.NumericMatrixCSV
             elif upload_file.format == LocalFormat.CSV_TABLE:
                 taiga_format = DataFileUploadFormat.TableCSV
             elif upload_file.format == LocalFormat.HDF5_MATRIX:
                 taiga_format = DataFileUploadFormat.Raw
-                metadata["client_storage_format"] = TaigaStorageFormat.RAW_HDF5_MATRIX.value
+                custom_metadata[
+                    "client_storage_format"
+                ] = TaigaStorageFormat.RAW_HDF5_MATRIX.value
             elif upload_file.format == LocalFormat.PARQUET_TABLE:
                 taiga_format = DataFileUploadFormat.Raw
-                metadata["client_storage_format"] = TaigaStorageFormat.RAW_PARQUET_TABLE.value
+                custom_metadata[
+                    "client_storage_format"
+                ] = TaigaStorageFormat.RAW_PARQUET_TABLE.value
             elif upload_file.format == LocalFormat.RAW:
                 taiga_format = DataFileUploadFormat.Raw
             else:
                 raise Exception(f"Unknown format: {upload_file.format}")
-            
+
             self.api.upload_file_to_taiga(
                 upload_session_id,
                 {
@@ -305,7 +341,7 @@ class Client:
                         "key": key,
                         "encoding": upload_file.encoding,
                     },
-                    "metadata": metadata,
+                    "custom_metadata": custom_metadata,
                 },
             )
 
@@ -354,6 +390,7 @@ class Client:
             )
         )
 
+        # TODO: This is the wrong return type
         return dataset_id
 
     def replace_dataset(
@@ -408,7 +445,9 @@ class Client:
         if metadata.type == "Columnar":
             return TaigaStorageFormat.CSV_TABLE
         if metadata.type == "Raw":
-            value = metadata.metadata.get("client_storage_format", TaigaStorageFormat.RAW_BYTES)
+            value = metadata.custom_metadata.get(
+                "client_storage_format", TaigaStorageFormat.RAW_BYTES
+            )
             return TaigaStorageFormat(value)
         else:
             raise Exception(f"unknown type: {metadata.type}")
@@ -428,4 +467,3 @@ class Client:
             return None
 
         return self.datafile_metadata_cache.get(datafile_id, None)
-

@@ -48,5 +48,3 @@ def convert_csv_to_hdf5(csv_path: str, hdf5_path: str):
 def convert_csv_to_parquet(csv_path: str, parquet_path: str):
     df = pd.read_csv(csv_path)
     write_parquet(df, parquet_path)
-
-

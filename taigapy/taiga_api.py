@@ -68,8 +68,8 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
 
 
 class TaigaApi:
-    url : str
-    token : str
+    url: str
+    token: str
 
     def __init__(self, url: str, token: str):
         self.url = url
@@ -212,16 +212,16 @@ class TaigaApi:
         api_endpoint = "/api/user"
         return self._request_get(api_endpoint)
 
-    def upload_file_to_taiga(self, session_id: str, session_file: Union[UploadDataFile, Dict]):
+    def upload_file_to_taiga(
+        self, session_id: str, session_file: Union[UploadDataFile, Dict]
+    ):
         if isinstance(session_file, dict):
             api_params = session_file
         else:
             api_params = session_file.to_api_param()
 
         api_endpoint = "/api/datafile/{}".format(session_id)
-        task_id = self._request_post(
-            api_endpoint=api_endpoint, data=api_params
-        )
+        task_id = self._request_post(api_endpoint=api_endpoint, data=api_params)
 
         if task_id == "done":
             return
@@ -392,14 +392,14 @@ class TaigaApi:
         description: str,
         changes_description: Optional[str],
         dataset_version: Optional[str],
-        add_existing_files: bool = False
+        add_existing_files: bool = False,
     ) -> str:
         params = {
             "datasetId": dataset_id,
             "sessionId": session_id,
             "newDescription": description,
             "datasetVersion": dataset_version,
-            "addExistingFiles": add_existing_files
+            "addExistingFiles": add_existing_files,
         }
         if changes_description is not None:
             params["changesDescription"] = changes_description
