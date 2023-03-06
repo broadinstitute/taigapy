@@ -47,6 +47,8 @@ def mock_client(tmpdir, s3_mock_client):
 
     # map of simulated taiga session ID -> list of files added to the session
     sessions = {}
+    # map of simulated dataset id -> permaname
+    dataset_permaname_by_id = {}
     dataset_versions: Dict[str, DatasetVersion] = {}
     # map of {bucket}/{key} to bytes stored in s3
     s3_objects = {}
@@ -62,6 +64,15 @@ def mock_client(tmpdir, s3_mock_client):
     def _get_dataset_version_metadata(
         dataset_permaname: str, dataset_version: Optional[str]
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
+        # this function can be called two ways: if no version is provided, then it fetches the dataset information.
+        if dataset_version is None:
+            dataset_permaname = dataset_permaname_by_id[dataset_permaname]
+            return {
+                "name": "name",
+                "permanames": [dataset_permaname],
+                "versions": [{"name": "1"}],
+            }
+
         version = dataset_version
         dataset_version = dataset_versions.get(f"{dataset_permaname}.{version}")
         if dataset_version is None:
@@ -84,7 +95,6 @@ def mock_client(tmpdir, s3_mock_client):
                         "name": file.name,
                         "short_summary": "",
                         "type": file.format,
-                        "underlying_file_id": None,
                         # "original_file_md5": None,
                         # "original_file_sha256": None,
                         "custom_metadata": file.custom_metadata,
@@ -92,10 +102,10 @@ def mock_client(tmpdir, s3_mock_client):
                     for file in dataset_version.files
                 ],
                 # "dataset_id": str,
-                # "description": str,
+                "description": "",
                 #        "folders": List[Folder],  # empty list (TODO: remove)
                 #        "id": str,
-                #        "name": str,
+                "name": "1",
                 #        "reason_state": str,
                 "state": "Approved",
                 "version": version,
@@ -109,9 +119,10 @@ def mock_client(tmpdir, s3_mock_client):
         folder_id: str,
         dataset_name: str,
         dataset_description: Optional[str],
-    ):
+    ) -> str:
         files = sessions[upload_session_id]
 
+        dataset_id = uuid.uuid4().hex
         permaname = uuid.uuid4().hex
         version = 1
 
@@ -163,14 +174,14 @@ def mock_client(tmpdir, s3_mock_client):
         dataset_version = DatasetVersion(
             permanames=[permaname],
             version_number=version,
-            version_id=uuid.uuid4().hex,
             description=dataset_description,
             files=version_files,
         )
 
         dataset_versions[f"{permaname}.1"] = dataset_version
+        dataset_permaname_by_id[dataset_id] = permaname
 
-        return dataset_version
+        return dataset_id
 
     api.create_dataset.side_effect = _create_dataset
 

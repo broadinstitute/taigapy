@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic, Optional, Callable
 import pickle
 
 import shelve  # TODO: Switch away from shelve to sqlite shelve to avoid corruption in the event of concurrency
@@ -13,19 +13,28 @@ class Cache(Generic[V]):
     pickle-able type.
     """
 
-    def __init__(self, filename: str) -> None:
+    def __init__(
+        self, filename: str, is_value_valid: Callable[[V], bool] = lambda value: True
+    ) -> None:
         super().__init__()
         self.in_memory_cache = {}
         self.filename = filename
+        self.is_value_valid = is_value_valid
 
     def _ensure_parent_dir_exists(self):
         parent = os.path.dirname(self.filename)
         if not os.path.exists(parent):
             os.makedirs(parent)
 
-    def get(self, key: str, default: Optional[V]) -> V:
+    def _none_if_not_valid(self, value: V, default) -> Optional[V]:
+        if self.is_value_valid(value):
+            return value
+        else:
+            return default
+
+    def get(self, key: str, default: Optional[V]) -> Optional[V]:
         if key in self.in_memory_cache:
-            return self.in_memory_cache[key]
+            return self._none_if_not_valid(self.in_memory_cache[key], default)
 
         self._ensure_parent_dir_exists()
         with shelve.open(self.filename) as s:
@@ -40,15 +49,13 @@ class Cache(Generic[V]):
                     return default
 
                 self.in_memory_cache[key] = value
-                return value
+                return self._none_if_not_valid(value, default)
             else:
                 return default
 
     def put(self, key: str, value: V):
+        assert self.is_value_valid(value)
         self._ensure_parent_dir_exists()
         with shelve.open(self.filename) as s:
-            if key in s:
-                assert s[key] == value
-            else:
-                s[key] = value
-                self.in_memory_cache[key] = value
+            s[key] = value
+            self.in_memory_cache[key] = value

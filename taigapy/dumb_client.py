@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 import os
 from .taiga_api import TaigaApi
 import re
@@ -59,7 +59,7 @@ def _parse_datafile_id(datafile_id):
 @dataclass
 class DatasetVersionFile:
     name: str
-    custom_metadata: Dict[str, str]
+    custom_metadata: Dict[str, Any]
     gs_path: Optional[str]
     datafile_id: str
     format: str
@@ -69,7 +69,6 @@ class DatasetVersionFile:
 class DatasetVersion:
     permanames: List[str]
     version_number: int
-    version_id: str
     description: str
     files: List[DatasetVersionFile]
 
@@ -152,7 +151,8 @@ class Client:
 
         # caches local path to file for each (canonical_id, format)
         self.internal_format_cache: Cache[str, str] = Cache(
-            os.path.join(cache_dir, "internal_format.cache")
+            os.path.join(cache_dir, "internal_format.cache"),
+            is_value_valid=lambda filename: os.path.exists(filename),
         )
 
         # caches min datafile metadata given a (non canonical) datafile ID
@@ -384,12 +384,53 @@ class Client:
             upload_session_id, folder_id, name, description
         )
 
+        # look up dataset version metadata and unpack values from the resulting dicts
+        # this is a fairly round about way to get all the info we need, but trying to work within
+        # what the current APIs expose.
+        dataset_metadata = self.api.get_dataset_version_metadata(dataset_id, None)
+        permaname = dataset_metadata["permanames"][0]
+        versions = dataset_metadata["versions"]
+        assert len(versions) == 1
+        version = versions[0]
+
+        version_number = version["name"]
+
         print(
             cf.green(
-                f"Dataset created. Access it directly with this url: {self.api.url}/dataset/{dataset_id}\n"
+                f"Dataset created. Access it directly with this url: {self.api.url}/dataset/{permaname}/{version_number}\n"
             )
         )
 
+        version_metadata = self.api.get_dataset_version_metadata(
+            permaname, version_number
+        )
+        assert version_metadata is not None
+
+        # repackage the information callers might want in this client type
+        return DatasetVersion(
+            permanames=version_metadata["dataset"]["permanames"],
+            version_number=int(version_metadata["datasetVersion"]["name"]),
+            description=version_metadata["datasetVersion"]["description"],
+            files=[
+                DatasetVersionFile(
+                    name=f["name"],
+                    custom_metadata=f["custom_metadata"],
+                    gs_path=f.get(
+                        "gs_path"
+                    ),  # todo: confirm this is the name of the field
+                    datafile_id=f.get(
+                        "underlying_file_id",
+                        f"{permaname}.{version_number}/{f['name']}",
+                    ),
+                    format=f["type"],
+                )
+                for f in version_metadata["datasetVersion"]["datafiles"]
+            ],
+        )
+
+    @property
+    def permaname(self):
+        return self.permanames[0]
         # TODO: This is the wrong return type
         return dataset_id
 
