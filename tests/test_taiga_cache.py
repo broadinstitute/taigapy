@@ -1,16 +1,12 @@
-import pdb
-
-import os
 import pandas as pd
-import py
 import pytest
 from typing import Mapping, Optional
 from unittest.mock import patch
 
-from taigapy.taiga_cache import TaigaCache, DataFile
+from taigapy.taiga_cache import TaigaCache
 
 from taigapy import CACHE_FILE
-from taigapy.types import DataFileType, DataFileFormat
+from taigapy.types import DataFileFormat
 
 COLUMNAR_DATAFRAME = pd.DataFrame(
     {"foo": [1.0, 2.0, 3.0], "bar": ["four", "five", "six"], "baz": [7.0, 8.0, 9.0]}
@@ -77,7 +73,7 @@ def test_add_entry(
 
 
 @pytest.fixture
-def populated_cache(tmpdir: py._path.local.LocalPath):
+def populated_cache(tmpdir):
     cache = TaigaCache(str(tmpdir), str(tmpdir.join(CACHE_FILE)))
 
     p = tmpdir.join("foobar.csv")

@@ -272,7 +272,7 @@ def test_modify_upload_files(
     expected_upload_s3_datafiles_api_params: List[Dict],
     expected_upload_virtual_datafiles_api_params: List[Dict],
     expected_matching_datafiles_api_params: List[Dict],
-    tmpdir: py._path.local.LocalPath,
+    tmpdir,
 ):
     for upload_file_dict in upload_files:
         p = tmpdir.join(upload_file_dict["path"])
