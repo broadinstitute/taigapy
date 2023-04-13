@@ -39,7 +39,7 @@ def test_untangle_dataset_id_with_version(
 
 
 upload_files: List[UploadS3DataFileDict] = [
-    {"path": "matrix.csv", "name": "Matrix", "format": "NumericMatrixCSV"},
+    {"path": "matrix.csv", "name": "Matrix", "format": "NumericMatrixCSV", "custom_metadata": { "test metadata name": "test metadata value"}},
     {"path": "matrix_no_name.csv", "format": "NumericMatrixCSV"},
     {"path": "table.csv", "name": "Table", "format": "TableCSV"},
     {"path": "table_no_name.csv", "format": "TableCSV"},
@@ -107,6 +107,7 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
     {
         "filename": "Matrix",
         "filetype": "s3",
+        "custom_metadata": { "test metadata name": "test metadata value"}, 
         "s3Upload": {
             "format": "NumericMatrixCSV",
             "bucket": None,
@@ -117,6 +118,7 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
     {
         "filename": "matrix_no_name",
         "filetype": "s3",
+        "custom_metadata": None,
         "s3Upload": {
             "format": "NumericMatrixCSV",
             "bucket": None,
@@ -127,6 +129,7 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
     {
         "filename": "Table",
         "filetype": "s3",
+        "custom_metadata": None,
         "s3Upload": {
             "format": "TableCSV",
             "bucket": None,
@@ -137,6 +140,7 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
     {
         "filename": "table_no_name",
         "filetype": "s3",
+        "custom_metadata": None,
         "s3Upload": {
             "format": "TableCSV",
             "bucket": None,
@@ -147,20 +151,23 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
     {
         "filename": "matching_datafile",
         "filetype": "s3",
+        "custom_metadata": None,
         "s3Upload": {"format": "Raw", "bucket": None, "key": None, "encoding": "utf-8"},
     },
     {
         "filename": "raw_no_name",
         "filetype": "s3",
+        "custom_metadata": None,
         "s3Upload": {"format": "Raw", "bucket": None, "key": None, "encoding": "utf-8"},
     },
 ]
 expected_upload_virtual_datafiles_api_params: List[Dict] = [
-    {"filename": "Bar", "filetype": "virtual", "existingTaigaId": "foo.1/bar"},
+    {"filename": "Bar", "filetype": "virtual", "existingTaigaId": "foo.1/bar", "custom_metadata": None},
     {
         "filename": "no_name",
         "filetype": "virtual",
         "existingTaigaId": "foo.1/no_name",
+        "custom_metadata": None
     },
 ]
 
@@ -169,6 +176,7 @@ expected_matching_datafiles_api_params: List[Dict] = [
         "filename": "matching_datafile",
         "filetype": "virtual",
         "existingTaigaId": "dataset-0001.1/matching_datafile",
+        "custom_metadata": None
     }
 ]
 
@@ -294,7 +302,9 @@ def test_modify_upload_files(
         elif isinstance(upload_datafile, UploadVirtualDataFile):
             upload_virtual_datafiles.append(upload_datafile)
         else:
+            import pdb; pdb.set_trace()
             raise NotImplementedError()
+
 
     assert len(upload_s3_datafiles) == len(expected_upload_s3_datafiles_api_params)
     assert all(
@@ -307,6 +317,7 @@ def test_modify_upload_files(
     assert len(upload_virtual_datafiles) == len(
         expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params
     )
+
     assert all(
         actual.to_api_param() == expected
         for (actual, expected) in zip(
