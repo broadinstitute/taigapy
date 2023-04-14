@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [3.3.5] - 2023-04-14
+### Added
+- Added "custom_metadata" dictionary support to creating, updating, and downloading datasets
+
 ## [3.3.4] - 2022-06-09
 ### Added
 - tc.create_dataset, tc.update_dataset, and tc.download_to_cache now support gcs path files
