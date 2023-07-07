@@ -8,7 +8,7 @@ import colorful as cf
 import uuid
 from taigapy.types import DatasetVersionMetadataDict
 from taigapy.types import DataFileUploadFormat
-from taigapy.dumb_client import (
+from taigapy.client_v3 import (
     LocalFormat,
     DatasetVersion,
     TaigaStorageFormat,

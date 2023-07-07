@@ -10,3 +10,10 @@ except Exception as e:
     print(
         "You can import TaigaClient and add your custom options if you would want to customize it to your settings"
     )
+
+from .client_v3 import Client as ClientV3
+
+def create_taiga_client_v3(*args, **kwargs):
+    tc = TaigaClient(*args, **kwargs)
+    tc._set_token_and_initialized_api()
+    return ClientV3(tc.cache_dir, tc.api)

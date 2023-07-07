@@ -29,7 +29,7 @@ from taigapy.utils import (
 CHUNK_SIZE = 1024 * 1024
 
 
-def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
+def _standard_response_handler(r: requests.Response, params: Optional[Mapping], url=None):
     if r.status_code == 404:
         raise Taiga404Exception(
             "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(
@@ -39,7 +39,7 @@ def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
     elif r.status_code == 500:
         raise TaigaServerError()
     elif r.status_code != 200:
-        raise TaigaHttpException("Bad status code: {}".format(r.status_code))
+        raise TaigaHttpException(f"Bad status code ({r.status_code}) when POST {url} with params={params}")
 
     return r.json()
 
@@ -108,15 +108,16 @@ class TaigaApi:
 
         params = {"taigapy_version": __version__}
 
+        full_url = self.url + api_endpoint
         r = requests.post(
-            self.url + api_endpoint,
+            full_url,
             params=params,
             json=data,
             headers=dict(Authorization="Bearer " + self.token),
         )
 
         if standard_reponse_handling:
-            return _standard_response_handler(r, data)
+            return _standard_response_handler(r, data, url=full_url) #, params=params, json=data)
         else:
             return r
 

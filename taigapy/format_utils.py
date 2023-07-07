@@ -16,7 +16,7 @@ def write_hdf5(df: pd.DataFrame, filename: str):
 
         dest.create_dataset("dim_0", track_times=False, data=dim_0)
         dest.create_dataset("dim_1", track_times=False, data=dim_1)
-        dest.create_dataset("data", track_times=False, data=df.values)
+        dest.create_dataset("data", track_times=False, data=df.values, compression="gzip")
     finally:
         dest.close()
 

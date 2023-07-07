@@ -88,12 +88,22 @@ class File:
     name: str
     custom_metadata: Dict[str, str]
 
+    def __init__(self, name: str, custom_metadata={}):
+        self.name = name
+        self.custom_metadata = custom_metadata
+
 
 @dataclass
 class UploadedFile(File):
     local_path: str
     format: LocalFormat
     encoding: str = "utf8"
+
+    def __init__(self, name: str, local_path: str, format: LocalFormat, encoding = "utf8", custom_metadata={}):
+        super(UploadedFile, self).__init__(name, custom_metadata)
+        self.local_path = local_path
+        self.format = format
+        self.encoding = encoding
 
 
 @dataclass
@@ -126,7 +136,7 @@ def _create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
         partial_prefix = s3_credentials.prefix
         key = f"{partial_prefix}{upload_session_id}/{uuid.uuid4().hex}"
         s3_client.upload_file(local_path, bucket, key)
-        print("Finished uploading {} to S3".format(local_path))
+        print(f"Finished uploading {local_path} to S3")
 
         return bucket, key
 
@@ -298,6 +308,7 @@ class Client:
 
     def _upload_files(self, all_uploads: List[File]) -> str:
         upload_session_id, uploader = _create_s3_uploader(self.api)
+        print(f"Created temporary upload session {upload_session_id}")
 
         for upload in all_uploads:
             self._upload_file(upload_session_id, uploader, upload)
@@ -307,9 +318,10 @@ class Client:
     def _upload_file(self, upload_session_id, uploader: Uploader, upload: File):
         # one method for each type of file we can upload
         def _upload_uploaded_file(upload_file: UploadedFile):
+            print(f"Uploading {upload_file.local_path} to S3")
             bucket, key = uploader(upload_file.local_path)
+            print(f"Completed uploading {upload_file.local_path} to S3")
 
-            print("Uploading {} to Taiga".format(upload_file.local_path))
             custom_metadata = dict(upload_file.custom_metadata)
             if upload_file.format == LocalFormat.CSV_MATRIX:
                 taiga_format = DataFileUploadFormat.NumericMatrixCSV
@@ -344,8 +356,7 @@ class Client:
                     "custom_metadata": custom_metadata,
                 },
             )
-
-            print("Finished uploading {} to Taiga".format(upload_file.local_path))
+            print(f"Added {upload_file.local_path} to upload session {upload_session_id}")
 
         def _upload_taiga_reference(file: TaigaReference):
             print(f"Linking virtual file {file.taiga_id} -> {file.name}")
