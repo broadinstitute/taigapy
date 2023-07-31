@@ -22,6 +22,8 @@ print(version)
 
 print("fetching file back down")
 start = time.time()
-df = tc.get(f"{version.permaname}.{version.version_number}/{filename}")
+file_id = f"{version.permaname}.{version.version_number}/sample2"
+print(f"fetching {file_id}")
+df = tc.get(file_id)
 print(f"elapsed: {time.time()-start} seconds")
 

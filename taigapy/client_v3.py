@@ -451,15 +451,16 @@ class Client:
         """
         Update an existing dataset by replacing all datafiles with the ones provided (Results in a new dataset version)
         """
+        metadata = self.api.get_dataset_version_metadata(permaname, None)
+
         upload_session_id = self._upload_files(files)
 
-        metadata = self.api.get_dataset_version_metadata(permaname, None)
         prev_description = metadata["description"]
         if description is None:
             description = prev_description
 
-        dataset_version_id = self.api.update_dataset( permaname,
-            upload_session_id, description, reason, add_existing_files=False
+        dataset_version_id = self.api.update_dataset( metadata["id"],
+            upload_session_id, description, reason, None, add_existing_files=False
         )
 
         return self._dataset_version_summary(dataset_version_id)
@@ -474,9 +475,6 @@ class Client:
     ) -> DatasetVersion:
         """
         Update an existing dataset by adding and removing the specified files. (Results in a new dataset version)
-        """
-        """
-        Create a new dataset given a list of files.
         """
         metadata = self.api.get_dataset_version_metadata(permaname, None)
 
