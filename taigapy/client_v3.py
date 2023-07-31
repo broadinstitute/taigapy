@@ -376,35 +376,14 @@ class Client:
         else:
             raise Exception(f"Unknown upload type: {type(upload)}")
 
-    def create_dataset(
-        self,
-        name: str,
-        description: str,
-        files: List[File],
-        folder_id: Optional[str] = None,
-    ) -> DatasetVersion:
-        """
-        Create a new dataset given a list of files.
-        """
-        if folder_id is None:
-            folder_id = self.api.get_user()["home_folder_id"]
-
-        upload_session_id = self._upload_files(files)
-
-        dataset_id = self.api.create_dataset(
-            upload_session_id, folder_id, name, description
-        )
-
+    def _dataset_version_summary(self, dataset_version_id):
         # look up dataset version metadata and unpack values from the resulting dicts
         # this is a fairly round about way to get all the info we need, but trying to work within
         # what the current APIs expose.
-        dataset_metadata = self.api.get_dataset_version_metadata(dataset_id, None)
-        permaname = dataset_metadata["permanames"][0]
-        versions = dataset_metadata["versions"]
-        assert len(versions) == 1
-        version = versions[0]
+        version = self.api.get_dataset_version_metadata(None, dataset_version=dataset_version_id)
+        permaname = version["dataset"]["permanames"][0]
 
-        version_number = version["name"]
+        version_number = version['datasetVersion']["name"]
 
         print(
             cf.green(
@@ -439,19 +418,51 @@ class Client:
             ],
         )
 
-    @property
-    def permaname(self):
-        return self.permanames[0]
-        # TODO: This is the wrong return type
-        return dataset_id
+    def create_dataset(
+        self,
+        name: str,
+        description: str,
+        files: List[File],
+        folder_id: Optional[str] = None,
+    ) -> DatasetVersion:
+        """
+        Create a new dataset given a list of files.
+        """
+        if folder_id is None:
+            folder_id = self.api.get_user()["home_folder_id"]
+
+        upload_session_id = self._upload_files(files)
+
+        dataset_id = self.api.create_dataset(
+            upload_session_id, folder_id, name, description
+        )
+
+        metadata = self.api.get_dataset_version_metadata(dataset_id, None)
+        assert len(metadata["versions"]) == 1
+
+        dataset_version_id = metadata["versions"][0]["id"]
+
+        return self._dataset_version_summary(dataset_version_id)
+
 
     def replace_dataset(
-        self, permaname: str, description: str, files: List[File], reason: str
+        self, permaname: str, reason: str, files: List[File], description: Optional[str] = None, 
     ) -> DatasetVersion:
         """
         Update an existing dataset by replacing all datafiles with the ones provided (Results in a new dataset version)
         """
-        raise NotImplementedError()
+        upload_session_id = self._upload_files(files)
+
+        metadata = self.api.get_dataset_version_metadata(permaname, None)
+        prev_description = metadata["description"]
+        if description is None:
+            description = prev_description
+
+        dataset_version_id = self.api.update_dataset( permaname,
+            upload_session_id, description, reason, add_existing_files=False
+        )
+
+        return self._dataset_version_summary(dataset_version_id)
 
     def update_dataset(
         self,
@@ -464,7 +475,25 @@ class Client:
         """
         Update an existing dataset by adding and removing the specified files. (Results in a new dataset version)
         """
-        raise NotImplementedError()
+        """
+        Create a new dataset given a list of files.
+        """
+        metadata = self.api.get_dataset_version_metadata(permaname, None)
+
+        if len(removals) > 0:
+            raise NotImplementedError("This option doesn't work at this time because changes are required to the Taiga service. Instead you can call replace_dataset with only the files you want to keep.")
+
+        upload_session_id = self._upload_files(additions)
+
+        prev_description = metadata["description"]
+        if description is None:
+            description = prev_description
+
+        dataset_version_id = self.api.update_dataset( metadata["id"],
+            upload_session_id, description, reason, None, add_existing_files=True
+        )
+
+        return self._dataset_version_summary(dataset_version_id)
 
     def _download_to_cache(self, datafile_id: str) -> str:
         canonical_id = self.get_canonical_id(datafile_id)
