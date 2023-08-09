@@ -384,6 +384,8 @@ class Client:
         permaname = version["dataset"]["permanames"][0]
 
         version_number = version['datasetVersion']["name"]
+        assert permaname is not None
+        assert version_number is not None
 
         print(
             cf.green(

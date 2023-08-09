@@ -3,6 +3,7 @@ from typing import Dict, Mapping, Optional, Union
 
 import progressbar
 import requests
+import logging
 
 from taigapy.custom_exceptions import (
     Taiga404Exception,
@@ -25,6 +26,8 @@ from taigapy.utils import (
     parse_gcs_path,
     untangle_dataset_id_with_version,
 )
+
+log = logging.getLogger(__name__)
 
 CHUNK_SIZE = 1024 * 1024
 
@@ -70,10 +73,12 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
 class TaigaApi:
     url: str
     token: str
+    retry_attempts: int
 
-    def __init__(self, url: str, token: str):
+    def __init__(self, url: str, token: str, retry_attempts=5):
         self.url = url
         self.token = token
+        self.retry_attempts = retry_attempts
 
     def _request_get(
         self, api_endpoint: str, params=None, standard_reponse_handling: bool = True
@@ -87,12 +92,24 @@ class TaigaApi:
 
         params["taigapy_version"] = __version__
 
-        r = requests.get(
-            url,
-            stream=True,
-            params=params,
-            headers=dict(Authorization="Bearer " + self.token),
-        )
+        failed_attempts = 0
+        retry_delay = 1.0
+        while True:
+            try:
+                r = requests.get(
+                    url,
+                    stream=True,
+                    params=params,
+                    headers=dict(Authorization="Bearer " + self.token),
+                )
+            except ReadTimeout as ex:
+                failed_attempts += 1
+                if failed_attempts > self.retry_attempts:
+                    log.exception("Too many failed attempts. Raising exception")
+                    raise
+                log.warning(f"Got exception {ex}, will attempt a retry in {retry_delay} seconds ({failed_attempts}/{self.retry_attempts} attempt")
+                time.sleep(retry_delay)
+                retry_delay *= 2
 
         if standard_reponse_handling:
             return _standard_response_handler(r, params)
@@ -233,9 +250,7 @@ class TaigaApi:
             return
         else:
             raise ValueError(
-                "Error uploading {}: {}".format(
-                    session_file.file_name, task_status.message
-                )
+                f"Error uploading {api_params.get('filename')}: { task_status.message }"
             )
 
     def get_datafile_metadata(
