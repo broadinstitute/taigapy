@@ -19,6 +19,7 @@ from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 #    S3Credentials
 # )
 
+
 # the different formats that we might store files as locally
 class LocalFormat(Enum):
     HDF5_MATRIX = "hdf5_matrix"
@@ -80,8 +81,8 @@ class DatasetVersion:
 @dataclass
 class File:
     """
-    Base class for different types of files you can upload. Never use 
-    this class directly, but instead create an instance of UploadedFile, TaigaReference or 
+    Base class for different types of files you can upload. Never use
+    this class directly, but instead create an instance of UploadedFile, TaigaReference or
     GCSReference depending on the type of file.
     """
 
@@ -99,7 +100,14 @@ class UploadedFile(File):
     format: LocalFormat
     encoding: str = "utf8"
 
-    def __init__(self, name: str, local_path: str, format: LocalFormat, encoding = "utf8", custom_metadata={}):
+    def __init__(
+        self,
+        name: str,
+        local_path: str,
+        format: LocalFormat,
+        encoding="utf8",
+        custom_metadata={},
+    ):
         super(UploadedFile, self).__init__(name, custom_metadata)
         self.local_path = local_path
         self.format = format
@@ -356,7 +364,9 @@ class Client:
                     "custom_metadata": custom_metadata,
                 },
             )
-            print(f"Added {upload_file.local_path} to upload session {upload_session_id}")
+            print(
+                f"Added {upload_file.local_path} to upload session {upload_session_id}"
+            )
 
         def _upload_taiga_reference(file: TaigaReference):
             print(f"Linking virtual file {file.taiga_id} -> {file.name}")
@@ -380,10 +390,12 @@ class Client:
         # look up dataset version metadata and unpack values from the resulting dicts
         # this is a fairly round about way to get all the info we need, but trying to work within
         # what the current APIs expose.
-        version = self.api.get_dataset_version_metadata(None, dataset_version=dataset_version_id)
+        version = self.api.get_dataset_version_metadata(
+            None, dataset_version=dataset_version_id
+        )
         permaname = version["dataset"]["permanames"][0]
 
-        version_number = version['datasetVersion']["name"]
+        version_number = version["datasetVersion"]["name"]
         assert permaname is not None
         assert version_number is not None
 
@@ -446,9 +458,12 @@ class Client:
 
         return self._dataset_version_summary(dataset_version_id)
 
-
     def replace_dataset(
-        self, permaname: str, reason: str, files: List[File], description: Optional[str] = None, 
+        self,
+        permaname: str,
+        reason: str,
+        files: List[File],
+        description: Optional[str] = None,
     ) -> DatasetVersion:
         """
         Update an existing dataset by replacing all datafiles with the ones provided (Results in a new dataset version)
@@ -461,8 +476,13 @@ class Client:
         if description is None:
             description = prev_description
 
-        dataset_version_id = self.api.update_dataset( metadata["id"],
-            upload_session_id, description, reason, None, add_existing_files=False
+        dataset_version_id = self.api.update_dataset(
+            metadata["id"],
+            upload_session_id,
+            description,
+            reason,
+            None,
+            add_existing_files=False,
         )
 
         return self._dataset_version_summary(dataset_version_id)
@@ -481,7 +501,9 @@ class Client:
         metadata = self.api.get_dataset_version_metadata(permaname, None)
 
         if len(removals) > 0:
-            raise NotImplementedError("This option doesn't work at this time because changes are required to the Taiga service. Instead you can call replace_dataset with only the files you want to keep.")
+            raise NotImplementedError(
+                "This option doesn't work at this time because changes are required to the Taiga service. Instead you can call replace_dataset with only the files you want to keep."
+            )
 
         upload_session_id = self._upload_files(additions)
 
@@ -489,8 +511,13 @@ class Client:
         if description is None:
             description = prev_description
 
-        dataset_version_id = self.api.update_dataset( metadata["id"],
-            upload_session_id, description, reason, None, add_existing_files=True
+        dataset_version_id = self.api.update_dataset(
+            metadata["id"],
+            upload_session_id,
+            description,
+            reason,
+            None,
+            add_existing_files=True,
         )
 
         return self._dataset_version_summary(dataset_version_id)
@@ -500,7 +527,10 @@ class Client:
         dest = self._get_unique_name(canonical_id, ".raw")
         parsed = _parse_datafile_id(datafile_id)
         self.api.download_datafile(
-            parsed.permaname, parsed.version, parsed.name, dest,
+            parsed.permaname,
+            parsed.version,
+            parsed.name,
+            dest,
         )
         return dest
 

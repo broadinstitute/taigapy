@@ -44,21 +44,36 @@ def test_get_datafile_metadata(
     )
 
 
-def test_get_dataset_version_metadata(taigaApi: TaigaApi):
-    """TODO"""
-    taigaApi.get_dataset_version_metadata
+from taigapy.taiga_api import run_with_max_retries
+import pytest
+import time
 
 
-def test_poll_task(taigaApi: TaigaApi):
-    """TODO"""
-    taigaApi._poll_task
+def test_run_with_max_retries_fails(monkeypatch):
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    counter = 0
+
+    def inner():
+        nonlocal counter
+        counter += 1
+        raise IOError()
+
+    with pytest.raises(IOError):
+        run_with_max_retries(inner, 3)
+
+    assert counter == 3
 
 
-def test_get_column_types(taigaApi: TaigaApi):
-    """TODO"""
-    taigaApi.get_column_types
+def test_run_with_max_retries_success(monkeypatch):
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    counter = 0
 
+    def inner():
+        nonlocal counter
+        counter += 1
+        if counter < 3:
+            raise IOError()
 
-def test_download_datafile(taigaApi: TaigaApi):
-    """TODO"""
-    taigaApi.download_datafile
+    run_with_max_retries(inner, 3)
+
+    assert counter == 3

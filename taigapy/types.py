@@ -206,8 +206,8 @@ UploadS3DataFileDict = TypedDict(
 class UploadDataFile(ABC):
     file_name: str
 
-    def to_api_param(self):
-        pass
+    def to_api_param(self) -> Dict:
+        raise NotImplementedError()
 
 
 class UploadS3DataFile(UploadDataFile):

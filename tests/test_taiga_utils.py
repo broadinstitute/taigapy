@@ -59,7 +59,13 @@ dataset_version_metadata: DatasetVersionMetadataDict = {
         "id": "dataset-id",
         "name": "Dataset",
         "permanames": ["dataset-0001"],
-        "versions": [{"id": "version-id-1", "name": "1", "state": "approved",}],
+        "versions": [
+            {
+                "id": "version-id-1",
+                "name": "1",
+                "state": "approved",
+            }
+        ],
     },
     "datasetVersion": {
         "can_edit": True,
@@ -151,7 +157,11 @@ expected_upload_s3_datafiles_api_params: List[Dict] = [
 ]
 expected_upload_virtual_datafiles_api_params: List[Dict] = [
     {"filename": "Bar", "filetype": "virtual", "existingTaigaId": "foo.1/bar"},
-    {"filename": "no_name", "filetype": "virtual", "existingTaigaId": "foo.1/no_name",},
+    {
+        "filename": "no_name",
+        "filetype": "virtual",
+        "existingTaigaId": "foo.1/no_name",
+    },
 ]
 
 expected_matching_datafiles_api_params: List[Dict] = [

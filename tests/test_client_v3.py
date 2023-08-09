@@ -29,16 +29,19 @@ from unittest.mock import create_autospec
 from typing import Union
 from taigapy.types import DatasetMetadataDict, DatasetVersionMetadataDict
 
+
 @dataclass
 class MockDBDataset:
     id: str
     name: str
     permanames: List[str]
 
+
 @dataclass
 class MockDBDatasetVersion(DatasetVersion):
-    id : str
-    dataset_id : str
+    id: str
+    dataset_id: str
+
 
 @dataclass
 class MockDB:
@@ -46,14 +49,14 @@ class MockDB:
     sessions: Dict[str, List[str]]
 
     # map of simulated dataset id -> permaname
-    dataset_by_permaname : Dict[str, MockDBDataset]
-    dataset_by_id : Dict[str, MockDBDataset]
-    dataset_versions_by_id: Dict[str, DatasetVersion] 
-    dataset_versions_by_permaname_version: Dict[str, DatasetVersion] 
+    dataset_by_permaname: Dict[str, MockDBDataset]
+    dataset_by_id: Dict[str, MockDBDataset]
+    dataset_versions_by_id: Dict[str, MockDBDatasetVersion]
+    dataset_versions_by_permaname_version: Dict[str, MockDBDatasetVersion]
 
     # map of {bucket}/{key} to bytes stored in s3
-    s3_objects : Dict[str, bytes]
-    datafiles_by_id  : Dict[str, str] 
+    s3_objects: Dict[str, bytes]
+    datafiles_by_id: Dict[str, str]
 
     def __init__(self):
         self.dataset_by_id = {}
@@ -64,8 +67,7 @@ class MockDB:
         self.s3_objects = {}
         self.datafiles_by_id = {}
 
-
-    def add_dataset(self, dataset : MockDBDataset):
+    def add_dataset(self, dataset: MockDBDataset):
         assert dataset.id not in self.dataset_by_id
         self.dataset_by_id[dataset.id] = dataset
         for permaname in dataset.permanames:
@@ -77,7 +79,9 @@ class MockDB:
 
         assert dataset_version.id not in self.dataset_versions_by_id
         self.dataset_versions_by_id[dataset_version.id] = dataset_version
-        permaname_version = f"{dataset_version.permanames[0]}.{dataset_version.version_number}"
+        permaname_version = (
+            f"{dataset_version.permanames[0]}.{dataset_version.version_number}"
+        )
         assert permaname_version not in self.dataset_versions_by_permaname_version
         self.dataset_versions_by_permaname_version[permaname_version] = dataset_version
 
@@ -86,21 +90,22 @@ class MockDB:
 
     def get_versions_by_dataset_id(self, dataset_id):
         versions = [
-            v for v in self.dataset_versions_by_id.values() 
+            v
+            for v in self.dataset_versions_by_id.values()
             if dataset_id == v.dataset_id
         ]
         return versions
-    
+
     def get_dataset(self, permaname_or_id):
         dataset = self.dataset_by_id.get(permaname_or_id)
         if dataset is not None:
             return dataset
         return self.dataset_by_permaname.get(permaname_or_id)
-    
+
     def get_by_permaname_version(self, permaname, version_number):
         permaname_version = f"{permaname}.{version_number}"
-        return self.dataset_versions_by_permaname_version[permaname_version] 
-    
+        return self.dataset_versions_by_permaname_version[permaname_version]
+
 
 @pytest.fixture
 def mock_client(tmpdir, s3_mock_client):
@@ -126,6 +131,8 @@ def mock_client(tmpdir, s3_mock_client):
 
     s3_mock_client.upload_file.side_effect = _upload_file
 
+    from typing import cast
+
     def _get_dataset_version_metadata(
         dataset_permaname: str, dataset_version: Optional[str]
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
@@ -140,14 +147,28 @@ def mock_client(tmpdir, s3_mock_client):
             assert isinstance(dataset_permaname, str)
             if dataset_version is None:
                 dataset = db.get_dataset(dataset_permaname)
+                assert dataset is not None
                 versions = db.get_versions_by_dataset_id(dataset.id)
-                return {
-                    "name": "name",
-                    "permanames": dataset.permanames,
-                    "versions": [{"id": v.id, "name": v.version_number} for v in versions],
-                }
+                return cast(
+                    DatasetMetadataDict,
+                    {
+                        "name": "name",
+                        "permanames": dataset.permanames,
+                        "versions": [
+                            {"id": v.id, "name": v.version_number, "state": "approved"}
+                            for v in versions
+                        ],
+                        "can_edit": True,
+                        "can_view": True,
+                        "description": "description",
+                        "folders": [],
+                        "id": dataset.id,
+                    },
+                )
             else:
-                dataset_version_ = db.get_by_permaname_version(dataset_permaname, dataset_version)
+                dataset_version_ = db.get_by_permaname_version(
+                    dataset_permaname, dataset_version
+                )
         else:
             dataset_version_id = dataset_version
             dataset_version_ = db.get_version_by_id(dataset_version_id)
@@ -159,37 +180,40 @@ def mock_client(tmpdir, s3_mock_client):
 
         assert dataset_version_ is not None
         # not bothering to return all fields. Only those that this code relies on.
-        return {
-            "dataset": {"name": "name", "permanames": dataset_version_.permanames},
-            "datasetVersion": {
-                # "can_edit": True,
-                # "can_view": True,
-                #        "creation_date": "",
-                #        "creator": User,
-                "datafiles": [
-                    {
-                        "allowed_conversion_type": ["raw"],
-                        "datafile_type": "s3",
-                        "id": f"{dataset_permaname}.{dataset_version_.version_number}/{file.name}",
-                        "name": file.name,
-                        "short_summary": "",
-                        "type": file.format,
-                        # "original_file_md5": None,
-                        # "original_file_sha256": None,
-                        "custom_metadata": file.custom_metadata,
-                    }
-                    for file in dataset_version_.files
-                ],
-                # "dataset_id": str,
-                "description": "",
-                #        "folders": List[Folder],  # empty list (TODO: remove)
-                #        "id": str,
-                "name": "1",
-                #        "reason_state": str,
-                "state": "Approved",
-                "version": str(dataset_version_.version_number),
+        return cast(
+            DatasetVersionMetadataDict,
+            {
+                "dataset": {"name": "name", "permanames": dataset_version_.permanames},
+                "datasetVersion": {
+                    # "can_edit": True,
+                    # "can_view": True,
+                    #        "creation_date": "",
+                    #        "creator": User,
+                    "datafiles": [
+                        {
+                            "allowed_conversion_type": ["raw"],
+                            "datafile_type": "s3",
+                            "id": f"{dataset_permaname}.{dataset_version_.version_number}/{file.name}",
+                            "name": file.name,
+                            "short_summary": "",
+                            "type": file.format,
+                            # "original_file_md5": None,
+                            # "original_file_sha256": None,
+                            "custom_metadata": file.custom_metadata,
+                        }
+                        for file in dataset_version_.files
+                    ],
+                    # "dataset_id": str,
+                    "description": "",
+                    #        "folders": List[Folder],  # empty list (TODO: remove)
+                    #        "id": str,
+                    "name": "1",
+                    #        "reason_state": str,
+                    "state": "Approved",
+                    "version": str(dataset_version_.version_number),
+                },
             },
-        }
+        )
 
     api.get_dataset_version_metadata.side_effect = _get_dataset_version_metadata
 
@@ -201,8 +225,8 @@ def mock_client(tmpdir, s3_mock_client):
     ) -> str:
         files = db.sessions[upload_session_id]
 
-        dataset_id = "ds-"+uuid.uuid4().hex
-        permaname = "p-"+uuid.uuid4().hex
+        dataset_id = "ds-" + uuid.uuid4().hex
+        permaname = "p-" + uuid.uuid4().hex
         version = 1
 
         version_files = []
@@ -228,7 +252,7 @@ def mock_client(tmpdir, s3_mock_client):
 
                 # create a new key, and update the data for that key in s3
                 f = dict(f)
-                f["s3Upload"]["key"] = "s3-"+uuid.uuid4().hex
+                f["s3Upload"]["key"] = "s3-" + uuid.uuid4().hex
                 db.s3_objects[
                     f["s3Upload"]["bucket"] + "/" + f["s3Upload"]["key"]
                 ] = hdf5_bytes
@@ -257,9 +281,11 @@ def mock_client(tmpdir, s3_mock_client):
             version_number=version,
             description=dataset_description,
             files=version_files,
-            id="v-"+uuid.uuid4().hex,
+            id="v-" + uuid.uuid4().hex,
         )
-        dataset = MockDBDataset(id=dataset_id, name=dataset_name, permanames=[permaname])
+        dataset = MockDBDataset(
+            id=dataset_id, name=dataset_name, permanames=[permaname]
+        )
 
         # dataset_version_id = "mock-version-id"
         # assert dataset_version_id not in dataset_versions_by_id
@@ -288,7 +314,7 @@ def mock_client(tmpdir, s3_mock_client):
     api.upload_file_to_taiga.side_effect = _upload_file_to_taiga
 
     def _create_session():
-        session_id = "s-"+uuid.uuid4().hex
+        session_id = "s-" + uuid.uuid4().hex
         db.sessions[session_id] = []
         return session_id
 
@@ -332,6 +358,31 @@ writers_by_format = {
     LocalFormat.CSV_TABLE.value: write_csv_table,
     LocalFormat.CSV_MATRIX.value: write_csv_matrix,
 }
+
+
+def test_upload_with_fault_injection(mock_client: Client, tmpdir, s3_mock_client):
+    sample_file = tmpdir.join("file")
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    df.to_csv(str(sample_file), index=False)
+
+    version = mock_client.create_dataset(
+        "test",
+        "desc",
+        [
+            UploadedFile(
+                name="matrix",
+                local_path=str(sample_file),
+                format=LocalFormat.CSV_TABLE,
+                custom_metadata={},
+            )
+        ],
+    )
+    assert len(version.files) == 1
+    file = version.files[0]
+
+    fetched_df = mock_client.get(file.datafile_id)
+
+    assert df.equals(fetched_df)
 
 
 @pytest.mark.parametrize(

@@ -13,6 +13,7 @@ except Exception as e:
 
 from .client_v3 import Client as ClientV3
 
+
 def create_taiga_client_v3(*args, **kwargs):
     tc = TaigaClient(*args, **kwargs)
     tc._set_token_and_initialized_api()

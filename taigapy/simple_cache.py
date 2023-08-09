@@ -9,7 +9,7 @@ V = TypeVar("V")
 
 class Cache(Generic[V]):
     """
-    A write through in-memory cache, backed by disk. Keys must always be strings, but values can be any 
+    A write through in-memory cache, backed by disk. Keys must always be strings, but values can be any
     pickle-able type.
     """
 

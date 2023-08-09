@@ -442,7 +442,10 @@ class TaigaClient:
         )
 
         all_uploads = transform_upload_args_to_upload_list(
-            upload_files, add_taiga_ids, add_gcs_files, dataset_version_metadata,
+            upload_files,
+            add_taiga_ids,
+            add_gcs_files,
+            dataset_version_metadata,
         )
 
         return all_uploads, dataset_version_metadata

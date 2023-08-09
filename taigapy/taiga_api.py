@@ -32,7 +32,9 @@ log = logging.getLogger(__name__)
 CHUNK_SIZE = 1024 * 1024
 
 
-def _standard_response_handler(r: requests.Response, params: Optional[Mapping], url=None):
+def _standard_response_handler(
+    r: requests.Response, params: Optional[Mapping], url=None
+):
     if r.status_code == 404:
         raise Taiga404Exception(
             "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(
@@ -42,7 +44,9 @@ def _standard_response_handler(r: requests.Response, params: Optional[Mapping], 
     elif r.status_code == 500:
         raise TaigaServerError()
     elif r.status_code != 200:
-        raise TaigaHttpException(f"Bad status code ({r.status_code}) when POST {url} with params={params}")
+        raise TaigaHttpException(
+            f"Bad status code ({r.status_code}) when POST {url} with params={params}"
+        )
 
     return r.json()
 
@@ -70,51 +74,60 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
     return bar
 
 
+def run_with_max_retries(call, max_attempts, retry_delay=1.0):
+    failed_attempts = 0
+    while True:
+        try:
+            return call()
+        except IOError as ex:
+            failed_attempts += 1
+            if failed_attempts >= max_attempts:
+                log.exception("Too many failed attempts. Raising exception")
+                raise
+            log.warning(
+                f"Got exception {ex}, will attempt a retry in {retry_delay} seconds ({failed_attempts}/{max_attempts} attempt"
+            )
+            time.sleep(retry_delay)
+            retry_delay *= 2
+
+
 class TaigaApi:
     url: str
     token: str
-    retry_attempts: int
+    max_attempts: int
 
-    def __init__(self, url: str, token: str, retry_attempts=5):
+    def __init__(self, url: str, token: str, max_attempts=5):
         self.url = url
         self.token = token
-        self.retry_attempts = retry_attempts
+        self.max_attempts = max_attempts
 
     def _request_get(
         self, api_endpoint: str, params=None, standard_reponse_handling: bool = True
     ):
-        from taigapy import __version__
+        def inner():
+            nonlocal params
+            from taigapy import __version__
 
-        url = self.url + api_endpoint
+            url = self.url + api_endpoint
 
-        if params is None:
-            params = {}
+            if params is None:
+                params = {}
 
-        params["taigapy_version"] = __version__
+            params["taigapy_version"] = __version__
 
-        failed_attempts = 0
-        retry_delay = 1.0
-        while True:
-            try:
-                r = requests.get(
-                    url,
-                    stream=True,
-                    params=params,
-                    headers=dict(Authorization="Bearer " + self.token),
-                )
-            except ReadTimeout as ex:
-                failed_attempts += 1
-                if failed_attempts > self.retry_attempts:
-                    log.exception("Too many failed attempts. Raising exception")
-                    raise
-                log.warning(f"Got exception {ex}, will attempt a retry in {retry_delay} seconds ({failed_attempts}/{self.retry_attempts} attempt")
-                time.sleep(retry_delay)
-                retry_delay *= 2
+            r = requests.get(
+                url,
+                stream=True,
+                params=params,
+                headers=dict(Authorization="Bearer " + self.token),
+            )
 
-        if standard_reponse_handling:
-            return _standard_response_handler(r, params)
-        else:
-            return r
+            if standard_reponse_handling:
+                return _standard_response_handler(r, params)
+            else:
+                return r
+
+        return run_with_max_retries(inner, self.max_attempts)
 
     def _request_post(
         self, api_endpoint: str, data: Mapping, standard_reponse_handling: bool = True
@@ -134,7 +147,9 @@ class TaigaApi:
         )
 
         if standard_reponse_handling:
-            return _standard_response_handler(r, data, url=full_url) #, params=params, json=data)
+            return _standard_response_handler(
+                r, data, url=full_url
+            )  # , params=params, json=data)
         else:
             return r
 
