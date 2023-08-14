@@ -14,6 +14,7 @@ from .types import DatasetVersionMetadataDict
 from .simple_cache import Cache
 from .types import DataFileUploadFormat
 from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
+from taigapy.utils import get_latest_valid_version_from_metadata
 
 # from taigapy.types import (
 #    S3Credentials
@@ -245,7 +246,41 @@ class Client:
 
         return canonical_id
 
-    def get(self, datafile_id: str) -> pd.DataFrame:
+    def get(
+        self,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        version: Optional[DatasetVersion] = None,
+        file: Optional[str] = None,
+    ) -> pd.DataFrame:
+
+        if id is None:
+            assert name is not None
+            assert file is not None
+
+            # handle case where people want the latest version
+            if version is None:
+
+                dataset_metadata = (
+                    self.api.get_dataset_version_metadata(name, None)
+                )
+
+                version = get_latest_valid_version_from_metadata(dataset_metadata)
+                print(
+                    cf.orange(
+                        "No dataset version provided. Using version {}.".format(
+                            version
+                        )
+                    )
+                )
+
+            id = f"{name}.{version}/{file}"
+
+        assert re.match("[a-z0-9-]+\\.\\d+/.*", id) is not None, f"expected {id} to be of the form permaname.version/filename"
+
+        return self._get(id)
+
+    def _get(self, datafile_id: str) -> pd.DataFrame:
         """
         Retrieve the specified file as a pandas.Dataframe
         """
