@@ -278,7 +278,10 @@ class Client:
 
         assert re.match("[a-z0-9-]+\\.\\d+/.*", id) is not None, f"expected {id} to be of the form permaname.version/filename"
 
-        return self._get(id)
+        try:
+            return self._get(id)
+        except Exception as ex:
+            raise Exception(f"Got an internal error when trying to get({repr(id)})") from ex
 
     def _get(self, datafile_id: str) -> pd.DataFrame:
         """
@@ -560,17 +563,21 @@ class Client:
         return self._dataset_version_summary(dataset_version_id)
 
     def _download_to_cache(self, datafile_id: str, *, format: str ="raw_test") -> str:
-        canonical_id = self.get_canonical_id(datafile_id)
-        dest = self._get_unique_name(canonical_id, ".raw")
-        parsed = _parse_datafile_id(datafile_id)
-        self.api.download_datafile(
-            parsed.permaname,
-            parsed.version,
-            parsed.name,
-            dest,
-            format=format
-        )
-        return dest
+        try:
+            canonical_id = self.get_canonical_id(datafile_id)
+            dest = self._get_unique_name(canonical_id, ".raw")
+            parsed = _parse_datafile_id(datafile_id)
+            self.api.download_datafile(
+                parsed.permaname,
+                parsed.version,
+                parsed.name,
+                dest,
+                format=format
+            )
+            return dest
+        except Exception as ex:
+            raise Exception(f"Got an internal error when trying to download {datafile_id} (format={format}) to cache") from ex
+            
 
     def _get_unique_name(self, prefix, suffix):
         prefix = re.sub("[^a-z0-9]+", "-", prefix.lower())

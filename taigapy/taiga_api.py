@@ -191,6 +191,7 @@ class TaigaApi:
 
     @staticmethod
     def _download_file_from_s3(download_url: str, dest: str):
+        log.debug("Downloading %s to %s", download_url, dest)
         r = requests.get(download_url, stream=True)
 
         header_content_length = r.headers.get("Content-Length", None)

@@ -1,4 +1,4 @@
-__version__ = "3.3.4"
+__version__ = "3.4.0"
 
 from .consts import DEFAULT_TAIGA_URL, DEFAULT_CACHE_DIR, CACHE_FILE
 from .client import TaigaClient
