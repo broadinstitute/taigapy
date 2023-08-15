@@ -321,7 +321,7 @@ def mock_client(tmpdir, s3_mock_client):
     api.create_upload_session.side_effect = _create_session
 
     def _download_datafile(
-        dataset_permaname: str, dataset_version: str, datafile_name: str, dest: str
+        dataset_permaname: str, dataset_version: str, datafile_name: str, dest: str, *, format="test_raw"
     ):
         key = f"{dataset_permaname}.{dataset_version}/{datafile_name}"
         f = db.datafiles_by_id[key]
