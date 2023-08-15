@@ -322,8 +322,10 @@ class Client:
         if requested_format == LocalFormat.HDF5_MATRIX:
             if (
                 taiga_format == TaigaStorageFormat.HDF5_MATRIX
-                or taiga_format == TaigaStorageFormat.RAW_HDF5_MATRIX
+
             ):
+                local_path = self._download_to_cache(canonical_id, format="hdf5")
+            elif taiga_format == TaigaStorageFormat.RAW_HDF5_MATRIX:
                 local_path = self._download_to_cache(canonical_id)
             else:
                 raise Exception(
@@ -557,7 +559,7 @@ class Client:
 
         return self._dataset_version_summary(dataset_version_id)
 
-    def _download_to_cache(self, datafile_id: str) -> str:
+    def _download_to_cache(self, datafile_id: str, *, format: str ="raw_test") -> str:
         canonical_id = self.get_canonical_id(datafile_id)
         dest = self._get_unique_name(canonical_id, ".raw")
         parsed = _parse_datafile_id(datafile_id)
@@ -566,6 +568,7 @@ class Client:
             parsed.version,
             parsed.name,
             dest,
+            format=format
         )
         return dest
 

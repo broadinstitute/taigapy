@@ -352,13 +352,15 @@ class TaigaApi:
         dataset_version: str,
         datafile_name: str,
         dest: str,
-    ):
+        *,
+        format="raw_test"
+            ):
         endpoint = "/api/datafile"
         params = {
             "dataset_permaname": dataset_permaname,
             "version": dataset_version,
             "datafile_name": datafile_name,
-            "format": "raw_test",
+            "format": format,
         }
 
         r = self._request_get(endpoint, params, standard_reponse_handling=False)
