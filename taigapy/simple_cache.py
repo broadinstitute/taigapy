@@ -1,7 +1,7 @@
 from typing import TypeVar, Generic, Optional, Callable
 import pickle
 
-import shelve  # TODO: Switch away from shelve to sqlite shelve to avoid corruption in the event of concurrency
+import sqliteshelve as shelve
 import os
 
 V = TypeVar("V")
