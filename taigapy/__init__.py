@@ -1,4 +1,9 @@
-__version__ = "3.4.0"
+import importlib.metadata
+
+__version__ = importlib.metadata.version("taigapy")
+
+
+
 
 from .consts import DEFAULT_TAIGA_URL, DEFAULT_CACHE_DIR, CACHE_FILE
 from .client import TaigaClient
