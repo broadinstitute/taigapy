@@ -124,6 +124,7 @@ DataFileMetadataDict = TypedDict(
         "gcs_path": str,
     },
 )
+from typing import Dict
 
 
 class DataFileMetadata:
@@ -135,6 +136,7 @@ class DataFileMetadata:
         self.dataset_version_id: str = datafile_metadata_dict["dataset_version_id"]
         self.datafile_name: str = datafile_metadata_dict["datafile_name"]
         self.status: str = datafile_metadata_dict["status"]
+        self.metadata: Dict[str, str] = datafile_metadata_dict.get("metadata", {})
         self.state: DatasetVersionState = DatasetVersionState(
             datafile_metadata_dict["state"]
         )
@@ -212,8 +214,8 @@ class UploadDataFile(ABC):
     file_name: str
     custom_metadata: Optional[Dict[str, Any]]
 
-    def to_api_param(self):
-        pass
+    def to_api_param(self) -> Dict:
+        raise NotImplementedError()
 
 
 class UploadS3DataFile(UploadDataFile):

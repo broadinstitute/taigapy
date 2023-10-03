@@ -3,6 +3,7 @@ from typing import Dict, Mapping, Optional, Union
 
 import progressbar
 import requests
+import logging
 
 from taigapy.custom_exceptions import (
     Taiga404Exception,
@@ -26,10 +27,14 @@ from taigapy.utils import (
     untangle_dataset_id_with_version,
 )
 
+log = logging.getLogger(__name__)
+
 CHUNK_SIZE = 1024 * 1024
 
 
-def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
+def _standard_response_handler(
+    r: requests.Response, params: Optional[Mapping], url=None
+):
     if r.status_code == 404:
         raise Taiga404Exception(
             "Received a not found error. Are you sure about your credentials and/or the data parameters? params: {}".format(
@@ -39,7 +44,9 @@ def _standard_response_handler(r: requests.Response, params: Optional[Mapping]):
     elif r.status_code == 500:
         raise TaigaServerError()
     elif r.status_code != 200:
-        raise TaigaHttpException("Bad status code: {}".format(r.status_code))
+        raise TaigaHttpException(
+            f"Bad status code ({r.status_code}) when POST {url} with params={params}"
+        )
 
     return r.json()
 
@@ -67,34 +74,60 @@ def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
     return bar
 
 
+def run_with_max_retries(call, max_attempts, retry_delay=1.0):
+    failed_attempts = 0
+    while True:
+        try:
+            return call()
+        except IOError as ex:
+            failed_attempts += 1
+            if failed_attempts >= max_attempts:
+                log.exception("Too many failed attempts. Raising exception")
+                raise
+            log.warning(
+                f"Got exception {ex}, will attempt a retry in {retry_delay} seconds ({failed_attempts}/{max_attempts} attempt"
+            )
+            time.sleep(retry_delay)
+            retry_delay *= 2
+
+
 class TaigaApi:
-    def __init__(self, url: str, token: str):
+    url: str
+    token: str
+    max_attempts: int
+
+    def __init__(self, url: str, token: str, max_attempts=5):
         self.url = url
         self.token = token
+        self.max_attempts = max_attempts
 
     def _request_get(
         self, api_endpoint: str, params=None, standard_reponse_handling: bool = True
     ):
-        from taigapy import __version__
+        def inner():
+            nonlocal params
+            from taigapy import __version__
 
-        url = self.url + api_endpoint
+            url = self.url + api_endpoint
 
-        if params is None:
-            params = {}
+            if params is None:
+                params = {}
 
-        params["taigapy_version"] = __version__
+            params["taigapy_version"] = __version__
 
-        r = requests.get(
-            url,
-            stream=True,
-            params=params,
-            headers=dict(Authorization="Bearer " + self.token),
-        )
+            r = requests.get(
+                url,
+                stream=True,
+                params=params,
+                headers=dict(Authorization="Bearer " + self.token),
+            )
 
-        if standard_reponse_handling:
-            return _standard_response_handler(r, params)
-        else:
-            return r
+            if standard_reponse_handling:
+                return _standard_response_handler(r, params)
+            else:
+                return r
+
+        return run_with_max_retries(inner, self.max_attempts)
 
     def _request_post(
         self, api_endpoint: str, data: Mapping, standard_reponse_handling: bool = True
@@ -105,15 +138,18 @@ class TaigaApi:
 
         params = {"taigapy_version": __version__}
 
+        full_url = self.url + api_endpoint
         r = requests.post(
-            self.url + api_endpoint,
+            full_url,
             params=params,
             json=data,
             headers=dict(Authorization="Bearer " + self.token),
         )
 
         if standard_reponse_handling:
-            return _standard_response_handler(r, data)
+            return _standard_response_handler(
+                r, data, url=full_url
+            )  # , params=params, json=data)
         else:
             return r
 
@@ -155,6 +191,7 @@ class TaigaApi:
 
     @staticmethod
     def _download_file_from_s3(download_url: str, dest: str):
+        log.debug("Downloading %s to %s", download_url, dest)
         r = requests.get(download_url, stream=True)
 
         header_content_length = r.headers.get("Content-Length", None)
@@ -209,11 +246,16 @@ class TaigaApi:
         api_endpoint = "/api/user"
         return self._request_get(api_endpoint)
 
-    def upload_file_to_taiga(self, session_id: str, session_file: UploadDataFile):
+    def upload_file_to_taiga(
+        self, session_id: str, session_file: Union[UploadDataFile, Dict]
+    ):
+        if isinstance(session_file, dict):
+            api_params = session_file
+        else:
+            api_params = session_file.to_api_param()
+
         api_endpoint = "/api/datafile/{}".format(session_id)
-        task_id = self._request_post(
-            api_endpoint=api_endpoint, data=session_file.to_api_param()
-        )
+        task_id = self._request_post(api_endpoint=api_endpoint, data=api_params)
 
         if task_id == "done":
             return
@@ -224,9 +266,7 @@ class TaigaApi:
             return
         else:
             raise ValueError(
-                "Error uploading {}: {}".format(
-                    session_file.file_name, task_status.message
-                )
+                f"Error uploading {api_params.get('filename')}: { task_status.message }"
             )
 
     def get_datafile_metadata(
@@ -313,13 +353,15 @@ class TaigaApi:
         dataset_version: str,
         datafile_name: str,
         dest: str,
-    ):
+        *,
+        format="raw_test"
+            ):
         endpoint = "/api/datafile"
         params = {
             "dataset_permaname": dataset_permaname,
             "version": dataset_version,
             "datafile_name": datafile_name,
-            "format": "raw_test",
+            "format": format,
         }
 
         r = self._request_get(endpoint, params, standard_reponse_handling=False)
@@ -384,14 +426,14 @@ class TaigaApi:
         description: str,
         changes_description: Optional[str],
         dataset_version: Optional[str],
-        add_existing_files: bool = False
+        add_existing_files: bool = False,
     ) -> str:
         params = {
             "datasetId": dataset_id,
             "sessionId": session_id,
             "newDescription": description,
             "datasetVersion": dataset_version,
-            "addExistingFiles": add_existing_files
+            "addExistingFiles": add_existing_files,
         }
         if changes_description is not None:
             params["changesDescription"] = changes_description

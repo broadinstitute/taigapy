@@ -48,7 +48,9 @@ def find_first_existing(paths: Iterable[str]):
     raise TaigaTokenFileNotFound(paths)
 
 
-def untangle_dataset_id_with_version(taiga_id: str,) -> Tuple[str, str, Optional[str]]:
+def untangle_dataset_id_with_version(
+    taiga_id: str,
+) -> Tuple[str, str, Optional[str]]:
     """Returns dataset_permaname, dataset_version, and datafile_name from
     `taiga_id` in the form dataset_permaname.version/datafile_name or
     dataset_permaname.version.
@@ -157,7 +159,6 @@ def transform_upload_args_to_upload_list(
     add_gcs_files: Sequence[UploadGCSDataFileDict],
     dataset_version_metadata: Optional[DatasetVersionMetadataDict] = None,
 ) -> Sequence[UploadDataFile]:
-
     if dataset_version_metadata is not None:
         dataset_permaname = dataset_version_metadata["dataset"]["permanames"][-1]
         dataset_version = dataset_version_metadata["datasetVersion"]["version"]

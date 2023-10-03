@@ -1,0 +1,80 @@
+client.py: error: "dataset_metadata" is possibly unbound (reportUnboundVariable)
+client.py: error: "green" is not a known member of module "colorful" (reportGeneralTypeIssues)
+client.py: error: "orange" is not a known member of module "colorful" (reportGeneralTypeIssues)
+client.py: error: "red" is not a known member of module "colorful" (reportGeneralTypeIssues)
+client.py: error: Argument missing for parameter "upload_async" (reportGeneralTypeIssues)
+client.py: error: Argument of type "DataFileFormat | None" cannot be assigned to parameter "datafile_format" of type "DataFileFormat" in function "add_full_id"
+client.py: error: Argument of type "DatasetVersion | None" cannot be assigned to parameter "dataset_version" of type "str | None" in function "update_dataset" (reportGeneralTypeIssues)
+client.py: error: Argument of type "DatasetVersion | None" cannot be assigned to parameter "version" of type "str | None" in function "_get_dataset_metadata" (reportGeneralTypeIssues)
+client.py: error: Argument of type "DatasetVersion" cannot be assigned to parameter "version" of type "str | None" in function "_get_dataset_metadata" (reportGeneralTypeIssues)
+client.py: error: Argument of type "Literal['dataset']" cannot be assigned to parameter "__s" of type "slice" in function "__getitem__"
+client.py: error: Argument of type "Literal['datasetVersion']" cannot be assigned to parameter "__s" of type "slice" in function "__getitem__"
+client.py: error: Argument of type "Sequence[UploadDataFile]" cannot be assigned to parameter "all_uploads" of type "List[UploadDataFile]" in function "_upload_files"
+client.py: error: Argument of type "str | None" cannot be assigned to parameter "dataset_permaname" of type "str" in function "format_datafile_id"
+client.py: error: Argument of type "str | None" cannot be assigned to parameter "full_taiga_id" of type "str" in function "add_full_id"
+client.py: error: Argument of type "str" cannot be assigned to parameter "cache_dir" of type "type[str]" in function "__init__"
+client.py: error: Argument of type "str" cannot be assigned to parameter "cache_file_path" of type "type[str]" in function "__init__"
+client.py: error: Cannot assign member "api" for type "TaigaClient"
+client.py: error: Could not access item in TypedDict
+client.py: error: Expression of type "DataFileFormat | None" cannot be assigned to declared type "DataFileFormat"
+client.py: error: Expression of type "DatasetMetadataDict | DatasetVersionMetadataDict | None" cannot be assigned to declared type "DatasetMetadataDict"
+client.py: error: Expression of type "DatasetMetadataDict | DatasetVersionMetadataDict | None" cannot be assigned to declared type "DatasetVersionMetadataDict"
+client.py: error: Expression of type "DatasetMetadataDict | DatasetVersionMetadataDict" cannot be assigned to declared type "DatasetMetadataDict"
+client.py: error: Expression of type "None" cannot be assigned to parameter of type "str"
+client.py: error: Expression of type "str | DataFrame | None" cannot be assigned to return type "DataFrame"
+client.py: error: Expression of type "str | DataFrame | None" cannot be assigned to return type "str"
+client.py: error: Expression of type "tuple[Sequence[UploadDataFile], DatasetVersionMetadataDict]" cannot be assigned to return type "Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict]"
+client.py: error: Expression with type "Tuple[List[UploadS3DataFile], List[UploadVirtualDataFile], DatasetVersionMetadataDict]" cannot be assigned to target tuple
+client.py: error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+client.py: error: Operator "in" not supported for types "str" and "Dict[str, FigshareFileMetadata] | None"
+client_v3.py: error: "green" is not a known member of module "colorful" (reportGeneralTypeIssues)
+client_v3.py: error: "name" is not a known member of "None" (reportOptionalMemberAccess)
+client_v3.py: error: "permaname" is not a known member of "None" (reportOptionalMemberAccess)
+client_v3.py: error: "version" is not a known member of "None" (reportOptionalMemberAccess)
+client_v3.py: error: Argument of type "MinDataFileMetadata" cannot be assigned to parameter "value" of type "str" in function "put"
+client_v3.py: error: Argument of type "None" cannot be assigned to parameter "dataset_permaname" of type "str" in function "get_dataset_version_metadata"
+client_v3.py: error: Argument of type "Unknown | str | None" cannot be assigned to parameter "datafile_id" of type "str" in function "__init__"
+client_v3.py: error: Argument of type "int" cannot be assigned to parameter "dataset_version" of type "str | None" in function "get_dataset_version_metadata"
+client_v3.py: error: Argument of type "int" cannot be assigned to parameter "dataset_version" of type "str" in function "download_datafile"
+client_v3.py: error: Cannot access member "RAW" for type "type[LocalFormat]"
+client_v3.py: error: Cannot access member "custom_metadata" for type "Dict[str, str]"
+client_v3.py: error: Cannot access member "taiga_id" for type "File"
+client_v3.py: error: Cannot access member "type" for type "Dict[str, str]"
+client_v3.py: error: Could not access item in TypedDict
+client_v3.py: error: Expression of type "MinDataFileMetadata | None" cannot be assigned to return type "Dict[str, str]"
+client_v3.py: error: Expression of type "None" cannot be assigned to return type "DataFrame"
+client_v3.py: error: Expression of type "str | None" cannot be assigned to return type "MinDataFileMetadata | None" (reportGeneralTypeIssues)
+client_v3.py: error: Too many type arguments provided for "Cache"; expected 1 but received 2 (reportGeneralTypeIssues)
+format_utils.py: error: "Datatype" is not iterable
+setup.py: error: "group" is not a known member of "None" (reportOptionalMemberAccess)
+taiga_api.py: error: "ReadTimeout" is not defined (reportUndefinedVariable)
+taiga_api.py: error: "exceptions" is unknown import symbol (reportGeneralTypeIssues)
+taiga_api.py: error: "file_name" is possibly unbound (reportUnboundVariable)
+taiga_api.py: error: "storage" is unknown import symbol (reportGeneralTypeIssues)
+taiga_api.py: error: Argument of type "Any | Response" cannot be assigned to parameter "task_id" of type "str" in function "_poll_task"
+taiga_api.py: error: Expression of type "Any | Response" cannot be assigned to return type "str"
+taiga_api.py: error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+taiga_api.py: error: Operator "==" not supported for types "type[UnknownLength] | int" and "type[UnknownLength]"
+taiga_cache.py: error: Argument of type "Mapping[str, str] | None" cannot be assigned to parameter "dtype" of type "ExtensionDtype | str | dtype[Unknown] | type[str] | type[complex] | type[bool] | type[object] | Dict[Hashable, Dtype] | None" in function "read_csv" (reportGeneralTypeIssues)
+taiga_cache.py: error: Argument of type "type[str]" cannot be assigned to parameter "__a" of type "StrPath" in function "join"
+taiga_cache.py: error: Argument of type "type[str]" cannot be assigned to parameter "database" of type "StrOrBytesPath" in function "connect"
+taiga_cache.py: error: Argument of type "type[str]" cannot be assigned to parameter "path" of type "FileDescriptorOrPath" in function "exists"
+taiga_cache.py: error: Expression of type "DataFrame | None" cannot be assigned to return type "DataFrame"
+test_client_v3.py: error: Argument of type "str | None" cannot be assigned to parameter "description" of type "str" in function "__init__"
+test_client_v3.py: error: Expression of type "None" cannot be assigned to return type "DatasetMetadataDict | DatasetVersionMetadataDict"
+test_taiga_cache.py: error: "equals" is not a known member of "None" (reportOptionalMemberAccess)
+test_taiga_cache.py: error: Argument of type "None" cannot be assigned to parameter "raw_path" of type "str" in function "add_entry"
+test_taiga_cache.py: error: Argument of type "str | None" cannot be assigned to parameter "file" of type "FileDescriptorOrPath" in function "open" (reportGeneralTypeIssues)
+test_taiga_cache.py: error: Argument of type "str" cannot be assigned to parameter "cache_dir" of type "type[str]" in function "__init__"
+test_taiga_cache.py: error: Argument of type "str" cannot be assigned to parameter "cache_file_path" of type "type[str]" in function "__init__"
+test_taiga_client.py: error: "feather_path" is not a known member of "None" (reportOptionalMemberAccess)
+test_taiga_client.py: error: Argument of type "DatasetMetadataDict | DatasetVersionMetadataDict | None" cannot be assigned to parameter "dataset_metadata" of type "DatasetMetadataDict" in function "get_latest_valid_version_from_metadata"
+test_taiga_client.py: error: Expression of type "DatasetMetadataDict | DatasetVersionMetadataDict | None" cannot be assigned to declared type "DatasetMetadataDict"
+test_taiga_client.py: error: Expression of type "DatasetMetadataDict | DatasetVersionMetadataDict | None" cannot be assigned to declared type "DatasetVersionMetadataDict"
+test_taiga_utils.py: error: Could not access item in TypedDict
+test_taiga_utils.py: error: Expression of type "dict[str, DatasetMetadataDict | dict[str, bool | str | list[dict[str, str]] | dict[Any, Any]]]" cannot be assigned to declared type "DatasetVersionMetadataDict"
+types.py: error: Argument of type "str | None" cannot be assigned to parameter "__encoding" of type "str" in function "lookup"
+types.py: error: Cannot assign member "file_name" for type "UploadS3DataFile"
+types.py: error: Could not access item in TypedDict
+utils.py: error: Could not access item in TypedDict
+utils.py: error: Expression of type "str | None" cannot be assigned to declared type "str"

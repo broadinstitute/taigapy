@@ -245,8 +245,7 @@ table_df = pd.DataFrame({"a": [2.1, np.nan], "b": ["one", "two"]})
             copy.deepcopy(add_taiga_ids),
             dataset_version_metadata,
             [],
-            expected_upload_virtual_datafiles_api_params
-            ,
+            expected_upload_virtual_datafiles_api_params,
             [],
             id="update dataset, only virtual files",
         ),
@@ -290,11 +289,11 @@ def test_modify_upload_files(
         upload_files,
         add_taiga_ids,
         [],
-        dataset_version_metadata=dataset_version_metadata
+        dataset_version_metadata=dataset_version_metadata,
     )
 
     upload_s3_datafiles = []
-    
+
     upload_virtual_datafiles = []
     for upload_datafile in upload_datafiles:
         if isinstance(upload_datafile, UploadS3DataFile):
@@ -314,12 +313,17 @@ def test_modify_upload_files(
     )
 
     assert len(upload_virtual_datafiles) == len(
-        expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params
+        expected_upload_virtual_datafiles_api_params
+        + expected_matching_datafiles_api_params
     )
 
     assert all(
         actual.to_api_param() == expected
         for (actual, expected) in zip(
-            upload_virtual_datafiles, (expected_upload_virtual_datafiles_api_params + expected_matching_datafiles_api_params)
+            upload_virtual_datafiles,
+            (
+                expected_upload_virtual_datafiles_api_params
+                + expected_matching_datafiles_api_params
+            ),
         )
     )
