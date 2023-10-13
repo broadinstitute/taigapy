@@ -355,6 +355,18 @@ class Client:
                 raise Exception(
                     f"Requested {requested_format} but taiga_format={taiga_format}"
                 )
+        elif requested_format == LocalFormat.CSV_TABLE:
+            if taiga_format == TaigaStorageFormat.CSV_TABLE:
+                local_path = self._download_to_cache(canonical_id)
+            elif taiga_format == TaigaStorageFormat.RAW_PARQUET_TABLE:
+                local_parqet_file =  self._download_to_cache(canonical_id)
+                local_path = self._get_unique_name(canonical_id, ".csv")
+                df = pd.read_parquet(local_parqet_file)
+                df.to_csv(local_path)
+            else:
+                raise Exception(
+                    f"Requested {requested_format} but taiga_format={taiga_format}"
+                )
         else:
             raise Exception(
                 f"Requested {requested_format} but taiga_format={taiga_format}"
