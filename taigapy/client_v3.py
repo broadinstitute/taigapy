@@ -15,6 +15,7 @@ from .simple_cache import Cache
 from .types import DataFileUploadFormat
 from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 from taigapy.utils import get_latest_valid_version_from_metadata
+from typing import Union
 
 # from taigapy.types import (
 #    S3Credentials
@@ -311,10 +312,14 @@ class Client:
 
         return result
 
-    def download_to_cache(self, datafile_id: str, requested_format: LocalFormat) -> str:
+    def download_to_cache(self, datafile_id: str, requested_format: Union[LocalFormat, str]) -> str:
         """
         Download the specified file to the cache directory (if not already there and converting if necessary) and return the path to that file.
         """
+        # coerce to enum
+        if isinstance(requested_format, str):
+            requested_format = LocalFormat(requested_format)
+
         canonical_id = self.get_canonical_id(datafile_id)
         key = repr((canonical_id, requested_format))
         path = self.internal_format_cache.get(key, None)
