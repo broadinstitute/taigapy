@@ -6,6 +6,13 @@ import os
 
 V = TypeVar("V")
 
+from contextlib import contextmanager
+
+@contextmanager
+def shelve_open(filename):
+    d = shelve.open(filename)
+    yield d
+    d.close()
 
 class Cache(Generic[V]):
     """
@@ -37,7 +44,7 @@ class Cache(Generic[V]):
             return self._none_if_not_valid(self.in_memory_cache[key], default)
 
         self._ensure_parent_dir_exists()
-        with shelve.open(self.filename) as s:
+        with shelve_open(self.filename) as s:
             if key in s:
                 # If we have a value we
                 # cannot reconstruct, consider that as
@@ -56,6 +63,6 @@ class Cache(Generic[V]):
     def put(self, key: str, value: V):
         assert self.is_value_valid(value)
         self._ensure_parent_dir_exists()
-        with shelve.open(self.filename) as s:
+        with shelve_open(self.filename) as s:
             s[key] = value
             self.in_memory_cache[key] = value

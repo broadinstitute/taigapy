@@ -316,7 +316,7 @@ class Client:
         Download the specified file to the cache directory (if not already there and converting if necessary) and return the path to that file.
         """
         canonical_id = self.get_canonical_id(datafile_id)
-        key = repr((canonical_id, format))
+        key = repr((canonical_id, requested_format))
         path = self.internal_format_cache.get(key, None)
         if path:
             return path
@@ -325,7 +325,6 @@ class Client:
         if requested_format == LocalFormat.HDF5_MATRIX:
             if (
                 taiga_format == TaigaStorageFormat.HDF5_MATRIX
-
             ):
                 local_path = self._download_to_cache(canonical_id, format="hdf5")
             elif taiga_format == TaigaStorageFormat.RAW_HDF5_MATRIX:
@@ -341,6 +340,17 @@ class Client:
                 convert_csv_to_parquet(csv_path, local_path)
             elif taiga_format == TaigaStorageFormat.RAW_PARQUET_TABLE:
                 local_path = self._download_to_cache(canonical_id)
+            else:
+                raise Exception(
+                    f"Requested {requested_format} but taiga_format={taiga_format}"
+                )
+        elif requested_format == LocalFormat.CSV_MATRIX:
+            if taiga_format in [TaigaStorageFormat.HDF5_MATRIX, TaigaStorageFormat.RAW_HDF5_MATRIX]:
+                hdf5_path = self.download_to_cache(datafile_id, requested_format=LocalFormat.HDF5_MATRIX)
+                # taiga client will convert from HDF5 to CSV
+                local_path = self._get_unique_name(canonical_id, ".csv")
+                df = read_hdf5(hdf5_path)
+                df.to_csv(local_path)
             else:
                 raise Exception(
                     f"Requested {requested_format} but taiga_format={taiga_format}"
