@@ -498,6 +498,9 @@ class Client:
                 for f in version_metadata["datasetVersion"]["datafiles"]
             ],
         )
+    
+    def get_dataset_version_summary(self, dataset_version_id):
+        return self._dataset_version_summary(dataset_version_id)
 
     def create_dataset(
         self,
