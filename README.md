@@ -163,9 +163,12 @@ Please [open an issue](https://github.com/broadinstitute/taigapy/issues) if you 
 
 ## Development
 ### Setup
-In an environment with Python 3.6, run `sh setup.sh` to set up requirements and git hooks.
 
-Run `python setup.py develop`.  
+Run `poetry install`
+
+Then you can run `poetry shell` to get an environment with the module
+installed.
+
 
 ### Running Tests
 The fetch (i.e. `get`, `download_to_cache`, `get_dataset_metadata`, etc.) will run against the production Taiga server. The create and update dataset tests will run against your locally hosted Taiga.
