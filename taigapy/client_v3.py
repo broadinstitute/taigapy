@@ -499,8 +499,10 @@ class Client:
             ],
         )
     
-    def get_dataset_version_summary(self, dataset_version_id):
-        return self._dataset_version_summary(dataset_version_id)
+    def get_dataset_metadata(self, permaname: str, version: int) -> DatasetVersionMetadataDict:
+        return self.api.get_dataset_version_metadata(
+            dataset_permaname=permaname, dataset_version=str(version)
+        )
 
     def create_dataset(
         self,
