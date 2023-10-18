@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taigapy"
-version = "3.5.0"
+version = "3.5.1"
 description = "Client library for fetching data from Taiga"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"

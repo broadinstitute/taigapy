@@ -492,6 +492,9 @@ class TaigaClient:
     def _upload_files(
         self, all_uploads: List[UploadDataFile], upload_async: bool
     ) -> str:
+        if upload_async:
+            warnings.warn(f"upload_async == {upload_async} but parallel uploads are no longer supported. Parallel uploads were unreliable and have been disabled.")
+    
         upload_session_id = self.api.create_upload_session()
         s3_credentials = self.api.get_s3_credentials()
 
@@ -668,6 +671,7 @@ class TaigaClient:
         upload_files: Optional[Sequence[UploadS3DataFileDict]] = None,
         add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
         add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
+        upload_async: bool = True,
         add_all_existing_files: bool = False,
     ) -> Optional[str]:
         """Creates a new version of dataset specified by dataset_id or dataset_name (and optionally dataset_version).
@@ -719,7 +723,7 @@ class TaigaClient:
             return None
 
         try:
-            upload_session_id = self._upload_files(all_uploads)
+            upload_session_id = self._upload_files(all_uploads, upload_async)
         except ValueError as e:
             print(cf.red(str(e)))
             return None
