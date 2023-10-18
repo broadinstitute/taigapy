@@ -641,10 +641,7 @@ class Client:
         if metadata.type == "Columnar":
             return TaigaStorageFormat.CSV_TABLE
         if metadata.type == "Raw":
-            value = metadata.custom_metadata.get(
-                "client_storage_format", TaigaStorageFormat.RAW_BYTES
-            )
-            return TaigaStorageFormat(value)
+            return TaigaStorageFormat.RAW_BYTES
         else:
             raise Exception(f"unknown type: {metadata.type}")
 
