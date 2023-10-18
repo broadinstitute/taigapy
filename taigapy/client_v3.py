@@ -28,6 +28,7 @@ class LocalFormat(Enum):
     PARQUET_TABLE = "parquet_table"
     CSV_TABLE = "csv_table"
     CSV_MATRIX = "csv_matrix"
+    RAW = "raw"
 
 
 # the different formats files might be stored in on Taiga.
@@ -368,6 +369,13 @@ class Client:
                 local_path = self._get_unique_name(canonical_id, ".csv")
                 df = pd.read_parquet(local_parqet_file)
                 df.to_csv(local_path)
+            else:
+                raise Exception(
+                    f"Requested {requested_format} but taiga_format={taiga_format}"
+                )
+        elif requested_format == LocalFormat.RAW:
+            if taiga_format == TaigaStorageFormat.RAW_BYTES:
+                local_path = self._download_to_cache(canonical_id)
             else:
                 raise Exception(
                     f"Requested {requested_format} but taiga_format={taiga_format}"
