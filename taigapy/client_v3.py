@@ -448,9 +448,10 @@ class Client:
             self.api.upload_file_to_taiga(
                 upload_session_id,
                 {
-                    "filename": upload.name,
+                    "filename": file.name,
                     "filetype": "virtual",
-                    "existingTaigaId": upload.taiga_id,
+                    "existingTaigaId": file.taiga_id,
+                    "custom_metadata": file.custom_metadata,
                 },
             )
 
