@@ -1,6 +1,8 @@
 import pandas as pd
 from typing import Optional, Dict, List, Any
 import os
+
+from taigapy.custom_exceptions import Taiga404Exception
 from .taiga_api import TaigaApi
 import re
 from enum import Enum, auto
@@ -10,7 +12,7 @@ import boto3
 import colorful as cf
 import uuid
 from typing import Callable, Tuple
-from .types import DatasetVersionMetadataDict
+from .types import DatasetMetadataDict, DatasetVersionMetadataDict
 from .simple_cache import Cache
 from .types import DataFileUploadFormat
 from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
@@ -508,10 +510,29 @@ class Client:
             ],
         )
     
-    def get_dataset_metadata(self, permaname: str, version: str) -> DatasetVersionMetadataDict:
-        return self.api.get_dataset_version_metadata(
-            dataset_permaname=permaname, dataset_version=version
-        )
+    def get_dataset_metadata(
+            self,
+            permaname: str,
+            version: Optional[str] = None
+        ) -> Optional[Union[DatasetMetadataDict, DatasetVersionMetadataDict]]:
+        """Get metadata about a dataset
+
+        Keyword Arguments:
+            - `permaname` -- Datafile ID of the datafile to get, in the form dataset_permaname
+            - `dataset_version`: Either the numerical version (if `dataset_permaname` is provided) 
+            or the unique Taiga dataset version id
+
+        Returns:
+            Union[DatasetMetadataDict, DatasetVersionMetadataDict]
+            `DatasetMetadataDict` if only permaname provided.  `DatasetVersionMetadataDict` if both permaname and version provided.
+        """
+        try:
+            return self.api.get_dataset_version_metadata(
+                dataset_permaname=permaname, dataset_version=version
+            )
+        except (ValueError, Taiga404Exception) as e:
+            print(cf.red(str(e)))
+            return None
 
     def create_dataset(
         self,
