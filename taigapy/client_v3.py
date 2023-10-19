@@ -2,7 +2,7 @@ import pandas as pd
 from typing import Optional, Dict, List, Any
 import os
 
-from taigapy.custom_exceptions import Taiga404Exception
+from taigapy.custom_exceptions import Taiga404Exception, TaigaHttpException
 from .taiga_api import TaigaApi
 import re
 from enum import Enum, auto
@@ -314,6 +314,31 @@ class Client:
             )
 
         return result
+    
+    def upload_to_gcs(self, data_file_taiga_id: str, dest_gcs_path: str) -> bool:
+        """Upload a Taiga datafile to a specified location in Google Cloud Storage.
+
+        The service account taiga-892@cds-logging.iam.gserviceaccount.com must have
+        storage.buckets.create access for this request.
+
+        Arguments:
+            `data_file_taiga_id` -- Taiga ID in the form dataset_permaname.dataset_version/datafile_name
+            `dest_gcs_path` -- Google Storage path to upload to, in the form bucket:path
+
+        Returns:
+            bool -- Whether the file was successfully uploaded
+        """
+        full_taiga_id = self.get_canonical_id(data_file_taiga_id)
+        if full_taiga_id is None:
+            return False
+        
+        try:
+            self.api.upload_to_gcs(full_taiga_id, dest_gcs_path)
+            return True
+        except (ValueError, TaigaHttpException) as e:
+            print(cf.red(str(e)))
+            return False
+
 
     def download_to_cache(self, datafile_id: str, requested_format: Union[LocalFormat, str]) -> str:
         """
