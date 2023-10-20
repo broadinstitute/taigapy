@@ -18,6 +18,7 @@ from .types import DataFileUploadFormat
 from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 from taigapy.utils import get_latest_valid_version_from_metadata
 from typing import Union
+from google.cloud import storage, exceptions as gcs_exceptions
 
 # from taigapy.types import (
 #    S3Credentials
@@ -313,7 +314,12 @@ class Client:
 
         return result
 
-    def upload_to_gcs(self, data_file_taiga_id: str, dest_gcs_path: str) -> bool:
+    def upload_to_gcs(
+        self,
+        data_file_taiga_id: str,
+        requested_format: LocalFormat,
+        dest_gcs_path_for_file: str,
+    ) -> bool:
         """Upload a Taiga datafile to a specified location in Google Cloud Storage.
 
         The service account taiga-892@cds-logging.iam.gserviceaccount.com must have
@@ -321,21 +327,69 @@ class Client:
 
         Arguments:
             `data_file_taiga_id` -- Taiga ID in the form dataset_permaname.dataset_version/datafile_name
-            `dest_gcs_path` -- Google Storage path to upload to, in the form bucket:path
+            `requested_format` -- The format of the file you want to upload
+            `dest_gcs_path_for_file` -- Google Storage path to upload to, in the form 'gs://bucket:file_obj_name'
 
         Returns:
             bool -- Whether the file was successfully uploaded
         """
+
+        def parse_gcs_path(gcs_path: str) -> Tuple[str, str]:
+            gcs_path_error = ValueError(
+                "Invalid GCS path. '{}' is not in the form 'gs://bucket_name/object_name'".format(
+                    gcs_path
+                )
+            )
+            if not gcs_path.startswith("gs://"):
+                raise gcs_path_error
+            # remove prefix
+            gcs_path = gcs_path.replace("gs://", "")
+
+            if "/" not in gcs_path:
+                raise gcs_path_error
+
+            bucket_name, file_object_name = gcs_path.split("/", 1)
+            return (
+                bucket_name,
+                file_object_name,
+            )  # bucket_name is dest_bucket (w/o gs:// prefix) object_name is dest_path
+
+        def get_bucket(bucket_name: str) -> storage.Bucket:
+            client = storage.Client()
+            try:
+                bucket = client.get_bucket(bucket_name)
+            except gcs_exceptions.Forbidden as e:
+                raise ValueError(
+                    "taiga-892@cds-logging.iam.gserviceaccount.com does not have storage.buckets.get access to bucket: {}".format(
+                        bucket_name
+                    )
+                )
+            except gcs_exceptions.NotFound as e:
+                raise ValueError("No GCS bucket found: {}".format(bucket_name))
+            return bucket
+
         full_taiga_id = self.get_canonical_id(data_file_taiga_id)
         if full_taiga_id is None:
             return False
+        print("Downloading file to cache...")
+        datafile_path = self.download_to_cache(data_file_taiga_id, requested_format)
+        print(f"Data file path from cache: {datafile_path}")
+
+        dest_bucket_name, dest_file_object_name = parse_gcs_path(dest_gcs_path_for_file)
+        print(f"Get GCS bucket: {dest_bucket_name} ...")
+        bucket = get_bucket(dest_bucket_name)
+        blob = bucket.blob(dest_file_object_name, chunk_size=1024 * 1024)
 
         try:
-            self.api.upload_to_gcs(full_taiga_id, dest_gcs_path)
+            print("Upload file to GCS ...")
+            blob.upload_from_filename(datafile_path)
             return True
-        except (ValueError, TaigaHttpException) as e:
-            print(cf.red(str(e)))
-            return False
+        except gcs_exceptions.Forbidden as e:
+            raise ValueError(
+                "taiga-892@cds-logging.iam.gserviceaccount.com does not have storage.buckets.create access to bucket: {}".format(
+                    dest_bucket_name
+                )
+            )
 
     def download_to_cache(
         self, datafile_id: str, requested_format: Union[LocalFormat, str]
