@@ -1,6 +1,8 @@
 import pandas as pd
 from typing import Optional, Dict, List, Any
 import os
+
+from taigapy.custom_exceptions import Taiga404Exception, TaigaHttpException
 from .taiga_api import TaigaApi
 import re
 from enum import Enum, auto
@@ -10,12 +12,13 @@ import boto3
 import colorful as cf
 import uuid
 from typing import Callable, Tuple
-from .types import DatasetVersionMetadataDict
+from .types import DatasetMetadataDict, DatasetVersionMetadataDict
 from .simple_cache import Cache
 from .types import DataFileUploadFormat
 from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 from taigapy.utils import get_latest_valid_version_from_metadata
 from typing import Union
+from google.cloud import storage, exceptions as gcs_exceptions
 
 # from taigapy.types import (
 #    S3Credentials
@@ -28,6 +31,7 @@ class LocalFormat(Enum):
     PARQUET_TABLE = "parquet_table"
     CSV_TABLE = "csv_table"
     CSV_MATRIX = "csv_matrix"
+    RAW = "raw"
 
 
 # the different formats files might be stored in on Taiga.
@@ -254,35 +258,33 @@ class Client:
         version: Optional[DatasetVersion] = None,
         file: Optional[str] = None,
     ) -> pd.DataFrame:
-
         if id is None:
             assert name is not None
             assert file is not None
 
             # handle case where people want the latest version
             if version is None:
-
-                dataset_metadata = (
-                    self.api.get_dataset_version_metadata(name, None)
-                )
+                dataset_metadata = self.api.get_dataset_version_metadata(name, None)
 
                 version = get_latest_valid_version_from_metadata(dataset_metadata)
                 print(
                     cf.orange(
-                        "No dataset version provided. Using version {}.".format(
-                            version
-                        )
+                        "No dataset version provided. Using version {}.".format(version)
                     )
                 )
 
             id = f"{name}.{version}/{file}"
 
-        assert re.match("[a-z0-9-]+\\.\\d+/.*", id) is not None, f"expected {id} to be of the form permaname.version/filename"
+        assert (
+            re.match("[a-z0-9-]+\\.\\d+/.*", id) is not None
+        ), f"expected {id} to be of the form permaname.version/filename"
 
         try:
             return self._get(id)
         except Exception as ex:
-            raise Exception(f"Got an internal error when trying to get({repr(id)})") from ex
+            raise Exception(
+                f"Got an internal error when trying to get({repr(id)})"
+            ) from ex
 
     def _get(self, datafile_id: str) -> pd.DataFrame:
         """
@@ -312,7 +314,72 @@ class Client:
 
         return result
 
-    def download_to_cache(self, datafile_id: str, requested_format: Union[LocalFormat, str]) -> str:
+    def upload_to_gcs(
+        self,
+        data_file_taiga_id: str,
+        requested_format: LocalFormat,
+        dest_gcs_path_for_file: str,
+    ) -> bool:
+        """Upload a Taiga datafile to a specified location in Google Cloud Storage.
+
+        The service account taiga-892@cds-logging.iam.gserviceaccount.com must have
+        storage.buckets.create access for this request.
+
+        Arguments:
+            `data_file_taiga_id` -- Taiga ID in the form dataset_permaname.dataset_version/datafile_name
+            `requested_format` -- The format of the file you want to upload
+            `dest_gcs_path_for_file` -- Google Storage path to upload to, in the form 'gs://bucket:file_obj_name'
+
+        Returns:
+            bool -- Whether the file was successfully uploaded
+        """
+
+        def parse_gcs_path(gcs_path: str) -> Tuple[str, str]:
+            m = re.match("gs://([^/]+)/(.*)$", gcs_path)
+            if not m:
+                raise ValueError(
+                    "Invalid GCS path. '{}' is not in the form 'gs://bucket_name/object_name'".format(
+                        gcs_path
+                    )
+                )
+            bucket_name, file_object_name = m.groups()
+            return (
+                bucket_name,
+                file_object_name,
+            )
+
+        def get_bucket(bucket_name: str) -> storage.Bucket:
+            client = storage.Client()
+            try:
+                bucket = client.get_bucket(bucket_name)
+            except gcs_exceptions.Forbidden as e:
+                raise e
+            except gcs_exceptions.NotFound as e:
+                raise ValueError("No GCS bucket found: {}".format(bucket_name))
+            return bucket
+
+        full_taiga_id = self.get_canonical_id(data_file_taiga_id)
+        if full_taiga_id is None:
+            return False
+        print("Downloading file to cache...")
+        datafile_path = self.download_to_cache(data_file_taiga_id, requested_format)
+        print(f"Data file path from cache: {datafile_path}")
+
+        dest_bucket_name, dest_file_object_name = parse_gcs_path(dest_gcs_path_for_file)
+        print(f"Get GCS bucket: {dest_bucket_name} ...")
+        bucket = get_bucket(dest_bucket_name)
+        blob = bucket.blob(dest_file_object_name, chunk_size=1024 * 1024)
+
+        try:
+            print("Upload file to GCS ...")
+            blob.upload_from_filename(datafile_path)
+            return True
+        except gcs_exceptions.Forbidden as e:
+            raise e
+
+    def download_to_cache(
+        self, datafile_id: str, requested_format: Union[LocalFormat, str]
+    ) -> str:
         """
         Download the specified file to the cache directory (if not already there and converting if necessary) and return the path to that file.
         """
@@ -328,9 +395,7 @@ class Client:
 
         taiga_format = self._get_taiga_storage_format(canonical_id)
         if requested_format == LocalFormat.HDF5_MATRIX:
-            if (
-                taiga_format == TaigaStorageFormat.HDF5_MATRIX
-            ):
+            if taiga_format == TaigaStorageFormat.HDF5_MATRIX:
                 local_path = self._download_to_cache(canonical_id, format="hdf5")
             elif taiga_format == TaigaStorageFormat.RAW_HDF5_MATRIX:
                 local_path = self._download_to_cache(canonical_id)
@@ -350,8 +415,13 @@ class Client:
                     f"Requested {requested_format} but taiga_format={taiga_format}"
                 )
         elif requested_format == LocalFormat.CSV_MATRIX:
-            if taiga_format in [TaigaStorageFormat.HDF5_MATRIX, TaigaStorageFormat.RAW_HDF5_MATRIX]:
-                hdf5_path = self.download_to_cache(datafile_id, requested_format=LocalFormat.HDF5_MATRIX)
+            if taiga_format in [
+                TaigaStorageFormat.HDF5_MATRIX,
+                TaigaStorageFormat.RAW_HDF5_MATRIX,
+            ]:
+                hdf5_path = self.download_to_cache(
+                    datafile_id, requested_format=LocalFormat.HDF5_MATRIX
+                )
                 # taiga client will convert from HDF5 to CSV
                 local_path = self._get_unique_name(canonical_id, ".csv")
                 df = read_hdf5(hdf5_path)
@@ -364,10 +434,17 @@ class Client:
             if taiga_format == TaigaStorageFormat.CSV_TABLE:
                 local_path = self._download_to_cache(canonical_id)
             elif taiga_format == TaigaStorageFormat.RAW_PARQUET_TABLE:
-                local_parqet_file =  self._download_to_cache(canonical_id)
+                local_parqet_file = self._download_to_cache(canonical_id)
                 local_path = self._get_unique_name(canonical_id, ".csv")
                 df = pd.read_parquet(local_parqet_file)
                 df.to_csv(local_path)
+            else:
+                raise Exception(
+                    f"Requested {requested_format} but taiga_format={taiga_format}"
+                )
+        elif requested_format == LocalFormat.RAW:
+            if taiga_format == TaigaStorageFormat.RAW_BYTES:
+                local_path = self._download_to_cache(canonical_id)
             else:
                 raise Exception(
                     f"Requested {requested_format} but taiga_format={taiga_format}"
@@ -440,9 +517,10 @@ class Client:
             self.api.upload_file_to_taiga(
                 upload_session_id,
                 {
-                    "filename": upload.name,
+                    "filename": file.name,
                     "filetype": "virtual",
-                    "existingTaigaId": upload.taiga_id,
+                    "existingTaigaId": file.taiga_id,
+                    "custom_metadata": file.custom_metadata,
                 },
             )
 
@@ -498,6 +576,28 @@ class Client:
                 for f in version_metadata["datasetVersion"]["datafiles"]
             ],
         )
+
+    def get_dataset_metadata(
+        self, permaname: str, version: Optional[str] = None
+    ) -> Optional[Union[DatasetMetadataDict, DatasetVersionMetadataDict]]:
+        """Get metadata about a dataset
+
+        Keyword Arguments:
+            - `permaname` -- Datafile ID of the datafile to get, in the form dataset_permaname
+            - `dataset_version`: Either the numerical version (if `dataset_permaname` is provided)
+            or the unique Taiga dataset version id
+
+        Returns:
+            Union[DatasetMetadataDict, DatasetVersionMetadataDict]
+            `DatasetMetadataDict` if only permaname provided.  `DatasetVersionMetadataDict` if both permaname and version provided.
+        """
+        try:
+            return self.api.get_dataset_version_metadata(
+                dataset_permaname=permaname, dataset_version=version
+            )
+        except (ValueError, Taiga404Exception) as e:
+            print(cf.red(str(e)))
+            return None
 
     def create_dataset(
         self,
@@ -589,22 +689,19 @@ class Client:
 
         return self._dataset_version_summary(dataset_version_id)
 
-    def _download_to_cache(self, datafile_id: str, *, format: str ="raw_test") -> str:
+    def _download_to_cache(self, datafile_id: str, *, format: str = "raw_test") -> str:
         try:
             canonical_id = self.get_canonical_id(datafile_id)
             dest = self._get_unique_name(canonical_id, ".raw")
             parsed = _parse_datafile_id(datafile_id)
             self.api.download_datafile(
-                parsed.permaname,
-                parsed.version,
-                parsed.name,
-                dest,
-                format=format
+                parsed.permaname, parsed.version, parsed.name, dest, format=format
             )
             return dest
         except Exception as ex:
-            raise Exception(f"Got an internal error when trying to download {datafile_id} (format={format}) to cache") from ex
-            
+            raise Exception(
+                f"Got an internal error when trying to download {datafile_id} (format={format}) to cache"
+            ) from ex
 
     def _get_unique_name(self, prefix, suffix):
         prefix = re.sub("[^a-z0-9]+", "-", prefix.lower())
@@ -628,8 +725,14 @@ class Client:
         if metadata.type == "Columnar":
             return TaigaStorageFormat.CSV_TABLE
         if metadata.type == "Raw":
-            value = metadata.custom_metadata.get(
-                "client_storage_format", TaigaStorageFormat.RAW_BYTES
+            # NOTE: Upload files with HDF5_MATRIX format is stored in taiga as Raw format but its custom_metadata dict 'client_storage_format' key holds info about its format as RAW_HDF5_MATRIX (see _upload_uploaded_file()). This is confusing and it would be nice if client and api data types match. Also, it's possible for custom_metadata to somehow be None so need to account for that too...
+            # TODO: Figure out how custom_metadata can be None. My guess is uploads that used old client?
+            value = (
+                metadata.custom_metadata.get(
+                    "client_storage_format", TaigaStorageFormat.RAW_BYTES
+                )
+                if metadata.custom_metadata
+                else TaigaStorageFormat.RAW_BYTES
             )
             return TaigaStorageFormat(value)
         else:

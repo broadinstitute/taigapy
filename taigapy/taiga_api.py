@@ -305,6 +305,23 @@ class TaigaApi:
     def get_dataset_version_metadata(
         self, dataset_permaname: str, dataset_version: Optional[str]
     ) -> Union[DatasetMetadataDict, DatasetVersionMetadataDict]:
+        """
+        Get metadata about a dataset
+
+        Keyword Arguments:
+        - `dataset_permaname`: The Taiga dataset permaname
+        - `dataset_version`: Either the numerical version (if `dataset_permaname` is provided) or the unique Taiga dataset version id (if `dataset_permaname` is not provided)
+
+        Returns:
+            Union[DatasetMetadataDict, DatasetVersionMetadataDict] -- See docs at https://github.com/broadinstitute/taigapy for more details
+            `DatasetMetadataDict` if only `dataset_permaname` param is provided. Returns `DatasetVersionMetadataDict` if `dataset_version` is provided.
+       
+        A Taiga dataset id consists of:
+            - `permaname`: Unique identifier for dataset group
+            - `version`: Numerical version of the Taiga dataset upload
+            - `name`: Name of the file in the Taiga dataset group. If provided the dataset id is for that specific file rather than dataset group.
+
+        """
         api_endpoint = "/api/dataset/{}".format(dataset_permaname)
         if dataset_version is not None:
             api_endpoint = "{}/{}".format(api_endpoint, dataset_version)

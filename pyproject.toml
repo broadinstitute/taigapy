@@ -16,6 +16,7 @@ pyarrow = ">3.0.0"
 sqlite-shelve = "^2.0.1"
 typing-extensions = "^4.8.0"
 h5py = "^3.10.0"
+google-cloud-storage = "^1.35.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
