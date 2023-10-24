@@ -141,17 +141,20 @@ grpc = ["grpcio (>=1.8.2,<2.0dev)"]
 
 [[package]]
 name = "google-cloud-storage"
-version = "1.35.0"
+version = "1.44.0"
 description = "Google Cloud Storage API client library"
 category = "main"
 optional = false
 python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*"
 
 [package.dependencies]
-google-auth = ">=1.11.0,<2.0dev"
-google-cloud-core = ">=1.4.1,<2.0dev"
-google-resumable-media = ">=1.2.0,<2.0dev"
+google-api-core = {version = ">=1.29.0,<3.0dev", markers = "python_version >= \"3.6\""}
+google-auth = {version = ">=1.25.0,<3.0dev", markers = "python_version >= \"3.6\""}
+google-cloud-core = {version = ">=1.6.0,<3.0dev", markers = "python_version >= \"3.6\""}
+google-resumable-media = {version = ">=1.3.0,<3.0dev", markers = "python_version >= \"3.6\""}
+protobuf = {version = "*", markers = "python_version >= \"3.6\""}
 requests = ">=2.18.0,<3.0.0dev"
+six = "*"
 
 [[package]]
 name = "google-crc32c"
@@ -530,7 +533,7 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8"
-content-hash = "fc4c72afb58f85096f53e27c71c5df35994f6f609f52618ea3c6df847fe5a60a"
+content-hash = "8b28f82d9361f223e64a935c456418ae42b662c20cd38b719cc8b5c36e21a03a"
 
 [metadata.files]
 boto3 = [
@@ -651,8 +654,8 @@ google-cloud-core = [
     {file = "google_cloud_core-1.7.3-py2.py3-none-any.whl", hash = "sha256:d5af737c60a73b9588a0511332ac0cdc6294ad8e477c7b82be03a1afc7c3f7b6"},
 ]
 google-cloud-storage = [
-    {file = "google-cloud-storage-1.35.0.tar.gz", hash = "sha256:555c0db2f88f3419f123bf9c621d7fd92f7c9e4f8b11f08eda57facacba16a9e"},
-    {file = "google_cloud_storage-1.35.0-py2.py3-none-any.whl", hash = "sha256:7b48b74683dafec5da315c7b0861ab168c208e04c763aa5db7ea8d7ecd8b6c5d"},
+    {file = "google-cloud-storage-1.44.0.tar.gz", hash = "sha256:29edbfeedd157d853049302bf5d104055c6f0cb7ef283537da3ce3f730073001"},
+    {file = "google_cloud_storage-1.44.0-py2.py3-none-any.whl", hash = "sha256:cd4a223e9c18d771721a85c98a9c01b97d257edddff833ba63b7b1f0b9b4d6e9"},
 ]
 google-crc32c = [
     {file = "google-crc32c-1.5.0.tar.gz", hash = "sha256:89284716bc6a5a415d4eaa11b1726d2d60a0cd12aadf5439828353662ede9dd7"},
