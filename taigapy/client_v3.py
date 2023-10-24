@@ -335,35 +335,25 @@ class Client:
         """
 
         def parse_gcs_path(gcs_path: str) -> Tuple[str, str]:
-            gcs_path_error = ValueError(
-                "Invalid GCS path. '{}' is not in the form 'gs://bucket_name/object_name'".format(
-                    gcs_path
+            m = re.match("gs://([^/]+)/(.*)$", gcs_path)
+            if not m:
+                raise ValueError(
+                    "Invalid GCS path. '{}' is not in the form 'gs://bucket_name/object_name'".format(
+                        gcs_path
+                    )
                 )
-            )
-            if not gcs_path.startswith("gs://"):
-                raise gcs_path_error
-            # remove prefix
-            gcs_path = gcs_path.replace("gs://", "")
-
-            if "/" not in gcs_path:
-                raise gcs_path_error
-
-            bucket_name, file_object_name = gcs_path.split("/", 1)
+            bucket_name, file_object_name = m.groups()
             return (
                 bucket_name,
                 file_object_name,
-            )  # bucket_name is dest_bucket (w/o gs:// prefix) object_name is dest_path
+            )
 
         def get_bucket(bucket_name: str) -> storage.Bucket:
             client = storage.Client()
             try:
                 bucket = client.get_bucket(bucket_name)
             except gcs_exceptions.Forbidden as e:
-                raise ValueError(
-                    "taiga-892@cds-logging.iam.gserviceaccount.com does not have storage.buckets.get access to bucket: {}".format(
-                        bucket_name
-                    )
-                )
+                raise e
             except gcs_exceptions.NotFound as e:
                 raise ValueError("No GCS bucket found: {}".format(bucket_name))
             return bucket
@@ -385,11 +375,7 @@ class Client:
             blob.upload_from_filename(datafile_path)
             return True
         except gcs_exceptions.Forbidden as e:
-            raise ValueError(
-                "taiga-892@cds-logging.iam.gserviceaccount.com does not have storage.buckets.create access to bucket: {}".format(
-                    dest_bucket_name
-                )
-            )
+            raise e
 
     def download_to_cache(
         self, datafile_id: str, requested_format: Union[LocalFormat, str]
