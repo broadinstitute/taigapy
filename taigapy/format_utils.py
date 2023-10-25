@@ -44,10 +44,10 @@ def read_parquet(filename: str) -> pd.DataFrame:
 
 
 def convert_csv_to_hdf5(csv_path: str, hdf5_path: str):
-    df = pd.read_csv(csv_path, index_col=0)
+    df = pd.read_csv(csv_path, index_col=0, low_memory=False)
     write_hdf5(df, hdf5_path)
 
 
 def convert_csv_to_parquet(csv_path: str, parquet_path: str):
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, low_memory=False)
     write_parquet(df, parquet_path)
