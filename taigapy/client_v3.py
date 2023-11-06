@@ -231,6 +231,93 @@ class Client:
                     )
         return True
 
+    def _get_file_storage_type(
+        self, metadata: MinDataFileMetadata
+    ) -> TaigaStorageFormat:
+        if metadata.type == "HDF5":
+            return TaigaStorageFormat.HDF5_MATRIX
+        if metadata.type == "Columnar":
+            return TaigaStorageFormat.CSV_TABLE
+        if metadata.type == "Raw":
+            # Refactored into separate function due to needing this in 2 places. The following
+            # 2 comments were originally added by Jessica.
+            # NOTE: Upload files with HDF5_MATRIX format is stored in taiga as Raw format but its custom_metadata dict 'client_storage_format' key holds info about its format as RAW_HDF5_MATRIX (see _upload_uploaded_file()). This is confusing and it would be nice if client and api data types match. Also, it's possible for custom_metadata to somehow be None so need to account for that too...
+            # TODO: Figure out how custom_metadata can be None. My guess is uploads that used old client?
+            value = (
+                metadata.custom_metadata.get(
+                    "client_storage_format", TaigaStorageFormat.RAW_BYTES
+                )
+                if metadata.custom_metadata
+                else TaigaStorageFormat.RAW_BYTES
+            )
+            return TaigaStorageFormat(value)
+        else:
+            raise Exception(f"unknown type: {metadata.type}")
+
+    def _get_dataframe_offline(
+        self,
+        id: Optional[str],
+        name: Optional[str],
+        version: Optional[DatasetVersion],
+        file: Optional[str],
+    ):
+        print(
+            cf.orange(
+                "You are in offline mode, please be aware that you might be out of sync with the state of the dataset version (deprecation)."
+            )
+        )
+        if id is None:
+            if name is None:
+                print(cf.red("If id is not specified, name must be specified"))
+                return None
+
+            if version is None:
+                print(cf.red("Dataset version must be specified"))
+                return None
+
+            id = f"{name}.{version}/{file}"
+
+        metadata = self.datafile_metadata_cache.get(id, None)
+        parsed_datafile_id = _parse_datafile_id(id)
+
+        assert (
+            parsed_datafile_id
+        ), f"{id} doesn't look like a well qualified taiga datafile ID"
+
+        canonical_id = self.canonical_id_cache.get(id, None)
+
+        try:
+            taiga_storage_type = self._get_file_storage_type(metadata)
+
+            if taiga_storage_type in (
+                TaigaStorageFormat.HDF5_MATRIX,
+                TaigaStorageFormat.RAW_HDF5_MATRIX,
+            ):
+                file_type = LocalFormat.HDF5_MATRIX
+                key = repr((canonical_id, LocalFormat(file_type)))
+                path = self.internal_format_cache.get(key, None)
+                result = read_hdf5(path)
+                return result
+            elif taiga_storage_type in (
+                TaigaStorageFormat.CSV_TABLE,
+                TaigaStorageFormat.RAW_PARQUET_TABLE,
+            ):
+                file_type = LocalFormat.PARQUET_TABLE
+                key = repr((canonical_id, LocalFormat(file_type)))
+                path = self.internal_format_cache.get(key, None)
+                result = read_parquet(path)
+                return result
+            else:
+                raise ValueError(
+                    f"Datafile is neither a table nor matrix, but was: {taiga_storage_type}"
+                )
+        except Exception as e:
+            print(cf.red("There was a problem retrieving the file from the cache."))
+            print(e)
+
+        print(cf.red("The datafile you requested was not in the cache."))
+        return None
+
     def get_canonical_id(self, datafile_id: str) -> str:
         """
         Given a taiga ID for a data file, resolves the ID to the "canonical ID". (That is to say, the ID of the data file that was
@@ -258,6 +345,9 @@ class Client:
         version: Optional[DatasetVersion] = None,
         file: Optional[str] = None,
     ) -> pd.DataFrame:
+        if not self.api.is_connected():
+            return self._get_dataframe_offline(id, name, version, file)
+
         if id is None:
             assert name is not None
             assert file is not None
@@ -720,23 +810,7 @@ class Client:
     def _get_taiga_storage_format(self, datafile_id: str) -> TaigaStorageFormat:
         metadata = self.get_datafile_metadata(datafile_id)
         assert metadata
-        if metadata.type == "HDF5":
-            return TaigaStorageFormat.HDF5_MATRIX
-        if metadata.type == "Columnar":
-            return TaigaStorageFormat.CSV_TABLE
-        if metadata.type == "Raw":
-            # NOTE: Upload files with HDF5_MATRIX format is stored in taiga as Raw format but its custom_metadata dict 'client_storage_format' key holds info about its format as RAW_HDF5_MATRIX (see _upload_uploaded_file()). This is confusing and it would be nice if client and api data types match. Also, it's possible for custom_metadata to somehow be None so need to account for that too...
-            # TODO: Figure out how custom_metadata can be None. My guess is uploads that used old client?
-            value = (
-                metadata.custom_metadata.get(
-                    "client_storage_format", TaigaStorageFormat.RAW_BYTES
-                )
-                if metadata.custom_metadata
-                else TaigaStorageFormat.RAW_BYTES
-            )
-            return TaigaStorageFormat(value)
-        else:
-            raise Exception(f"unknown type: {metadata.type}")
+        return self._get_file_storage_type(metadata)
 
     def get_datafile_metadata(self, datafile_id: str) -> Dict[str, str]:
         file = self._get_full_taiga_datafile_metadata(datafile_id)
