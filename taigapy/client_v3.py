@@ -444,8 +444,7 @@ class Client:
         if path:
             return path
 
-        if only_use_cache and path is None:
-            raise Exception("The datafile you requested was not in the cache.")
+        assert not only_use_cache, f"Expected {key} to be cached, but it was not!"
 
         taiga_format = self._get_taiga_storage_format(canonical_id)
         if requested_format == LocalFormat.HDF5_MATRIX:
