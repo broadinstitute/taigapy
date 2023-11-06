@@ -231,7 +231,30 @@ class Client:
                     )
         return True
 
-    def get_canonical_id(self, datafile_id: str) -> str:
+    def _get_file_storage_type(
+        self, metadata: MinDataFileMetadata
+    ) -> TaigaStorageFormat:
+        if metadata.type == "HDF5":
+            return TaigaStorageFormat.HDF5_MATRIX
+        if metadata.type == "Columnar":
+            return TaigaStorageFormat.CSV_TABLE
+        if metadata.type == "Raw":
+            # Refactored into separate function due to needing this in 2 places. The following
+            # 2 comments were originally added by Jessica.
+            # NOTE: Upload files with HDF5_MATRIX format is stored in taiga as Raw format but its custom_metadata dict 'client_storage_format' key holds info about its format as RAW_HDF5_MATRIX (see _upload_uploaded_file()). This is confusing and it would be nice if client and api data types match. Also, it's possible for custom_metadata to somehow be None so need to account for that too...
+            # TODO: Figure out how custom_metadata can be None. My guess is uploads that used old client?
+            value = (
+                metadata.custom_metadata.get(
+                    "client_storage_format", TaigaStorageFormat.RAW_BYTES
+                )
+                if metadata.custom_metadata
+                else TaigaStorageFormat.RAW_BYTES
+            )
+            return TaigaStorageFormat(value)
+        else:
+            raise Exception(f"unknown type: {metadata.type}")
+
+    def get_canonical_id(self, datafile_id: str, only_use_cache=False) -> str:
         """
         Given a taiga ID for a data file, resolves the ID to the "canonical ID". (That is to say, the ID of the data file that was
         originally uploaded to Taiga. Useful for comparing two Taiga IDs and determining whether they point to the same file or not.)
@@ -243,9 +266,10 @@ class Client:
 
         canonical_id = self.canonical_id_cache.get(datafile_id, None)
         if canonical_id is None:
-            self._ensure_dataset_version_cached(
-                parsed_datafile_id.permaname, parsed_datafile_id.version
-            )
+            if not only_use_cache:
+                self._ensure_dataset_version_cached(
+                    parsed_datafile_id.permaname, parsed_datafile_id.version
+                )
             canonical_id = self.canonical_id_cache.get(datafile_id, None)
             assert canonical_id is not None
 
@@ -258,14 +282,25 @@ class Client:
         version: Optional[DatasetVersion] = None,
         file: Optional[str] = None,
     ) -> pd.DataFrame:
+        only_use_cache = not self.api.is_connected()
+        if only_use_cache:
+            print(
+                cf.orange(
+                    "You are in offline mode, please be aware that you might be out of sync with the state of the dataset version (deprecation)."
+                )
+            )
+            if id is None and version is None:
+                print(cf.red("Dataset version must be specified"))
+                return None
+
         if id is None:
             assert name is not None
             assert file is not None
 
-            # handle case where people want the latest version
-            if version is None:
+            # Handle case where people want the latest version. This only works
+            # in online mode.
+            if version is None and not only_use_cache:
                 dataset_metadata = self.api.get_dataset_version_metadata(name, None)
-
                 version = get_latest_valid_version_from_metadata(dataset_metadata)
                 print(
                     cf.orange(
@@ -280,32 +315,45 @@ class Client:
         ), f"expected {id} to be of the form permaname.version/filename"
 
         try:
-            return self._get(id)
+            return self._get(id, only_use_cache=only_use_cache)
         except Exception as ex:
             raise Exception(
                 f"Got an internal error when trying to get({repr(id)})"
             ) from ex
 
-    def _get(self, datafile_id: str) -> pd.DataFrame:
+    def _get(self, datafile_id: str, only_use_cache=False) -> pd.DataFrame:
         """
         Retrieve the specified file as a pandas.Dataframe
         """
-        canonical_id = self.get_canonical_id(datafile_id)
+        canonical_id = self.get_canonical_id(datafile_id, only_use_cache=only_use_cache)
+
         if canonical_id is None:
             return None
 
-        taiga_format = self._get_taiga_storage_format(canonical_id)
+        if only_use_cache:
+            metadata = self.datafile_metadata_cache.get(datafile_id, None)
+
+        taiga_format = (
+            self._get_file_storage_type(metadata)
+            if only_use_cache
+            else self._get_taiga_storage_format(canonical_id)
+        )
+
         if taiga_format in (
             TaigaStorageFormat.HDF5_MATRIX,
             TaigaStorageFormat.RAW_HDF5_MATRIX,
         ):
-            path = self.download_to_cache(datafile_id, LocalFormat.HDF5_MATRIX)
+            path = self.download_to_cache(
+                datafile_id, LocalFormat.HDF5_MATRIX, only_use_cache=only_use_cache
+            )
             result = read_hdf5(path)
         elif taiga_format in (
             TaigaStorageFormat.CSV_TABLE,
             TaigaStorageFormat.RAW_PARQUET_TABLE,
         ):
-            path = self.download_to_cache(datafile_id, LocalFormat.PARQUET_TABLE)
+            path = self.download_to_cache(
+                datafile_id, LocalFormat.PARQUET_TABLE, only_use_cache=only_use_cache
+            )
             result = read_parquet(path)
         else:
             raise ValueError(
@@ -378,7 +426,10 @@ class Client:
             raise e
 
     def download_to_cache(
-        self, datafile_id: str, requested_format: Union[LocalFormat, str]
+        self,
+        datafile_id: str,
+        requested_format: Union[LocalFormat, str],
+        only_use_cache=False,
     ) -> str:
         """
         Download the specified file to the cache directory (if not already there and converting if necessary) and return the path to that file.
@@ -387,11 +438,13 @@ class Client:
         if isinstance(requested_format, str):
             requested_format = LocalFormat(requested_format)
 
-        canonical_id = self.get_canonical_id(datafile_id)
+        canonical_id = self.get_canonical_id(datafile_id, only_use_cache=only_use_cache)
         key = repr((canonical_id, requested_format))
         path = self.internal_format_cache.get(key, None)
         if path:
             return path
+
+        assert not only_use_cache, f"Expected {key} to be cached, but it was not!"
 
         taiga_format = self._get_taiga_storage_format(canonical_id)
         if requested_format == LocalFormat.HDF5_MATRIX:
@@ -720,23 +773,7 @@ class Client:
     def _get_taiga_storage_format(self, datafile_id: str) -> TaigaStorageFormat:
         metadata = self.get_datafile_metadata(datafile_id)
         assert metadata
-        if metadata.type == "HDF5":
-            return TaigaStorageFormat.HDF5_MATRIX
-        if metadata.type == "Columnar":
-            return TaigaStorageFormat.CSV_TABLE
-        if metadata.type == "Raw":
-            # NOTE: Upload files with HDF5_MATRIX format is stored in taiga as Raw format but its custom_metadata dict 'client_storage_format' key holds info about its format as RAW_HDF5_MATRIX (see _upload_uploaded_file()). This is confusing and it would be nice if client and api data types match. Also, it's possible for custom_metadata to somehow be None so need to account for that too...
-            # TODO: Figure out how custom_metadata can be None. My guess is uploads that used old client?
-            value = (
-                metadata.custom_metadata.get(
-                    "client_storage_format", TaigaStorageFormat.RAW_BYTES
-                )
-                if metadata.custom_metadata
-                else TaigaStorageFormat.RAW_BYTES
-            )
-            return TaigaStorageFormat(value)
-        else:
-            raise Exception(f"unknown type: {metadata.type}")
+        return self._get_file_storage_type(metadata)
 
     def get_datafile_metadata(self, datafile_id: str) -> Dict[str, str]:
         file = self._get_full_taiga_datafile_metadata(datafile_id)

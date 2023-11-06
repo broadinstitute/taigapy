@@ -175,7 +175,6 @@ def mock_client(tmpdir, s3_mock_client):
 
         if dataset_version_ is None:
             print("_get_dataset_version_metadata: dataset_version is None")
-            breakpoint()
             return None
 
         assert dataset_version_ is not None
@@ -321,7 +320,12 @@ def mock_client(tmpdir, s3_mock_client):
     api.create_upload_session.side_effect = _create_session
 
     def _download_datafile(
-        dataset_permaname: str, dataset_version: str, datafile_name: str, dest: str, *, format="test_raw"
+        dataset_permaname: str,
+        dataset_version: str,
+        datafile_name: str,
+        dest: str,
+        *,
+        format="test_raw",
     ):
         key = f"{dataset_permaname}.{dataset_version}/{datafile_name}"
         f = db.datafiles_by_id[key]
@@ -441,6 +445,93 @@ def test_upload_hdf5(
     assert len(version.files) == 1
     file = version.files[0]
 
+    fetched_df = mock_client.get(file.datafile_id)
+
+    assert df.equals(fetched_df)
+
+
+@pytest.mark.parametrize(
+    "df,write_initial_file,upload_format,expected_taiga_format",
+    [
+        (
+            sample_matrix,
+            write_hdf5,
+            LocalFormat.HDF5_MATRIX,
+            TaigaStorageFormat.RAW_HDF5_MATRIX.value,
+        ),
+        (
+            sample_matrix,
+            write_csv_matrix,
+            LocalFormat.CSV_MATRIX,
+            TaigaStorageFormat.HDF5_MATRIX.value,
+        ),
+        (
+            sample_table,
+            write_parquet,
+            LocalFormat.PARQUET_TABLE,
+            TaigaStorageFormat.RAW_PARQUET_TABLE,
+        ),
+        (
+            sample_table,
+            write_csv_table,
+            LocalFormat.CSV_TABLE,
+            TaigaStorageFormat.CSV_TABLE,
+        ),
+    ],
+)
+def test_get_dataframe_offline(
+    mock_client: Client,
+    tmpdir,
+    df: pd.DataFrame,
+    write_initial_file,
+    upload_format: LocalFormat,
+    expected_taiga_format: TaigaStorageFormat,
+    s3_mock_client,
+    monkeypatch,
+):
+    sample_file = tmpdir.join("file")
+    write_initial_file(df, str(sample_file))
+
+    version = mock_client.create_dataset(
+        "test",
+        "desc",
+        [
+            UploadedFile(
+                name="matrix",
+                local_path=str(sample_file),
+                format=upload_format,
+                custom_metadata={},
+            )
+        ],
+    )
+    assert len(version.files) == 1
+    file = version.files[0]
+
+    def mock_is_not_connected() -> bool:
+        return False
+
+    def mock_is_connected() -> bool:
+        return True
+
+    # Offline mode
+    monkeypatch.setattr(mock_client.api, "is_connected", mock_is_not_connected)
+
+    assert mock_client.api.is_connected() == False
+
+    # We can't get a file that isn't in the cache if we're offline
+    with pytest.raises(Exception):
+        fetched_df = mock_client.get(file.datafile_id)
+
+    # If we try to get the file with a good connection, the file should be added to cache
+    monkeypatch.setattr(mock_client.api, "is_connected", mock_is_connected)
+    assert mock_client.api.is_connected() == True
+    fetched_df = mock_client.get(file.datafile_id)
+    assert df.equals(fetched_df)
+
+    # If we disconnect from the api again, and try to retrieve the file while disconnected,
+    # this time, we should be successful because the file can be retrieved from the cache
+    monkeypatch.setattr(mock_client.api, "is_connected", mock_is_not_connected)
+    assert mock_client.api.is_connected() == False
     fetched_df = mock_client.get(file.datafile_id)
 
     assert df.equals(fetched_df)
