@@ -519,8 +519,8 @@ def test_get_dataframe_offline(
     assert mock_client.api.is_connected() == False
 
     # We can't get a file that isn't in the cache if we're offline
-    fetched_df = mock_client.get(file.datafile_id)
-    assert fetched_df is None
+    with pytest.raises(Exception):
+        fetched_df = mock_client.get(file.datafile_id)
 
     # If we try to get the file with a good connection, the file should be added to cache
     monkeypatch.setattr(mock_client.api, "is_connected", mock_is_connected)
