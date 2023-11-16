@@ -49,9 +49,23 @@ class DataFileID:
     version: int
     name: str
 
+@dataclass
+class DatasetVersionID:
+    permaname: str
+    version: int
 
-DATAFILE_ID_PATTERN = "([a-z0-9-]+)\\.([0-9]+)/(.*)"
 
+DATAFILE_ID_PATTERN = "^([a-z0-9-]+)\\.([0-9]+)/(.*)$"
+DATASET_VERSION_ID_PATTERN = "^([a-z0-9-]+)\\.([0-9]+)$"
+
+def _parse_dataset_version_id(dataset_id):
+    "Split a dataset id into its components"
+    m = re.match(DATASET_VERSION_ID_PATTERN, dataset_id)
+    if m:
+        permname, version = m.groups()
+        return DatasetVersionID(permname, int(version))
+    else:
+        return None
 
 def _parse_datafile_id(datafile_id):
     "Split a datafile id into its components"
@@ -193,7 +207,7 @@ class Client:
         self.download_cache_dir = os.path.join(cache_dir, "downloaded")
         self.api = api
 
-    def _add_file_to_cache(self, permaname, version, data_file_metadata_dict):
+    def _add_file_to_cache(self, permaname, version, data_file_metadata_dict, was_single_file):
         canonical_id = data_file_metadata_dict.get("underlying_file_id")
         datafile_id = f"{permaname}.{version}/{ data_file_metadata_dict['name'] }"
         if canonical_id is None:
@@ -203,6 +217,10 @@ class Client:
         ), f"{repr(datafile_id)} does not look like a datafile ID"
         self.canonical_id_cache.put(datafile_id, canonical_id)
         self.canonical_id_cache.put(canonical_id, canonical_id)
+        if was_single_file:
+            # special case: if this is the only file in the dataset version, we can also use an ID without
+            # the filename suffix
+            self.canonical_id_cache.put(f"{permaname}.{version}", canonical_id)
 
         self.datafile_metadata_cache.put(
             datafile_id,
@@ -228,6 +246,7 @@ class Client:
                         full_metadata["dataset"]["permanames"][0],
                         full_metadata["datasetVersion"]["version"],
                         file,
+                        was_single_file=len(full_metadata["datasetVersion"]["datafiles"]) == 1
                     )
         return True
 
@@ -236,16 +255,24 @@ class Client:
         Given a taiga ID for a data file, resolves the ID to the "canonical ID". (That is to say, the ID of the data file that was
         originally uploaded to Taiga. Useful for comparing two Taiga IDs and determining whether they point to the same file or not.)
         """
-        parsed_datafile_id = _parse_datafile_id(datafile_id)
-        assert (
-            parsed_datafile_id
-        ), f"{datafile_id} doesn't look like a well qualified taiga datafile ID"
-
         canonical_id = self.canonical_id_cache.get(datafile_id, None)
         if canonical_id is None:
+            parsed = _parse_datafile_id(datafile_id)
+
+            if parsed is None:
+                # old Taiga IDs had the filename as optional. We have a special case where 
+                # if a filename is missing _and_ the dataset has only one file then the ID refers
+                # to that file. Try seeing if this case applies
+
+                parsed = _parse_dataset_version_id(datafile_id)
+                assert (
+                    parsed
+                ), f"{datafile_id} doesn't look like a well qualified taiga datafile ID"
+
             self._ensure_dataset_version_cached(
-                parsed_datafile_id.permaname, parsed_datafile_id.version
+                parsed.permaname, parsed.version
             )
+            # the process of caching the dataversion also populates the canonical_id cache
             canonical_id = self.canonical_id_cache.get(datafile_id, None)
             assert canonical_id is not None
 
@@ -635,6 +662,7 @@ class Client:
         """
         Update an existing dataset by replacing all datafiles with the ones provided (Results in a new dataset version)
         """
+        assert "." not in permaname, "When specifying a permaname, don't include the version suffix"
         metadata = self.api.get_dataset_version_metadata(permaname, None)
 
         upload_session_id = self._upload_files(files)
@@ -665,6 +693,8 @@ class Client:
         """
         Update an existing dataset by adding and removing the specified files. (Results in a new dataset version)
         """
+        assert "." not in permaname, "When specifying a permaname, don't include the version suffix"
+        
         metadata = self.api.get_dataset_version_metadata(permaname, None)
 
         if len(removals) > 0:

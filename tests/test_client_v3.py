@@ -414,6 +414,7 @@ def test_upload_with_fault_injection(mock_client: Client, tmpdir, s3_mock_client
         ),
     ],
 )
+
 def test_upload_hdf5(
     mock_client: Client,
     tmpdir,
