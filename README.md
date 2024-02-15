@@ -5,7 +5,7 @@ uploading now has a different API to support specifying what format files are in
 
 See the sample below for how to use the new taiga client:
 ```
-from taigapy.client_v3 import UploadedFile, LocalFormat
+from taigapy.client_v3 import UploadedFile, LocalFormat, TaigaReference
 from taigapy import create_taiga_client_v3
 import time
 
@@ -21,6 +21,33 @@ print("fetching file back down")
 start = time.time()
 df = tc.get(f"{version.permaname}.{version.version_number}/{filename}")
 print(f"elapsed: {time.time()-start} seconds")
+
+print("Updating existing dataset")
+# update_dataset() will update add/replace the files listed in `additions`
+# and/or remove any file listed in `removals`. When specifying files to add
+# you can use `UploadedFile` to upload a local file or `TaigaReference` to
+# add a reference to an existing file already in taiga by specifying it's taiga ID.
+
+# The below creates a new dataset version with a single additional file,
+# carrying forward all other files in that dataset untouched. If there was
+# already a file named `sample2` it'd be replaced with the version uploaded.
+version = tc.update_dataset(version.permaname, "add file examples", additions=[
+    UploadedFile('sample2', local_path=filename, format=LocalFormat.HDF5_MATRIX)
+    ])
+
+# the below will create a new version with `sample2` removed
+version = tc.update_dataset(version.permaname, "remove file", removals=[
+   'sample2' ])
+
+# Alternatively, if you want to specify _all_ the files that should be in
+# the new dataset version, you can use `replace_dataset`.
+#
+# The below will create a new version with _only_ the files listed here. The new
+# version will only contain `sample3`. 
+version = tc.replace_dataset(version.permaname, "test update", files=[
+    UploadedFile('sample3', local_path=filename, format=LocalFormat.HDF5_MATRIX)
+    ])
+
 ```
 
 # taigapy
