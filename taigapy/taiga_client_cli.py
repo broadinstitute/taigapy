@@ -1,11 +1,9 @@
-#!/usr/bin/env python
 import argparse
 import json
 import os
 
 from taigapy import DEFAULT_TAIGA_URL, TaigaClient
 from taigapy.utils import format_datafile_id
-
 
 def _get_taiga_client(args: argparse.Namespace):
     """Get TaigaClient based on args from either `fetch` or `dataset_meta`"""
@@ -75,7 +73,7 @@ def dataset_meta(args):
         print(metadata)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -134,3 +132,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     args.func(args)
+
+if __name__ == "__main__":
+    main()
