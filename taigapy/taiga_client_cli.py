@@ -2,8 +2,13 @@ import argparse
 import json
 import os
 
-from taigapy import DEFAULT_TAIGA_URL, TaigaClient
+from taigapy import DEFAULT_TAIGA_URL, create_taiga_client_v3, LocalFormat
 from taigapy.utils import format_datafile_id
+from typing import Optional
+from .types import DatasetVersionState
+from .custom_exceptions import TaigaDeletedVersionException
+from taigapy.utils import get_latest_valid_version_from_metadata
+import colorful as cf
 
 def _get_taiga_client(args: argparse.Namespace):
     """Get TaigaClient based on args from either `fetch` or `dataset_meta`"""
@@ -14,8 +19,75 @@ def _get_taiga_client(args: argparse.Namespace):
     if args.data_dir is not None:
         cache_dir = os.path.expanduser(args.data_dir)
 
-    return TaigaClient(url=url, cache_dir=cache_dir)
+    return create_taiga_client_v3(url=url, cache_dir=cache_dir)
 
+
+def _validate_file_for_download(
+    client,
+    id_or_permaname: Optional[str],
+    dataset_name: Optional[str],
+    dataset_version: Optional[str],
+    datafile_name: Optional[str],
+):
+    if id_or_permaname is None and dataset_name is None:
+        # TODO standardize exceptions
+        raise ValueError("id or name must be specified")
+    elif (
+        id_or_permaname is None
+        and dataset_name is not None
+        and dataset_version is None
+    ):
+        dataset_metadata = (
+            client.api.get_dataset_version_metadata(dataset_name, None)
+        )
+        dataset_version = get_latest_valid_version_from_metadata(dataset_metadata)
+        print(
+            cf.orange(
+                "No dataset version provided. Using version {}.".format(
+                    dataset_version
+                )
+            )
+        )
+
+    metadata = client.api.get_datafile_metadata(
+        id_or_permaname, dataset_name, dataset_version, datafile_name
+    )
+
+    if metadata is None:
+        raise ValueError(
+            "No data for the given parameters. Please check your inputs are correct."
+        )
+
+    dataset_version_id = metadata.dataset_version_id
+    dataset_permaname = metadata.dataset_permaname
+    dataset_version = metadata.dataset_version
+    datafile_name = metadata.datafile_name
+    data_state = metadata.state
+    data_reason_state = metadata.reason_state
+
+    assert dataset_version_id is not None
+    assert dataset_permaname is not None
+    assert dataset_version is not None
+    assert datafile_name is not None
+
+    if data_state == DatasetVersionState.deprecated.value:
+        print(
+            cf.orange(
+                "WARNING: This version is deprecated. Please use with caution, and see the reason below:"
+            )
+        )
+        print(cf.orange("\t{}".format(data_reason_state)))
+    elif data_state == DatasetVersionState.deleted.value:
+        raise TaigaDeletedVersionException(
+            "{} version {} is deleted. The data is not available anymore. Contact the maintainer of the dataset.".format(
+                dataset_permaname, dataset_version
+            )
+        )
+
+    return metadata
+
+from .custom_exceptions import Taiga404Exception
+import traceback
 
 def fetch(args):
     if args.data_file_id is None and args.name is None:
@@ -23,39 +95,54 @@ def fetch(args):
 
     tc = _get_taiga_client(args)
 
-    if args.format == "feather":
-        _fetch = tc.get
-        datafile_index = 2  # feather_path
-    else:
-        _fetch = tc.download_to_cache
-        datafile_index = 1  # raw_path
+    schema_version = "1"
 
-    df_or_path = _fetch(
-        id=args.data_file_id, name=args.name, version=args.version, file=args.file,
-    )
-    if df_or_path is None:
-        d = {"error": True}
-    else:
-        datafile_metadata = tc._validate_file_for_download(
+    try:
+        datafile_metadata = _validate_file_for_download(tc,
             args.data_file_id, args.name, args.version, args.file
         )
-        query = format_datafile_id(
+        datafile_id = format_datafile_id( 
             datafile_metadata.dataset_permaname,
             datafile_metadata.dataset_version,
             datafile_metadata.datafile_name,
         )
 
-        datafile = tc.cache._get_datafile_from_db(query, query)
+        if args.format == "raw":
+            requested_format = LocalFormat.RAW
+        else:
+            assert args.format == "feather"
+            # determine whether this is a table or a matrix
+            allowed_formats = tc.get_allowed_local_formats(datafile_id)
+            if LocalFormat.FEATHER_TABLE in allowed_formats:
+                requested_format = LocalFormat.FEATHER_TABLE
+            else:
+                assert LocalFormat.FEATHER_MATRIX in allowed_formats, f"allowed formats were: {allowed_formats} but looking for FEATHER_MATRIX"
+                requested_format = LocalFormat.FEATHER_MATRIX
+
+        datafile = tc.download_to_cache(datafile_id, requested_format=requested_format)
         d = {
-            "filename": datafile[datafile_index],
-            "datafile_type": datafile.datafile_format,
+            "schema_version": schema_version,
+            "filename": datafile,
+            "datafile_type": requested_format.value,
             "error": False,
+        }
+    except Taiga404Exception:
+        # no data found
+        d = {
+            "schema_version": schema_version,
+            "error": True,
+            "message": "Not found"
+        }
+    except Exception:
+        print( print(traceback.format_exc()))
+        d = {
+            "schema_version": schema_version,
+            "error": True,
         }
 
     if args.write_filename is not None:
-        with open(args.write_filename, "w+") as f:
-            j = json.dump(d, f)
-            f.close()
+        with open(args.write_filename, "wt") as f:
+            json.dump(d, f)
     else:
         print(d)
 

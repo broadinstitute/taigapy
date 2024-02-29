@@ -32,6 +32,8 @@ class LocalFormat(Enum):
     CSV_TABLE = "csv_table"
     CSV_MATRIX = "csv_matrix"
     RAW = "raw"
+    FEATHER_TABLE = "feather_table"
+    FEATHER_MATRIX = "feather_matrix"
 
 
 # the different formats files might be stored in on Taiga.
@@ -452,6 +454,68 @@ class Client:
         except gcs_exceptions.Forbidden as e:
             raise e
 
+    def get_allowed_local_formats(self, datafile_id):
+        "Given a datafile_id, return which values of LocalFormat can be used with `download_to_cache` to retreive the data"
+        canonical_id = self.get_canonical_id(datafile_id)
+        taiga_format = self._get_taiga_storage_format(canonical_id)
+        matrix_formats = [LocalFormat.HDF5_MATRIX, LocalFormat.CSV_MATRIX, LocalFormat.FEATHER_MATRIX]
+        table_formats = [LocalFormat.PARQUET_TABLE, LocalFormat.CSV_TABLE, LocalFormat.FEATHER_TABLE]
+        return {TaigaStorageFormat.HDF5_MATRIX: matrix_formats,
+                TaigaStorageFormat.CSV_TABLE: table_formats,
+                TaigaStorageFormat.RAW_BYTES: [LocalFormat.RAW],
+                TaigaStorageFormat.RAW_PARQUET_TABLE: table_formats,
+                TaigaStorageFormat.RAW_HDF5_MATRIX: matrix_formats}[taiga_format]
+
+    def _dl_and_convert_hdf5_matrix(self, canonical_id, taiga_format, requested_format):
+        if taiga_format in [
+            TaigaStorageFormat.HDF5_MATRIX,
+            TaigaStorageFormat.RAW_HDF5_MATRIX,
+        ]:
+            hdf5_path = self.download_to_cache(
+                canonical_id, requested_format=LocalFormat.HDF5_MATRIX
+            )
+            # taiga client will convert from HDF5 to CSV
+            df = read_hdf5(hdf5_path)
+            if requested_format == LocalFormat.CSV_MATRIX:
+                local_path = self._get_unique_name(canonical_id, ".csv")
+                df.to_csv(local_path)
+            else:
+                assert requested_format == LocalFormat.FEATHER_MATRIX
+                local_path = self._get_unique_name(canonical_id, ".ftr")
+                df.reset_index(inplace=True)
+                df.to_feather(local_path)
+        else:
+            raise Exception(
+                f"Requested {requested_format} but taiga_format={taiga_format}"
+            )
+        return local_path
+
+    def _dl_and_convert_csv_table(self, canonical_id, taiga_format, requested_format):
+        if taiga_format == TaigaStorageFormat.CSV_TABLE:
+            if requested_format == LocalFormat.CSV_TABLE:
+                local_path = self._download_to_cache(canonical_id)
+            else:
+                assert requested_format == LocalFormat.CSV_FEATHER
+                local_csv = self._download_to_cache(canonical_id)
+                df = pd.read_parquet(local_csv)
+                local_path = self._get_unique_name(canonical_id, ".ftr")
+                df.to_feather(local_path)
+        elif taiga_format == TaigaStorageFormat.RAW_PARQUET_TABLE:
+            local_parqet_file = self._download_to_cache(canonical_id)
+            df = pd.read_parquet(local_parqet_file)
+            if requested_format == LocalFormat.CSV_TABLE:
+                local_path = self._get_unique_name(canonical_id, ".csv")
+                df.to_csv(local_path)
+            else:
+                assert requested_format == LocalFormat.CSV_FEATHER
+                local_path = self._get_unique_name(canonical_id, ".ftr")
+                df.to_feather(local_path)        
+        else:
+            raise Exception(
+                f"Requested {requested_format} but taiga_format={taiga_format}"
+            )
+        return local_path
+
     def download_to_cache(
         self,
         datafile_id: str,
@@ -494,34 +558,10 @@ class Client:
                 raise Exception(
                     f"Requested {requested_format} but taiga_format={taiga_format}"
                 )
-        elif requested_format == LocalFormat.CSV_MATRIX:
-            if taiga_format in [
-                TaigaStorageFormat.HDF5_MATRIX,
-                TaigaStorageFormat.RAW_HDF5_MATRIX,
-            ]:
-                hdf5_path = self.download_to_cache(
-                    datafile_id, requested_format=LocalFormat.HDF5_MATRIX
-                )
-                # taiga client will convert from HDF5 to CSV
-                local_path = self._get_unique_name(canonical_id, ".csv")
-                df = read_hdf5(hdf5_path)
-                df.to_csv(local_path)
-            else:
-                raise Exception(
-                    f"Requested {requested_format} but taiga_format={taiga_format}"
-                )
-        elif requested_format == LocalFormat.CSV_TABLE:
-            if taiga_format == TaigaStorageFormat.CSV_TABLE:
-                local_path = self._download_to_cache(canonical_id)
-            elif taiga_format == TaigaStorageFormat.RAW_PARQUET_TABLE:
-                local_parqet_file = self._download_to_cache(canonical_id)
-                local_path = self._get_unique_name(canonical_id, ".csv")
-                df = pd.read_parquet(local_parqet_file)
-                df.to_csv(local_path)
-            else:
-                raise Exception(
-                    f"Requested {requested_format} but taiga_format={taiga_format}"
-                )
+        elif requested_format in [LocalFormat.CSV_MATRIX, LocalFormat.FEATHER_MATRIX]:
+            local_path = self._dl_and_convert_hdf5_matrix(canonical_id, taiga_format, requested_format)
+        elif requested_format in [LocalFormat.CSV_TABLE, LocalFormat.FEATHER_TABLE]:
+            local_path = self._dl_and_convert_csv_table(canonical_id, taiga_format, requested_format)
         elif requested_format == LocalFormat.RAW:
             if taiga_format == TaigaStorageFormat.RAW_BYTES:
                 local_path = self._download_to_cache(canonical_id)
