@@ -45,7 +45,7 @@ def _standard_response_handler(
         raise TaigaServerError()
     elif r.status_code != 200:
         raise TaigaHttpException(
-            f"Bad status code ({r.status_code}) when POST {url} with params={params}"
+            f"Bad status code ({r.status_code}) when accessing {url} with params={params}"
         )
 
     return r.json()
@@ -115,15 +115,16 @@ class TaigaApi:
 
             params["taigapy_version"] = __version__
 
+            headers= dict(Authorization="Bearer " + self.token)
             r = requests.get(
                 url,
                 stream=True,
                 params=params,
-                headers=dict(Authorization="Bearer " + self.token),
+                headers=headers,
             )
 
             if standard_reponse_handling:
-                return _standard_response_handler(r, params)
+                return _standard_response_handler(r, params, url=url)
             else:
                 return r
 
