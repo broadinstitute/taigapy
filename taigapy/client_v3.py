@@ -495,8 +495,8 @@ class Client:
             if requested_format == LocalFormat.CSV_TABLE:
                 local_path = self._download_to_cache(canonical_id)
             else:
-                assert requested_format == LocalFormat.CSV_FEATHER
-                local_csv = self._download_to_cache(canonical_id)
+                assert requested_format == LocalFormat.FEATHER_TABLE
+                local_csv = self.download_to_cache(canonical_id, requested_format=LocalFormat.PARQUET_TABLE)
                 df = pd.read_parquet(local_csv)
                 local_path = self._get_unique_name(canonical_id, ".ftr")
                 df.to_feather(local_path)
@@ -507,7 +507,7 @@ class Client:
                 local_path = self._get_unique_name(canonical_id, ".csv")
                 df.to_csv(local_path)
             else:
-                assert requested_format == LocalFormat.CSV_FEATHER
+                assert requested_format == LocalFormat.FEATHER_TABLE
                 local_path = self._get_unique_name(canonical_id, ".ftr")
                 df.to_feather(local_path)        
         else:
