@@ -89,17 +89,34 @@ def _validate_file_for_download(
 from .custom_exceptions import Taiga404Exception
 import traceback
 
+def _get_datafile_params(args):
+    if args.requestjson:
+        with open(args.requestjson, "rt") as fd:
+            params = json.load(fd)
+            data_file_id = params["data_file_id"]
+            name = params["name"]
+            version= params["version"]
+            file = params["file"]
+    else:
+        data_file_id = args.data_file_id
+        name = args.name
+        version = args.version
+        file = args.file
+    return data_file_id, name, version, file
+
 def fetch(args):
-    if args.data_file_id is None and args.name is None:
-        raise Exception("data_file_id or name must be set")
+    if args.data_file_id is None and args.name is None and args.requestjson is None:
+        raise Exception("data_file_id or name or requestjson must be set")
 
     tc = _get_taiga_client(args)
+
+    data_file_id, name, version, file = _get_datafile_params(args)
 
     schema_version = "1"
 
     try:
         datafile_metadata = _validate_file_for_download(tc,
-            args.data_file_id, args.name, args.version, args.file
+            data_file_id, name, version, file
         )
         datafile_id = format_datafile_id( 
             datafile_metadata.dataset_permaname,
@@ -182,6 +199,9 @@ def main():
         nargs="?",
         default=None,
         help="Taiga ID or datafile ID. If not set, NAME must be set",
+    )
+    parser_fetch.add_argument(
+        '--requestjson', help="Path to a json file containing data_file_id, version, file, name instead of passing them on the command line to avoid issues with escaping parameters" 
     )
     parser_fetch.add_argument(
         "--name", help="Dataset name. Must be set if data_file_id is not set."
