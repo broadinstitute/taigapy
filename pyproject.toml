@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8"
+python = ">=3.9"
 requests = "^2.28.2"
 pandas = ">=1.0.0,<2.0.0"
 boto3 = "^1.26.0"
@@ -17,14 +17,76 @@ sqlite-shelve = "^2.0.1"
 typing-extensions = "^4.8.0"
 h5py = "^3.10.0"
 google-cloud-storage = "^2.2.0"
+pre-commit = "^3.7.0"
+black = "^24.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
 pyright-ratchet = {git = "https://github.com/pgm/pyright-ratchet.git"}
+commitizen = "^3.21.3"
 
 [tool.poetry.scripts]
 taigaclient = "taigapy.taiga_client_cli:main"
 
+
+[tool.commitizen]
+name = "cz_customize"   # Must use name 'cz_customize' in order to enable customized rules defined below! Otherwise defaults to 'cz_conventional_commits'
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "poetry"
+version = "3.8.2"
+version_files = [
+    "pyproject.toml:version"
+]
+update_changelog_on_bump = true
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.commitizen.customize]
+message_template = "{{change_type}}{% if is_breaking %}!{% endif %}: {{message}}\n\n{% if description %}{{description}}{% endif %}\n\n{% if is_breaking and footer %}BREAKING CHANGE: {{footer}}{% endif %}"
+example = "feature: this feature enable customize through config file"
+
+bump_pattern = "^(feat(!)?|fix(!)?|build(!)?|chore(!)?)"
+bump_map = {"feat!" = "MAJOR", "fix!" = "MAJOR", "build!" = "MAJOR", "chore!" = "MAJOR", "feat" = "MINOR", "fix" = "PATCH", "build" = "PATCH", "chore" = "PATCH"}
+changelog_pattern = "^(feat|fix|build|chore)(!)?:"
+
+# Using the customization for commitizen requires rest of customization sections defined... https://github.com/commitizen-tools/commitizen/issues/781
+# Below questions are an attempt to mimic 
+[[tool.commitizen.customize.questions]]
+type = "list"
+name = "change_type"
+choices = [
+    {value = "fix", name = "fix: A bug fix. Correlates with PATCH in SemVer"},
+    {value = "feat", name = "feat: A new feature. Correlates with MINOR in SemVer"},
+    {value = "test", name = "test: Adding missing or correcting existing tests"},
+    {value = "refactor", name = "refactor: A code change that neither fixes a bug nor adds a feature"},
+    {value = "style", name = "style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)"},
+    {value = "docs", name = "docs: Documentation only changes"},
+    {value = "perf", name = "perf: A code change that improves performance"},
+    {value = "build", name = "build: Changes that affect the build system or external dependencies (example scopes: pip, docker, npm)"},
+    {value = "chore", name = "chore: Upgrades libraries and/or performs maintenance tasks."},
+    {value = "ci", name = "ci: Changes to our CI configuration files and scripts (example scopes: GitLabCI, GitHub Actions)"}]
+message = "Select the type of change you are committing"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "message"
+message = "Write a short and imperative summary of the code changes:"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "description"
+message = "Provide additional contextual information about the code changes: (press [enter] to skip)"
+
+[[tool.commitizen.customize.questions]]
+type = "confirm"
+name = "is_breaking"
+message = "Is this a BREAKING CHANGE? Correlates with MAJOR in SemVer"
+default = false
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "footer"
+message = "Footer. Information about Breaking Changes and reference issues that this commit closes: (press [enter] to skip)"
