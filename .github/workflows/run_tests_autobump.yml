@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Echo github ref
-        run: echo "$GITHUB_REF_NAME value is ${{ env.GITHUB_REF_NAME }} and github.ref_name is ${{ github.ref_name }}"
+        run: echo "$GITHUB_REF_NAME value is ${{ env.GITHUB_REF_NAME }} or ${{ GITHUB_REF_NAME }} and github.ref_name is ${{ github.ref_name }}"
       - name: Create .taiga directory
         run: |
           mkdir ~/.taiga
@@ -56,7 +56,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-version:
-    if: ${{ env.GITHUB_REF_NAME == 'master'}}
+    if: ${{ GITHUB_REF_NAME == 'master'}}
     needs: bump-version
     runs-on: ubuntu-latest
     steps:
