@@ -46,14 +46,14 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.commitizen.customize]
 message_template = "{{change_type}}{% if is_breaking %}!{% endif %}: {{message}}\n\n{% if description %}{{description}}{% endif %}\n\n{% if is_breaking and footer %}BREAKING CHANGE: {{footer}}{% endif %}"
-example = "feature: this feature enable customize through config file"
+example = "feat: Add this feature that does something"
 
 bump_pattern = "^(feat(!)?|fix(!)?|build(!)?|chore(!)?)"
 bump_map = {"feat!" = "MAJOR", "fix!" = "MAJOR", "build!" = "MAJOR", "chore!" = "MAJOR", "feat" = "MINOR", "fix" = "PATCH", "build" = "PATCH", "chore" = "PATCH"}
 changelog_pattern = "^(feat|fix|build|chore)(!)?:"
 
 # Using the customization for commitizen requires rest of customization sections defined... https://github.com/commitizen-tools/commitizen/issues/781
-# Below questions are an attempt to mimic 
+# Below questions are an attempt to mimic original prompts
 [[tool.commitizen.customize.questions]]
 type = "list"
 name = "change_type"

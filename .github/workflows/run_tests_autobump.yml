@@ -52,6 +52,7 @@ jobs:
         uses: commitizen-tools/commitizen-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          check_consistency: true
 
   publish-version:
     if: github.ref_name == 'master'
@@ -66,6 +67,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
+          # See instructions here: https://github.com/google-github-actions/auth?tab=readme-ov-file#service-account-key-json
           credentials_json: ${{ secrets.TAIGAPY_SVC_ACCT }}
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
