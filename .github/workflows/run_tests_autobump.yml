@@ -56,7 +56,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-version:
-    if: ${{ GITHUB_REF_NAME == 'master'}}
+    if: github.ref_name == 'master'
     needs: bump-version
     runs-on: ubuntu-latest
     steps:
