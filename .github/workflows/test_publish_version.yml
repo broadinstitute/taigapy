@@ -7,7 +7,6 @@ on:
 jobs:
   publish-new-version:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: "Publish new version of taigapy"
     steps:
       - name: Check out
