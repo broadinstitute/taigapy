@@ -10,8 +10,6 @@ jobs:
         python-version: [3.9]
 
     steps:
-      - name: Echo github ref
-        run: echo "$GITHUB_REF_NAME value is ${{ env.GITHUB_REF_NAME }} and github.ref_name is ${{ github.ref_name }}"
       - name: Create .taiga directory
         run: |
           mkdir ~/.taiga
