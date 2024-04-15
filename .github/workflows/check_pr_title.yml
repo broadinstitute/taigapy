@@ -33,4 +33,4 @@ jobs:
         run: poetry install
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Check PR title
-        run: poetry run cz check -m ${{ github.event.pull_request.title }}
+        run: poetry run cz check -m "${{ github.event.pull_request.title }}"
