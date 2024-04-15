@@ -51,6 +51,8 @@ example = "feature: this feature enable customize through config file"
 bump_pattern = "^(feat(!)?|fix(!)?|build(!)?|chore(!)?)"
 bump_map = {"feat!" = "MAJOR", "fix!" = "MAJOR", "build!" = "MAJOR", "chore!" = "MAJOR", "feat" = "MINOR", "fix" = "PATCH", "build" = "PATCH", "chore" = "PATCH"}
 changelog_pattern = "^(feat|fix|build|chore)(!)?:"
+# Change schema_pattern if add change_type question choices
+schema_pattern = "(feat|fix|test|refactor|style|docs|perf|build|chore|ci)(!)?:(\\s.*)"
 
 # Using the customization for commitizen requires rest of customization sections defined... https://github.com/commitizen-tools/commitizen/issues/781
 # Below questions are an attempt to mimic 
