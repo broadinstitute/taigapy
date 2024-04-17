@@ -204,10 +204,43 @@ To run the fetch tests, run `pytest`.
 
 To run all the tests, [set up Taiga locally](https://github.com/broadinstitute/taiga#installing), then run `pytest --runlocal`.
 
-### Publishing Taigapy
-To create a new version, please update the version number in `taigapy/__init__.py` and `git tag` the commit with that version number. Push the tags to GitHub and create a new release with the tag. Update the [changelog](CHANGELOG.md) with the changes.
+### Versioning and Publishing Taigapy
+### Commit Conventions
+We use a tool called [commitizen-tools/commitizen](https://github.com/commitizen-tools/commitizen) for versioning. The way commitizen works is by checking if there are any new commits that follow the formatting rules defined in our `pyproject.toml`'s `bump_pattern` and `bump_map` variables. By default, commitizen uses [conventional commits](https://www.conventionalcommits.org/), however, we have selected a subset of rules to fit most of our current use cases.
 
-Publish a new version of taigapy to pypi by executing `publish_new_taigapy_pypi.sh`, which will do the following:
-1. `rm -r dist/`
-2. `python setup.py bdist_wheel --universal`
-3. `twine upload dist/*`
+In general, when making commits, especially directly to master, please try to adhere to our defined rules so we can ensure versioning is being updated properly:
+
+- fix: COMMIT_MESSAGE -> Correlates with PATCH in SemVer
+- build: COMMIT_MESSAGE -> Correlates with PATCH in SemVer
+- chore: COMMIT_MESSAGE -> Correlates with PATCH in SemVer
+- feat: COMMIT_MESSAGE -> Correlates with MINOR in SemVer
+- fix!: COMMIT_MESSAGE -> Correlates with MAJOR in SemVer
+- build!: COMMIT_MESSAGE -> Correlates with MAJOR in SemVer
+- chore!: COMMIT_MESSAGE -> Correlates with MAJOR in SemVer
+- feat!: COMMIT_MESSAGE -> Correlates with MAJOR in SemVer
+
+In addition, we also have `test`, `refactor`, `style`, `docs`, `perf`, `ci` commit types available. While these commit types are not used for determining versioning, they may be helpful in helping organize our commits more.
+
+If these rules are hard to remember, you can also use commitizen's CLI to help format your commits by calling:
+
+    cz c
+
+Instead of
+
+    git commit -m "feat: New feature"
+
+#### Pull requests
+
+Pull request titles with master as target branch should also adhere to our defined rules for commits, especially for squash merges. This is because on Github, we will ultimately use the pull request title as the default commit message.
+
+**NOTE: Our CI/CD pipeline includes a Github actions workflow `run_tests_autobump.yml` that auto-versions and publishes taigapy client. The below instructions are only for if you want to publish locally though this is not recommended!**
+Note: this will publish the resulting module to an internal package repo. Before you do this,
+you'll need to set yourself up to be able to publish to `python-public`:
+
+To setup for publishing (Based on https://medium.com/google-cloud/python-packages-via-gcps-artifact-registry-ce1714f8e7c1 )
+
+```
+poetry self add keyrings.google-artifactregistry-auth
+poetry config repositories.public-python https://us-central1-python.pkg.dev/cds-artifacts/public-python/
+# also make sure you've authentication via "gcloud auth login" if you haven't already
+```
