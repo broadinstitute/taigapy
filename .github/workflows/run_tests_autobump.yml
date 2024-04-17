@@ -47,6 +47,11 @@ jobs:
       current_version: ${{ steps.current-version.outputs.current_version }}
       bumped_version: ${{ steps.bumped-version.outputs.bumped_version }}
     steps:
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          fetch-depth: 0
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
@@ -65,11 +70,6 @@ jobs:
       - name: Get current version
         id: current-version
         run: echo "current_version=$(poetry run cz version -p)" >> $GITHUB_OUTPUT
-      - name: Check out
-        uses: actions/checkout@v3
-        with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
-          fetch-depth: 0
       - name: Create bump and changelog
         id: cz
         uses: commitizen-tools/commitizen-action@master
