@@ -84,7 +84,7 @@ jobs:
 
   publish-version:
     needs: bump-version
-    if: ${{ needs.bump-version.outputs.current_version != needs.bump-version.outputs.bumped_version }} && github.ref_name == 'master'
+    if: ${{ (needs.bump-version.outputs.current_version != needs.bump-version.outputs.bumped_version) && (github.ref_name == 'master') }} 
     runs-on: ubuntu-latest
     steps:
       - name: Check out
