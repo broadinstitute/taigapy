@@ -67,22 +67,24 @@ jobs:
       - name: Install dependencies
         run: poetry install
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: Get current version
+      - name: Store current version output
         id: current-version
         run: echo "current_version=$(poetry run cz version -p)" >> $GITHUB_OUTPUT
+      - name: Get current version
+        run: echo "${{ steps.current-version.outputs.current_version}}"
       - name: Create bump and changelog
         id: cz
         uses: commitizen-tools/commitizen-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           check_consistency: true
-      - name: Get bumped version
+      - name: Store bumped version output
         id: bumped-version
         run: echo "bumped_version=${{ steps.cz.outputs.version }}" >> $GITHUB_OUTPUT
 
   publish-version:
     needs: bump-version
-    if: github.ref_name == 'master' && ${{ needs.bump-version.outputs.current_version != needs.bump-version.outputs.bumped_version}}
+    if: ${{ (needs.bump-version.outputs.current_version != needs.bump-version.outputs.bumped_version) && (github.ref_name == 'master') }} 
     runs-on: ubuntu-latest
     steps:
       - name: Check out
