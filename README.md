@@ -251,6 +251,6 @@ To install taigapy using poetry in your repo run the following:
 1. Update your poetry version, and install keyring, and the GCP Artifact Registry backend in the core poetry virtual environment: `poetry self update && poetry self add keyrings.google-artifactregistry-auth`
 2. Note that you may need to authenticate with gcloud application by running `gcloud auth application-default login` if you are not already authenticated. 
 3. Configure the package source as an explicit package source for your project: `poetry source add --priority=explicit gcp-artifact-registry https://us-central1-python.pkg.dev/cds-artifacts/public-python/simple`
-4. poetry add --source gcp-artifact-registry taigapy
+4. Add the python package: `poetry add --source gcp-artifact-registry taigapy`
 
 This should install taigapy from the CDS' internal public-python atrifact registry in your poetry env.
