@@ -1,4 +1,49 @@
-# taigaclient v3 
+# taigapy
+![Run tests](https://github.com/broadinstitute/taigapy/workflows/Run%20tests/badge.svg)
+
+Python client for fetching datafiles from and creating/updating datasets in [Taiga](https://github.com/broadinstitute/taiga).
+
+See [taigr](https://github.com/broadinstitute/taigr) for the R client.
+
+## Table of Contents
+- [Quickstart](#quickstart)
+  - [Prerequisites](#prerequisites)
+  - [Installing](#installing)
+  - [Usage](#usage)
+    - [Taigaclient v3](#taigaclient-v3)
+    - [Get datafile as dataframe](#get-datafile-as-dataframe)
+    - [Download file](#download-file)
+    - [Create dataset](#create-dataset)
+    - [Update dataset](#update-dataset)
+    - [Get dataset metadata](#get-dataset-metadata)
+- [Support](#support)
+- [Development](#development)
+  - [Setup](#setup)
+  - [Running Tests](#running-tests)
+  - [Publishing Taigapy](#publishing-taigapy)
+
+
+## Quickstart
+
+### Prerequisites
+First, you need to get your authorization token so the client library can make requests on your behalf. Go to https://cds.team/taiga/token/ and click on the "Copy" button to copy your token. Paste your token in a file at `~/.taiga/token`.
+
+```bash
+mkdir ~/.taiga/
+echo YOUR_TOKEN_HERE > ~/.taiga/token
+```
+
+### Installing
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install taigapy from Google Artifact registry. 
+
+```
+pip install --extra-index-url=https://us-central1-python.pkg.dev/cds-artifacts/public-python/simple/ taigapy
+```
+
+## Usage
+See [docs](docs/) for the complete documentation.
+
+### taigaclient-v3 
 
 This branch contains an experimental version of a new taigapy client with a slightly different API. (In particular
 uploading now has a different API to support specifying what format files are in)
@@ -49,50 +94,6 @@ version = tc.replace_dataset(version.permaname, "test update", files=[
     ])
 
 ```
-
-# taigapy
-![Run tests](https://github.com/broadinstitute/taigapy/workflows/Run%20tests/badge.svg)
-
-Python client for fetching datafiles from and creating/updating datasets in [Taiga](https://github.com/broadinstitute/taiga).
-
-See [taigr](https://github.com/broadinstitute/taigr) for the R client.
-
-## Table of Contents
-- [Quickstart](#quickstart)
-  - [Prerequisites](#prerequisites)
-  - [Installing](#installing)
-  - [Usage](#usage)
-    - [Get datafile as dataframe](#get-datafile-as-dataframe)
-    - [Download file](#download-file)
-    - [Create dataset](#create-dataset)
-    - [Update dataset](#update-dataset)
-    - [Get dataset metadata](#get-dataset-metadata)
-- [Support](#support)
-- [Development](#development)
-  - [Setup](#setup)
-  - [Running Tests](#running-tests)
-  - [Publishing Taigapy](#publishing-taigapy)
-
-
-## Quickstart
-
-### Prerequisites
-First, you need to get your authorization token so the client library can make requests on your behalf. Go to https://cds.team/taiga/token/ and click on the "Copy" button to copy your token. Paste your token in a file at `~/.taiga/token`.
-
-```bash
-mkdir ~/.taiga/
-echo YOUR_TOKEN_HERE > ~/.taiga/token
-```
-
-### Installing
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install taigapy.
-
-```bash
-pip install taigapy
-```
-
-### Usage
-See [docs](docs/) for the complete documentation.
 
 #### Get datafile as dataframe
 Get a NumericMatrix/HDF5 or TableCSV/Columnar file from Taiga as a [pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/frame.html)
