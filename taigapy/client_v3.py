@@ -20,13 +20,12 @@ from taigapy.utils import get_latest_valid_version_from_metadata
 from typing import Union
 from google.cloud import storage, exceptions as gcs_exceptions
 
-# from taigapy.types import (
-#    S3Credentials
-# )
-
-
-# the different formats that we might store files as locally
 class LocalFormat(Enum):
+    """
+    The various different formats that we can use with taigapy. These are formats that
+    can be uploaded to Taiga, or when we download from taiga we can request the file
+    be stored in this format.
+    """
     HDF5_MATRIX = "hdf5_matrix"
     PARQUET_TABLE = "parquet_table"
     CSV_TABLE = "csv_table"
@@ -36,8 +35,11 @@ class LocalFormat(Enum):
     FEATHER_MATRIX = "feather_matrix"
 
 
-# the different formats files might be stored in on Taiga.
 class TaigaStorageFormat(Enum):
+    """
+    The different ways files are encoded when they are uploaded to Taiga. Users of the client
+    should not need to be aware of these.
+    """
     CSV_TABLE = "csv_table"
     HDF5_MATRIX = "hdf5_matrix"
     RAW_HDF5_MATRIX = "raw_hdf5_matrix"
@@ -523,7 +525,8 @@ class Client:
         only_use_cache=False,
     ) -> str:
         """
-        Download the specified file to the cache directory (if not already there and converting if necessary) and return the path to that file.
+        Download the specified file to the cache directory (if not already there
+        and converts if necessary) and return the path to that file.
         """
         # coerce to enum
         if isinstance(requested_format, str):
@@ -753,7 +756,12 @@ class Client:
         description: Optional[str] = None,
     ) -> DatasetVersion:
         """
-        Update an existing dataset by replacing all datafiles with the ones provided (Results in a new dataset version)
+        Update an existing dataset creating a new version by replacing all datafiles with the ones
+        provided (Results in a new dataset version)
+
+        args:
+            permaname: A taiga ID (without version) w
+
         """
         assert "." not in permaname, "When specifying a permaname, don't include the version suffix"
         metadata = self.api.get_dataset_version_metadata(permaname, None)
