@@ -246,7 +246,6 @@ poetry config repositories.public-python https://us-central1-python.pkg.dev/cds-
 # also make sure you've authentication via "gcloud auth login" if you haven't already
 ```
 
-
 ### Installing taigapy from the Google Artifact Registry using poetry
 
 To install taigapy using poetry in your repo run the following:
