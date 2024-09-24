@@ -207,7 +207,7 @@ class TaigaApi:
 
         with open(dest, "wb") as handle:
             if not r.ok:
-                raise Exception("Error fetching {}".format(download_url))
+                raise Exception(f"Error fetching {download_url}: {r.content.decode('utf8')}")
 
             total = 0
             for block in r.iter_content(CHUNK_SIZE):
