@@ -179,6 +179,7 @@ def _create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
 class MinDataFileMetadata:
     type: str
     custom_metadata: Dict[str, str]
+    original_file_sha256: str
 
 
 class Client:
@@ -212,6 +213,7 @@ class Client:
         self.api = api
 
     def _add_file_to_cache(self, permaname, version, data_file_metadata_dict, was_single_file):
+        original_file_sha256 = data_file_metadata_dict.get('original_file_sha256')
         canonical_id = data_file_metadata_dict.get("underlying_file_id")
         datafile_id = f"{permaname}.{version}/{ data_file_metadata_dict['name'] }"
         if canonical_id is None:
@@ -231,6 +233,7 @@ class Client:
             MinDataFileMetadata(
                 type=data_file_metadata_dict["type"],
                 custom_metadata=data_file_metadata_dict["custom_metadata"],
+                original_file_sha256=original_file_sha256
             ),
         )
 

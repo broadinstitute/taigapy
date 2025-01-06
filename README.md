@@ -1,26 +1,31 @@
 # taigapy
 ![Run tests](https://github.com/broadinstitute/taigapy/workflows/Run%20tests/badge.svg)
 
-Python client for fetching datafiles from and creating/updating datasets in [Taiga](https://github.com/broadinstitute/taiga).
+The Taiga client is a Python library for interacting with [Taiga](https://github.com/broadinstitute/taiga), a service designed for storing and versioning datasets used in data science workflows. The client provides functionality for uploading, downloading, and managing datasets and their versions.
 
 See [taigr](https://github.com/broadinstitute/taigr) for the R client.
 
 ## Table of Contents
-- [Quickstart](#quickstart)
-  - [Prerequisites](#prerequisites)
-  - [Installing](#installing)
+- [taigapy](#taigapy)
+  - [Table of Contents](#table-of-contents)
+  - [Quickstart](#quickstart)
+    - [Prerequisites](#prerequisites)
+    - [Installing](#installing)
   - [Usage](#usage)
-    - [Taigaclient v3](#taigaclient-v3)
-    - [Get datafile as dataframe](#get-datafile-as-dataframe)
-    - [Download file](#download-file)
-    - [Create dataset](#create-dataset)
-    - [Update dataset](#update-dataset)
-    - [Get dataset metadata](#get-dataset-metadata)
-- [Support](#support)
-- [Development](#development)
-  - [Setup](#setup)
-  - [Running Tests](#running-tests)
-  - [Publishing Taigapy](#publishing-taigapy)
+    - [taigaclient-v3](#taigaclient-v3)
+      - [Get datafile as dataframe](#get-datafile-as-dataframe)
+      - [Download file](#download-file)
+      - [Create dataset](#create-dataset)
+      - [Update dataset](#update-dataset)
+      - [Get dataset metadata](#get-dataset-metadata)
+    - [Support](#support)
+  - [Development](#development)
+    - [Setup](#setup)
+    - [Running Tests](#running-tests)
+    - [Versioning and Publishing Taigapy](#versioning-and-publishing-taigapy)
+    - [Commit Conventions](#commit-conventions)
+      - [Pull requests](#pull-requests)
+    - [Installing taigapy from the Google Artifact Registry using poetry](#installing-taigapy-from-the-google-artifact-registry-using-poetry)
 
 
 ## Quickstart
@@ -41,6 +46,7 @@ pip install --extra-index-url=https://us-central1-python.pkg.dev/cds-artifacts/p
 ```
 
 ## Usage
+
 See [docs](docs/) for the complete documentation.
 
 ### taigaclient-v3 
