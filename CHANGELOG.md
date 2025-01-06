@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.10.0 (2025-01-06)
+
+
+- feat: get_datafile_metadata now returns original_file_sha256
+- get_datafile_metadata() returns instances of MinDataFileMetadata which
+now have a field named `original_file_sha256`. This hash is the sha256 hash
+of the file that was originally uploaded to Taiga and is useful for checking to
+see whether a file in Taiga is the same as one you have locally. (For example,
+checking before uploading a file. If the file is the same, no need to upload.)
+
 ## 3.9.1 (2024-11-20)
 
 
