@@ -280,6 +280,16 @@ class Client:
         else:
             raise Exception(f"unknown type: {metadata.type}")
 
+    def get_latest_version_id(self, permaname):
+        """
+        Given a permaname, get the ID of the latest version of that dataset
+        """
+        metadata = self.get_dataset_metadata(permaname)
+        if metadata is None:
+            return None
+        last_version = max(int(x["name"]) for x in metadata['versions'])
+        return f"{permaname}.{last_version}"
+    
     def get_canonical_id(self, datafile_id: str, only_use_cache=False) -> str:
         """
         Given a taiga ID for a data file, resolves the ID to the "canonical ID". (That is to say, the ID of the data file that was
