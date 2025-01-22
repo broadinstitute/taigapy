@@ -22,7 +22,7 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 1.4.2
+          version: 1.8.2
           virtualenvs-create: true
           virtualenvs-in-project: true
       - name: Set up cache
@@ -55,7 +55,7 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 1.4.2
+          version: 1.8.2
           virtualenvs-create: true
           virtualenvs-in-project: true
       - name: Set up cache
@@ -102,7 +102,7 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 1.4.2
+          version: 1.8.2
           virtualenvs-create: true
           virtualenvs-in-project: true
       - name: Set up cache
