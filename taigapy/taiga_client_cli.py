@@ -4,6 +4,7 @@ import os
 
 from taigapy import DEFAULT_TAIGA_URL, create_taiga_client_v3, LocalFormat
 from taigapy.utils import format_datafile_id
+from taigapy.client_v3 import TaigaReference
 from typing import Optional
 from .types import DatasetVersionState
 from .custom_exceptions import TaigaDeletedVersionException
@@ -177,6 +178,75 @@ def dataset_meta(args):
         print(metadata)
 
 
+def copy(args):
+    """
+    Copy all files from source dataset to a new destination dataset using references
+    """
+    tc = _get_taiga_client(args)
+    
+    try:
+        source_dataset_metadata = tc.get_dataset_metadata(args.source_id)
+        latest_version = get_latest_valid_version_from_metadata(source_dataset_metadata)
+        
+        # Get detailed metadata for this version
+        source_version_metadata = tc.get_dataset_metadata(
+            args.source_id, version=latest_version
+        )
+        
+        # Extract datafiles from the source dataset
+        datafiles = source_version_metadata["datasetVersion"]["datafiles"]
+        
+        assert datafiles, f"No files found in source dataset {args.source_id}"
+        
+        reference_files = []
+        skipped_files = []
+        
+        for datafile in datafiles:
+            if "type" not in datafile:
+                # Skip GCS files as they can't be taiga referenced
+                # Checking type as mentioned in client.py get_canonical_id method
+                skipped_files.append(datafile["name"])
+                continue
+
+            if "underlying_file_id" in datafile:
+                taiga_id = datafile["underlying_file_id"]
+            else:
+                skipped_files.append(datafile["name"])
+                continue
+
+            # Preserve any custom metadata from the original file
+            custom_metadata = datafile.get("custom_metadata", {})
+            
+            reference_files.append(
+                TaigaReference(
+                    name=datafile["name"],
+                    taiga_id=taiga_id,
+                    custom_metadata=custom_metadata
+                )
+            )
+        
+        if skipped_files:
+            print(f"Warning: Skipped {len(skipped_files)} files that couldn't be referenced: {', '.join(skipped_files)}")
+        
+        assert reference_files, "No files could be referenced. Copy operation aborted."
+            
+        # Create new dataset with references
+        print(f"Creating new dataset '{args.destination_name}' with {len(reference_files)} referenced files")
+        
+        result = tc.create_dataset(
+            args.destination_name,
+            description=f"Copy of {args.source_id} created via taigaclient copy command",
+            files=reference_files
+        )
+        
+        print(f"Successfully created dataset: {args.destination_name}, permaname: {result.permaname}")
+        
+    except Taiga404Exception:
+        print(f"Error: Source dataset {args.source_id} not found")
+    except Exception as e:
+        print(f"Error copying dataset: {str(e)}")
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -235,6 +305,18 @@ def main():
         help="If set, will write the metadata to WRITE_FILENAME. Otherwise, will write to stdout",
     )
     parser_dataset_meta.set_defaults(func=dataset_meta)
+
+    # copy command parser
+    parser_copy = subparsers.add_parser(
+        "copy", help="Copy files from a source dataset to a new destination dataset using taiga references"
+    )
+    parser_copy.add_argument(
+        "source_id", help="Source dataset permaname"
+    )
+    parser_copy.add_argument(
+        "destination_name", help="Name for the new dataset"
+    )
+    parser_copy.set_defaults(func=copy)
 
     args = parser.parse_args()
 
