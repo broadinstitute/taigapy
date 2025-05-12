@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taigapy"
-version = "3.13.0"
+version = "3.14.0"
 description = "Client library for fetching data from Taiga"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
@@ -11,19 +11,19 @@ requests = "^2.28.2"
 pandas = ">=1.0.0"
 boto3 = "^1.26.0"
 colorful = "^0.5.5"
-progressbar2 = ">=3.3.0,<4.0.0"
+tqdm = "^4.67.0"
 pyarrow = ">3.0.0"
 sqlite-shelve = "^2.0.1"
 typing-extensions = "^4.8.0"
 h5py = "^3.10.0"
-google-cloud-storage = "^2.2.0"
+google-cloud-storage = ">=2.2.0"
 pre-commit = "^3.7.0"
-black = "^24.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
 pyright-ratchet = {git = "https://github.com/pgm/pyright-ratchet.git"}
 commitizen = "^3.21.3"
+black = "^24.3.0"
 
 [tool.poetry.scripts]
 taigaclient = "taigapy.taiga_client_cli:main"

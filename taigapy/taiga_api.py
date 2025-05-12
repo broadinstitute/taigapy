@@ -1,7 +1,7 @@
 import time
 from typing import Dict, Mapping, Optional, Union
 
-import progressbar
+import tqdm
 import requests
 import logging
 
@@ -51,27 +51,16 @@ def _standard_response_handler(
     return r.json()
 
 
-def _progressbar_init(max_value: Union[int, progressbar.UnknownLength]):
+def _tqdm_init(max_value: Optional[int] = None):
     """
-    Initialize the progressbar object with the max_value passed as parameter
-    :param max_value: int
-    :return: ProgressBar
+    Initialize the tqdm progress bar object with the max_value passed as parameter
+    :param max_value: int or None for unknown length
+    :return: tqdm instance
     """
-
-    widgets = [
-        progressbar.Bar(left="[", right="]"),
-        progressbar.Percentage(),
-        " | ",
-        progressbar.FileTransferSpeed(),
-        " | ",
-        progressbar.DataSize(),
-        " / ",
-        progressbar.DataSize(variable="max_value"),
-        " | ",
-        progressbar.ETA(),
-    ]
-    bar = progressbar.ProgressBar(max_value=max_value, widgets=widgets)
-    return bar
+    if max_value is None or max_value <= 0:
+        return tqdm.tqdm(unit='B', unit_scale=True, unit_divisor=1024)
+    else:
+        return tqdm.tqdm(total=max_value, unit='B', unit_scale=True, unit_divisor=1024)
 
 
 def run_with_max_retries(call, max_attempts, retry_delay=1.0):
@@ -164,29 +153,20 @@ class TaigaApi:
             bucket = storage_client.get_bucket(bucket_name)
             blob = bucket.get_blob(file_name)
 
-            if not blob.size:
-                content_length = (
-                    progressbar.UnknownLength
-                )  # type: Union[progressbar.UnknownLength, int]
-            else:
-                content_length = int(blob.size)
-
-            bar = _progressbar_init(max_value=blob.size)
             if not blob:
                 raise Exception(f"Error fetching {file_name}")
 
+            file_size = blob.size if blob.size else None
+
+            bar = _tqdm_init(max_value=file_size)
+            
             total = 0
             for block in range(0, blob.size):
                 total += block
-                # total can be slightly superior to content_length
-                if (
-                    content_length == progressbar.UnknownLength
-                    or total <= content_length
-                ):
-                    bar.update(total)
+                bar.update(block)
 
             blob.download_to_filename(dest)
-            bar.finish()
+            bar.close()
         except exceptions.NotFound:
             raise Exception(f"Error fetching {file_name}")
 
@@ -196,14 +176,9 @@ class TaigaApi:
         r = requests.get(download_url, stream=True)
 
         header_content_length = r.headers.get("Content-Length", None)
-        if not header_content_length:
-            content_length = (
-                progressbar.UnknownLength
-            )  # type: Union[progressbar.UnknownLength, int]
-        else:
-            content_length = int(header_content_length)
+        content_length = int(header_content_length) if header_content_length else None
 
-        bar = _progressbar_init(max_value=content_length)
+        bar = _tqdm_init(max_value=content_length)
 
         with open(dest, "wb") as handle:
             if not r.ok:
@@ -212,15 +187,11 @@ class TaigaApi:
             total = 0
             for block in r.iter_content(CHUNK_SIZE):
                 handle.write(block)
-
-                total += CHUNK_SIZE
-                # total can be slightly superior to content_length
-                if (
-                    content_length == progressbar.UnknownLength
-                    or total <= content_length
-                ):
-                    bar.update(total)
-            bar.finish()
+                block_size = len(block)
+                total += block_size
+                bar.update(block_size)
+            
+            bar.close()
 
     def _poll_task(self, task_id: str) -> TaskStatus:
         api_endpoint = "/api/task_status/{}".format(task_id)
