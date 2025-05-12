@@ -2,6 +2,11 @@ name: Run tests and bump version
 
 on: push
 
+# Setting this up due to the warning "Workflow doesn't contain permissions"
+# Default minimal permissions for all jobs unless overridden at job level
+permissions:
+  contents: read
+
 jobs:
   pytest:
     runs-on: ubuntu-24.04
@@ -42,6 +47,9 @@ jobs:
     needs: pytest
     runs-on: ubuntu-latest
     name: "Bump version and create changelog with commitizen"
+    # This job needs write permissions to commit version changes
+    permissions:
+      contents: write
     outputs:
       # Map the step outputs to job outputs
       current_version: ${{ steps.current-version.outputs.current_version }}
@@ -86,6 +94,9 @@ jobs:
     needs: bump-version
     if: ${{ (needs.bump-version.outputs.current_version != needs.bump-version.outputs.bumped_version) && (github.ref_name == 'master') }} 
     runs-on: ubuntu-latest
+    # This job needs write permissions to pull from master and commit changes
+    permissions:
+      contents: write
     steps:
       - name: Check out
         uses: actions/checkout@v4
