@@ -18,12 +18,12 @@ typing-extensions = "^4.8.0"
 h5py = "^3.10.0"
 google-cloud-storage = ">=2.2.0"
 pre-commit = "^3.7.0"
-black = "^24.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
 pyright-ratchet = {git = "https://github.com/pgm/pyright-ratchet.git"}
 commitizen = "^3.21.3"
+black = "^24.3.0"
 
 [tool.poetry.scripts]
 taigaclient = "taigapy.taiga_client_cli:main"
