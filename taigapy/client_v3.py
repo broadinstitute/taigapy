@@ -19,6 +19,7 @@ from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 from taigapy.utils import get_latest_valid_version_from_metadata
 from typing import Union
 from google.cloud import storage, exceptions as gcs_exceptions
+from . import utils
 
 class LocalFormat(Enum):
     """
@@ -80,6 +81,30 @@ def _parse_datafile_id(datafile_id):
     else:
         return None
 
+def _filter_out_matching_files(tc, permaname, additions):
+    # fetch the metadata about the latest version
+    latest_id = tc.get_latest_version_id(permaname)
+    permaname, version = latest_id.split(".")
+    dvm = tc.get_dataset_metadata(permaname, version)
+    by_name = {f['name'] : f for f in dvm['datasetVersion']['datafiles']}
+
+    filtered = []
+    for addition in additions:
+        skip = False
+        if isinstance(addition, UploadedFile):
+            name = addition.name
+            existing_file = by_name.get(name)
+            if existing_file:
+                existing_sha256 = existing_file.get("original_file_sha256")
+                if existing_sha256:
+                    sha256, md5 = utils.get_file_hashes(addition.local_path)
+                    if sha256 == existing_sha256:
+                        skip = True
+
+        if not skip:
+            filtered.append(addition)
+
+    return latest_id, filtered
 
 @dataclass
 class DatasetVersionFile:
@@ -671,9 +696,18 @@ class Client:
         # look up dataset version metadata and unpack values from the resulting dicts
         # this is a fairly round about way to get all the info we need, but trying to work within
         # what the current APIs expose.
-        version = self.api.get_dataset_version_metadata(
-            None, dataset_version=dataset_version_id
-        )
+        m = re.match("([a-z0-9.-]+)\\.(\\d+)", dataset_version_id)
+        if m is not None:
+            # dataset_version_id might be the opaque (old) uuid-like IDs for versions or
+            # it might be the newer <permaname>.<version> format. Allow this function to handle
+            # both. This code path is for the newer format
+            version = self.api.get_dataset_version_metadata(
+                m.group(1), dataset_version=m.group(2)
+            )
+        else:
+            version = self.api.get_dataset_version_metadata(
+                None, dataset_version=dataset_version_id
+            )
         permaname = version["dataset"]["permanames"][0]
 
         version_number = version["datasetVersion"]["name"]
@@ -803,33 +837,48 @@ class Client:
         description: Optional[str] = None,
         additions: List[File] = [],
         removals: List[str] = [],
+        skip_uploads_if_sha_matches=True
     ) -> DatasetVersion:
         """
         Update an existing dataset by adding and removing the specified files. (Results in a new dataset version)
         """
         assert "." not in permaname, "When specifying a permaname, don't include the version suffix"
-        
-        metadata = self.api.get_dataset_version_metadata(permaname, None)
 
         if len(removals) > 0:
             raise NotImplementedError(
                 "This option doesn't work at this time because changes are required to the Taiga service. Instead you can call replace_dataset with only the files you want to keep."
             )
 
-        upload_session_id = self._upload_files(additions)
+        assert len(additions) > 0, f"No additions specified. This update would have no effect"
 
-        prev_description = metadata["description"]
-        if description is None:
-            description = prev_description
+        latest_version_id = None
+        if skip_uploads_if_sha_matches:
+            latest_version_id, additions = _filter_out_matching_files(self, permaname, additions)
 
-        dataset_version_id = self.api.update_dataset(
-            metadata["id"],
-            upload_session_id,
-            description,
-            reason,
-            None,
-            add_existing_files=True,
-        )
+        if len(additions) == 0:
+            print(
+                cf.green(
+                    f"no files needed uploading because all additions matched what was already there"
+                )
+            )
+            dataset_version_id = latest_version_id
+        else:
+            metadata = self.api.get_dataset_version_metadata(permaname, None)
+
+            upload_session_id = self._upload_files(additions)
+
+            prev_description = metadata["description"]
+            if description is None:
+                description = prev_description
+
+            dataset_version_id = self.api.update_dataset(
+                metadata["id"],
+                upload_session_id,
+                description,
+                reason,
+                None,
+                add_existing_files=True,
+            )
 
         return self._dataset_version_summary(dataset_version_id)
 

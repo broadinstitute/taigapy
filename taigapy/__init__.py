@@ -7,6 +7,7 @@ from .client import TaigaClient
 
 from .client_v3 import Client as ClientV3
 from .client_v3 import LocalFormat
+from .client_v3 import UploadedFile, TaigaReference
 
 
 try:
