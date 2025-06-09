@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.15.0 (2025-06-03)
+
+
+- fix: Changed the copy function in taigaclient cli
+- Previously it used to skip files that doesn't have any "underlying_file_id" in the metadata. However, the newly updated file doesn't have that field resulting in the latest file in the dataset not getting copied when the copy command was being used. This commit fixes that.
+
 ## 3.13.0 (2025-02-27)
 
 

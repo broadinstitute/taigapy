@@ -210,12 +210,8 @@ def copy(args):
             # Checking type as mentioned in client.py get_canonical_id method
             skipped_files.append(datafile["name"])
             continue
-
-        if "underlying_file_id" in datafile:
-            taiga_id = datafile["underlying_file_id"]
-        else:
-            skipped_files.append(datafile["name"])
-            continue
+        
+        taiga_id = args.source_id + "." + latest_version + "/" + datafile["name"]
 
         # Preserve any custom metadata from the original file
         custom_metadata = datafile.get("custom_metadata", {})
