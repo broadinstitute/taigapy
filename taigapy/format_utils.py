@@ -40,7 +40,15 @@ def write_parquet(df: pd.DataFrame, dest: str):
     df.to_parquet(dest)
 
 def read_parquet(filename: str) -> pd.DataFrame:
-    return pd.read_parquet(filename).reset_index()
+    df = pd.read_parquet(filename)
+    # tables (via read_parquet) should never have an index according to Taiga. So, call
+    # reset_index() on df before returning the result so any index columns are treated
+    # as normal columns. _However_ pandas will always create
+    # a default index because all dataframes need one. So, let's check for that specific case
+    # and skip the reset_index() if we have a default index
+    if isinstance( df.index, pd.RangeIndex ) and df.index.name is None:
+        return df
+    return df.reset_index()
 
 
 def convert_csv_to_hdf5(csv_path: str, hdf5_path: str):
