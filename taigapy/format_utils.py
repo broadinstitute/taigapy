@@ -2,6 +2,7 @@ import h5py
 import numpy as np
 import os
 import pandas as pd
+from pyarrow import parquet as pq
 
 
 # Define reading and writing functions
@@ -38,9 +39,8 @@ def read_hdf5(filename: str) -> pd.DataFrame:
 def write_parquet(df: pd.DataFrame, dest: str):
     df.to_parquet(dest)
 
-
 def read_parquet(filename: str) -> pd.DataFrame:
-    return pd.read_parquet(filename)
+    return pd.read_parquet(filename).reset_index()
 
 
 def convert_csv_to_hdf5(csv_path: str, hdf5_path: str):
