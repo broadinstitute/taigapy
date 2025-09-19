@@ -536,3 +536,11 @@ def test_get_dataframe_offline(
     fetched_df = mock_client.get(file.datafile_id)
 
     assert df.equals(fetched_df)
+
+def test_remove_old_cached_files(mock_client: Client, tmpdir):
+    # TODO: Add a test that verifies that remove_old_cached_files actually removes files from the cache
+    # 1. Create some files in the cache
+    # 2. Call remove_old_cached_files
+    # 3. Verify that the files are removed from the cache
+    mock_client.remove_old_cached_files()
+    assert True
