@@ -20,6 +20,9 @@ from taigapy.utils import get_latest_valid_version_from_metadata
 from typing import Union
 from google.cloud import storage, exceptions as gcs_exceptions
 from . import utils
+import logging
+
+log = logging.getLogger(__name__)
 
 class LocalFormat(Enum):
     """
@@ -167,7 +170,7 @@ class UploadedFile(File):
 class TaigaReference(File):
     taiga_id: str
 
-
+import datetime as dt
 @dataclass
 class GCSReference(File):
     gs_path: str
@@ -220,7 +223,7 @@ class Client:
         # caches local path to file for each (canonical_id, format)
         self.internal_format_cache: Cache[str, str] = Cache(
             os.path.join(cache_dir, "internal_format.cache"),
-            is_value_valid=lambda filename: os.path.exists(filename),
+            is_value_valid=lambda filename: os.path.exists(filename), track_last_access=True
         )
 
         # caches min datafile metadata given a (non canonical) datafile ID
@@ -261,6 +264,22 @@ class Client:
                 original_file_sha256=original_file_sha256
             ),
         )
+
+    def remove_old_cached_files(self, max_age=dt.timedelta(days=60)):
+        files_removed = []
+        bytes_freed = 0
+        min_timestamp = dt.datetime.now() - max_age
+        access_per_key = self.internal_format_cache.get_last_access_per_key()
+        for key, timestamp in access_per_key.items():
+            if (timestamp is None) or (timestamp < min_timestamp):
+                filename = self.internal_format_cache.get(key, default=None)
+                if os.path.exists(filename):
+                    bytes_freed += os.path.getsize(filename)
+                    files_removed.append(filename)
+                    os.remove(filename)
+        print(
+            cf.green(
+                (f"Deleted {len(files_removed)} files (using {bytes_freed} bytes) from cache")))
 
     def _ensure_dataset_version_cached(self, permaname: str, version: int) -> bool:
         "returns False if this dataset version could not be found"

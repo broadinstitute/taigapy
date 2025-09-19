@@ -60,7 +60,7 @@ class Cache(Generic[V]):
             return default
 
     def _update_last_access(self, key):
-        with shelve_open(f"{self.filename}-last-access") as s:
+        with self._open_last_access_shelve() as s:
             s[key] = datetime.now()
 
     def get(self, key: str, default: Optional[V]) -> Optional[V]:
@@ -101,12 +101,21 @@ class Cache(Generic[V]):
             self._update_last_access(key)
         return value
 
-    def get_last_access_per_key(self) -> Dict[str, datetime]:
+    def get_last_access_per_key(self) -> Dict[str, Optional[datetime]]:
         assert self.track_last_access
         snapshot = dict()
-        with shelve_open(f"{self.filename}-last-access") as s:
-            s.update(snapshot)
+        # add all keys with None as the timestamp in case last access dict is missing some
+        with shelve_open(self.filename) as s:
+            for key in s.keys():
+                snapshot[key] = None
+
+        with self._open_last_access_shelve() as s:
+            snapshot.update(s)
+
         return snapshot
+
+    def _open_last_access_shelve(self):
+        return shelve_open(f"{self.filename}-last-access")
 
     def put(self, key: str, value: V):
         """

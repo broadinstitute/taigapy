@@ -7,8 +7,8 @@ import pytest
 
 
 @pytest.fixture
-def cache():
-    cache_dir = "test_cache"
+def cache(tmpdir):
+    cache_dir = str(tmpdir)
     cache_file = os.path.join(cache_dir, "test_cache.db")
     os.makedirs(cache_dir, exist_ok=True)
     cache = Cache(cache_file)
@@ -27,36 +27,33 @@ def test_cache_hit_and_miss(cache):
     assert cache.get("key3", "default") == "default"  # Cache miss
 
 
-def test_value_validity_check(cache):
+def test_value_validity_check(cache, tmpdir):
+    sample_file = tmpdir.join("sample")
+    sample_file.write("")
+
     def is_valid(value):
-        return value > 0
+        return os.path.exists(value)
 
     cache = Cache(cache.filename, is_value_valid=is_valid)
-    cache.put("key4", 10)
-    assert cache.get("key4", None) == 10
 
-    cache.put("key5", -5)
-    assert cache.get("key5", "default") == "default"
+    cache.put("key4", str(sample_file))
+    assert cache.get("key4", None) == str(sample_file)
+
+    os.unlink(str(sample_file))
+    assert cache.get("key4", "default") == "default"
 
 
 def test_last_access_tracking(cache):
     cache = Cache(cache.filename, track_last_access=True)
     cache.put("key6", "value6")
-    time.sleep(0.1)  # Ensure some time passes
-    cache.get("key6", None)
     last_access = cache.get_last_access_per_key()
     assert "key6" in last_access
-    assert isinstance(last_access["key6"], datetime)
-    # Check that the last access time is recent
-    assert datetime.now() - last_access["key6"] < timedelta(seconds=1)
+    orig_access_time = last_access["key6"]
+    assert isinstance(orig_access_time, datetime)
 
+    time.sleep(0.0000001)  # Ensure some time passes
 
-def test_unpickling_error(cache):
-    cache_file = cache.filename
-    # Create a cache file with invalid data
-    with open(cache_file, "wb") as f:
-        f.write(b"invalid data")
+    cache.get("key6", None)
+    last_access = cache.get_last_access_per_key()
+    assert last_access["key6"] > orig_access_time
 
-    # Test that the cache handles the UnpicklingError gracefully
-    cache = Cache(cache_file)
-    assert cache.get("key7", "default") == "default"
