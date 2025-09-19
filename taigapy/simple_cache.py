@@ -17,8 +17,26 @@ def shelve_open(filename):
 from datetime import datetime
 class Cache(Generic[V]):
     """
-    A write through in-memory cache, backed by disk. Keys must always be strings, but values can be any
-    pickle-able type.
+    A write-through in-memory cache, backed by disk using SQLite.
+
+    Keys must always be strings, but values can be any pickle-able type.
+
+    The cache uses `sqliteshelve` for persistent storage, which stores data in a SQLite database.
+    This allows for efficient storage and retrieval of cached values.
+
+    The cache also maintains an in-memory dictionary to provide fast access to frequently used values.
+    When a value is requested, the cache first checks if it exists in the in-memory dictionary.
+    If not, it retrieves the value from the SQLite database and stores it in the in-memory dictionary.
+
+    The cache also supports a validity check for cached values. A `is_value_valid` function can be provided
+    to determine if a cached value is still valid. If a cached value is not valid, it will be treated as
+    if it does not exist in the cache, and the `default` value will be returned.
+
+    Attributes:
+        filename (str): The path to the SQLite database file used for persistent storage.
+        is_value_valid (Callable[[V], bool]): A function that takes a cached value as input and returns
+            True if the value is still valid, False otherwise. Defaults to a function that always returns True.
+        track_last_access (bool): Whether to track the last access time for each key. Defaults to False.
     """
 
     def __init__(
@@ -46,6 +64,16 @@ class Cache(Generic[V]):
             s[key] = datetime.now()
 
     def get(self, key: str, default: Optional[V]) -> Optional[V]:
+        """
+        Retrieves a value from the cache.
+
+        Args:
+            key (str): The key of the value to retrieve.
+            default (Optional[V]): The value to return if the key is not found in the cache or if the cached value is not valid.
+
+        Returns:
+            Optional[V]: The cached value if found and valid, otherwise the default value.
+        """
         if key in self.in_memory_cache:
             value = self._none_if_not_valid(self.in_memory_cache[key], default)
         else:
@@ -81,6 +109,13 @@ class Cache(Generic[V]):
         return snapshot
 
     def put(self, key: str, value: V):
+        """
+        Stores a value in the cache.
+
+        Args:
+            key (str): The key of the value to store.
+            value (V): The value to store.
+        """
         assert self.is_value_valid(value)
         self._ensure_parent_dir_exists()
         with shelve_open(self.filename) as s:
