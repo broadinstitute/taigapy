@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.1 (2025-08-12)
+
+
+- fix: Move pre-commit to dev dependencies in pyproject.toml
+- Relocated the pre-commit package from main dependencies to the dev dependencies group in pyproject.toml. Also fixed a missing newline at the end of the file.
+
+## 5.0.0 (2025-08-12)
+
 ## 4.0.0 (2025-08-07)
 
 
