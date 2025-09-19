@@ -280,6 +280,7 @@ class Client:
         print(
             cf.green(
                 (f"Deleted {len(files_removed)} files (using {bytes_freed} bytes) from cache")))
+        return bytes_freed
 
     def _ensure_dataset_version_cached(self, permaname: str, version: int) -> bool:
         "returns False if this dataset version could not be found"

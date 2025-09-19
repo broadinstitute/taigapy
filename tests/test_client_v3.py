@@ -16,6 +16,7 @@ from taigapy.client_v3 import (
     UploadedFile,
     DatasetVersionFile,
 )
+import datetime as dt
 from taigapy.format_utils import write_hdf5, write_parquet, convert_csv_to_hdf5
 from taigapy.types import S3Credentials
 
@@ -537,10 +538,32 @@ def test_get_dataframe_offline(
 
     assert df.equals(fetched_df)
 
-def test_remove_old_cached_files(mock_client: Client, tmpdir):
-    # TODO: Add a test that verifies that remove_old_cached_files actually removes files from the cache
-    # 1. Create some files in the cache
-    # 2. Call remove_old_cached_files
-    # 3. Verify that the files are removed from the cache
-    mock_client.remove_old_cached_files()
-    assert True
+def test_clear_cache(mock_client: Client, tmpdir, s3_mock_client):
+    sample_file = tmpdir.join("file")
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    df.to_csv(str(sample_file), index=False)
+
+    version = mock_client.create_dataset(
+        "test",
+        "desc",
+        [
+            UploadedFile(
+                name="matrix",
+                local_path=str(sample_file),
+                format=LocalFormat.CSV_TABLE,
+                custom_metadata={},
+            )
+        ],
+    )
+    assert len(version.files) == 1
+    file = version.files[0]
+
+    fetched_df = mock_client.get(file.datafile_id)
+
+    assert df.equals(fetched_df)
+
+    bytes_freed = mock_client.remove_old_cached_files()
+    assert bytes_freed == 0
+
+    bytes_freed = mock_client.remove_old_cached_files(dt.timedelta(days=0))
+    assert bytes_freed > 0
