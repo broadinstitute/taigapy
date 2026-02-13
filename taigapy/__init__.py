@@ -1,6 +1,9 @@
 import importlib.metadata
 
-__version__ = importlib.metadata.version("taigapy")
+try:
+    __version__ = importlib.metadata.version("taigapy")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "unknown"
 
 from .consts import DEFAULT_TAIGA_URL, DEFAULT_CACHE_DIR, CACHE_FILE
 from .client import TaigaClient

@@ -42,7 +42,12 @@ def _standard_response_handler(
             )
         )
     elif r.status_code == 500:
-        raise TaigaServerError()
+        raise TaigaServerError(
+            status_code=r.status_code,
+            endpoint=url,
+            params=dict(params) if params else None,
+            response_body=r.text,
+        )
     elif r.status_code != 200:
         raise TaigaHttpException(
             f"Bad status code ({r.status_code}) when accessing {url} with params={params}"
@@ -328,7 +333,12 @@ class TaigaApi:
                 )
             )
         elif r.status_code == 500:
-            raise TaigaServerError()
+            raise TaigaServerError(
+                status_code=r.status_code,
+                endpoint=api_endpoint,
+                params=params,
+                response_body=r.text,
+            )
 
         raise TaigaHttpException(
             "Unrecognized status code for datafile/column_types: {}".format(
@@ -365,7 +375,11 @@ class TaigaApi:
         elif r.status_code == 202:
             task_status = self._poll_task(r.json())
             if task_status.state == TaskState.FAILURE:
-                raise TaigaServerError()
+                raise TaigaServerError(
+                    endpoint=endpoint,
+                    params=params,
+                    task_message=task_status.message,
+                )
             self.download_datafile(
                 dataset_permaname, dataset_version, datafile_name, dest
             )
@@ -376,7 +390,12 @@ class TaigaApi:
                 )
             )
         else:
-            raise TaigaServerError()
+            raise TaigaServerError(
+                status_code=r.status_code,
+                endpoint=endpoint,
+                params=params,
+                response_body=r.text,
+            )
 
     def get_folder(self, folder_id: str):
         api_endpoint = "/api/folder/{}".format(folder_id)
