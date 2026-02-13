@@ -24,6 +24,7 @@ class TaigaServerError(TaigaHttpException):
         self,
         *,
         status_code: int = None,
+        endpoint: str = None,
         params: dict = None,
         task_message: str = None,
         response_body: str = None,
