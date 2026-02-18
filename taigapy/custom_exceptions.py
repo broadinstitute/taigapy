@@ -18,12 +18,32 @@ class TaigaDeletedVersionException(TaigaHttpException):
 
 
 class TaigaServerError(TaigaHttpException):
-    """500 errors"""
+    """Raised when the Taiga server returns an error (HTTP 5xx) or a background task fails."""
 
-    def __init__(self):
-        super().__init__(
-            "Something went wrong behind the scenes. Please try again later, or contact the maintainers of Taiga if the problem persists."
+    def __init__(
+        self,
+        *,
+        status_code: int = None,
+        endpoint: str = None,
+        params: dict = None,
+        task_message: str = None,
+        response_body: str = None,
+    ):
+        parts = ["Taiga server error."]
+        if endpoint:
+            parts.append(f"Endpoint: {endpoint}")
+        if status_code:
+            parts.append(f"HTTP status: {status_code}")
+        if params:
+            parts.append(f"Params: {params}")
+        if task_message:
+            parts.append(f"Task failure message: {task_message}")
+        if response_body:
+            parts.append(f"Response body: {response_body[:500]}")
+        parts.append(
+            "If this persists, please contact the Taiga maintainers."
         )
+        super().__init__(" | ".join(parts))
 
 
 class TaigaRawTypeException(Exception):

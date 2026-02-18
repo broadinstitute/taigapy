@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taigapy"
-version = "4.1.0"
+version = "4.1.1"
 description = "Client library for fetching data from Taiga"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
@@ -39,6 +39,12 @@ version_files = [
     "pyproject.toml:version"
 ]
 update_changelog_on_bump = true
+
+[[tool.poetry.source]]
+name = "public-python"
+url = "https://us-central1-python.pkg.dev/cds-artifacts/public-python/simple/"
+priority = "explicit"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
