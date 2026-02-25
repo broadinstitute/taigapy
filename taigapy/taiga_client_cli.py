@@ -165,6 +165,62 @@ def fetch(args):
         print(d)
 
 
+def get_dataset_file_ids(tc, dataset_permaname, version):
+    result = []
+    files = tc.get_dataset_metadata(dataset_permaname, version)
+    for file in files['datasetVersion']['datafiles']:
+        if "underlying_file_id" in file:
+            canonical_id = file["underlying_file_id"]
+        else:
+            canonical_id = f"{dataset_permaname}.{version}/{file['name']}"
+        result.append((file['name'], canonical_id, file['original_file_sha256']))
+    return result
+
+def calc_delta(tc, base_id, last_id, ignore_sha=False):
+    def _dict(items):
+        result = {}
+        for name, canonical_id, sha256 in items:
+            result[name] = (canonical_id, sha256)
+        return result
+    base = _dict(get_dataset_file_ids(tc, *base_id.split(".")))
+    last = _dict(get_dataset_file_ids(tc, *last_id.split(".")))
+    
+    deleted = set(base.keys()).difference(last.keys())
+    added = set(last.keys()).difference(base.keys())
+    
+    if ignore_sha:
+        def is_same(old, new):
+            return old[0] == new[0]
+    else:
+        def is_same(old, new):
+            return old[1] == new[1]
+    
+    changed = {k : (base[k][0], last[k][0]) for k in set(base.keys()).intersection(last.keys()) if not is_same(base[k], last[k]) }
+    return dict(deleted=deleted, added=added, changed=changed)
+        
+def diff(args):
+    tc = _get_taiga_client(args)
+    changes = calc_delta(tc, args.taiga_id_1, args.taiga_id_2)
+    if len(changes['added']) > 0:
+        print("Added:")
+        for name in changes['added']:
+            print(f"\t{name}")
+        print("")
+
+    if len(changes['changed']) >0:    
+        print("Changed:")
+        for name, (old_v, new_v) in changes["changed"].items():
+            print(f"\t{name}")
+            print(f"\t\told: {old_v}")
+            print(f"\t\tnew: {new_v}")
+        print("")
+    
+    if len(changes['deleted']) > 0:
+        print("Removed:")
+        for name in changes['deleted']:
+            print(f"\t{name}")
+        print("")
+
 def dataset_meta(args):
     tc = _get_taiga_client(args)
     metadata = tc.get_dataset_metadata(
@@ -183,17 +239,22 @@ def copy(args):
     Copy all files from source dataset to a new destination dataset using references
     """
     tc = _get_taiga_client(args)
-    
-    try:
-        source_dataset_metadata = tc.get_dataset_metadata(args.source_id)
-    except Taiga404Exception:
-        print(f"Error: Source dataset {args.source_id} not found")
 
-    latest_version = get_latest_valid_version_from_metadata(source_dataset_metadata)
-    
+    if "." in args.source_id:
+        source_permaname, version_number = args.source_id.split(".")
+    else:
+        # if no version specified, look up the latest version
+        source_dataset_metadata = tc.get_dataset_metadata(args.source_id)
+        if source_dataset_metadata is None:
+            print(f"Error: Source dataset {args.source_id} not found")
+            return
+
+        source_permaname = args.source_id
+        version_number = get_latest_valid_version_from_metadata(source_dataset_metadata)
+
     # Get detailed metadata for this version
     source_version_metadata = tc.get_dataset_metadata(
-        args.source_id, version=latest_version
+        source_permaname, version=version_number
     )
     
     # Extract datafiles from the source dataset
@@ -211,7 +272,7 @@ def copy(args):
             skipped_files.append(datafile["name"])
             continue
         
-        taiga_id = args.source_id + "." + latest_version + "/" + datafile["name"]
+        taiga_id = source_permaname + "." + version_number + "/" + datafile["name"]
 
         # Preserve any custom metadata from the original file
         custom_metadata = datafile.get("custom_metadata", {})
@@ -228,17 +289,30 @@ def copy(args):
         print(f"Warning: Skipped {len(skipped_files)} files that couldn't be referenced: {', '.join(skipped_files)}")
     
     assert reference_files, "No files could be referenced. Copy operation aborted."
-        
-    # Create new dataset with references
-    print(f"Creating new dataset '{args.destination_name}' with {len(reference_files)} referenced files")
-    
-    result = tc.create_dataset(
-        args.destination_name,
-        description=f"Copy of {args.source_id} created via taigaclient copy command",
-        files=reference_files
-    )
-    
-    print(f"Successfully created dataset: {args.destination_name}, permaname: {result.permaname}")
+
+    if args.dryrun:
+        action = "update" if args.update else "create"
+        print(f"Dry run: Would {action} dataset '{args.destination_name}' with {len(reference_files)} referenced files:")
+        for ref in reference_files:
+            print(f"  - {ref.name} -> {ref.taiga_id}")
+        return
+
+    if args.update:
+        print(f"Updating dataset '{args.destination_name}' with {len(reference_files)} referenced files")
+        result = tc.update_dataset(
+            args.destination_name,
+            reason=f"Copy of {args.source_id} via taigaclient copy command",
+            additions=reference_files
+        )
+    else:
+        print(f"Creating new dataset '{args.destination_name}' with {len(reference_files)} referenced files")
+        result = tc.create_dataset(
+            args.destination_name,
+            description=f"Copy of {args.source_id} created via taigaclient copy command",
+            files=reference_files
+        )
+
+    print(f"Successfully {'updated' if args.update else 'created'} dataset: {args.destination_name}, permaname: {result.permaname}")
     
 
 def main():
@@ -300,6 +374,11 @@ def main():
     )
     parser_dataset_meta.set_defaults(func=dataset_meta)
 
+    parser_diff = subparsers.add_parser("diff", help="Compare two taiga datasets")
+    parser_diff.add_argument("taiga_id_1")
+    parser_diff.add_argument("taiga_id_2")
+    parser_diff.set_defaults(func=diff)
+
     # copy command parser
     parser_copy = subparsers.add_parser(
         "copy", help="Copy files from a source dataset to a new destination dataset using taiga references"
@@ -309,6 +388,12 @@ def main():
     )
     parser_copy.add_argument(
         "destination_name", help="Name for the new dataset"
+    )
+    parser_copy.add_argument(
+        "--dryrun", action="store_true", help="Show what would be copied without creating the dataset"
+    )
+    parser_copy.add_argument(
+        "--update", action="store_true", help="Update an existing dataset (destination_name is treated as a permaname)"
     )
     parser_copy.set_defaults(func=copy)
 
