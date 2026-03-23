@@ -273,7 +273,7 @@ class Client:
         for key, timestamp in access_per_key.items():
             if (timestamp is None) or (timestamp < min_timestamp):
                 filename = self.internal_format_cache.get(key, default=None)
-                if os.path.exists(filename):
+                if filename is not None and os.path.exists(filename):
                     bytes_freed += os.path.getsize(filename)
                     files_removed.append(filename)
                     os.remove(filename)
