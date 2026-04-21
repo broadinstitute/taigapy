@@ -17,6 +17,7 @@ from .simple_cache import Cache
 from .types import DataFileUploadFormat
 from .format_utils import read_hdf5, read_parquet, convert_csv_to_parquet
 from taigapy.utils import get_latest_valid_version_from_metadata
+from taigapy.consts import PREVIEW_MAX_ROWS, PREVIEW_MAX_COLUMNS
 from typing import Union
 from google.cloud import storage, exceptions as gcs_exceptions
 from . import utils
@@ -208,6 +209,110 @@ class MinDataFileMetadata:
     type: str
     custom_metadata: Dict[str, str]
     original_file_sha256: str
+
+
+def _count_csv_lines(path: str) -> int:
+    """Count data rows in a CSV file (excludes header)."""
+    count = 0
+    with open(path, "rb") as f:
+        for _ in f:
+            count += 1
+    return max(count - 1, 0)
+
+
+def _generate_preview_for_file(local_path: str, fmt: "LocalFormat") -> Optional[dict]:
+    """Generate a preview dict from a local file. Returns None if preview is not possible."""
+    import h5py
+    from pyarrow import parquet as pq
+
+    n = PREVIEW_MAX_ROWS
+    c = PREVIEW_MAX_COLUMNS
+
+    if fmt == LocalFormat.HDF5_MATRIX:
+        with h5py.File(local_path, "r") as f:
+            all_rows = [x.decode("utf8") for x in f["dim_0"]]
+            all_cols = [x.decode("utf8") for x in f["dim_1"]]
+            data_slice = f["data"][:n, :c]
+
+        return {
+            "num_rows": len(all_rows),
+            "num_columns": len(all_cols),
+            "top_left_preview": {
+                "column_names": all_cols[:c],
+                "row_names": all_rows[:n],
+                "data": [[_json_safe(v) for v in row] for row in data_slice.tolist()],
+            },
+        }
+
+    if fmt == LocalFormat.PARQUET_TABLE:
+        pf = pq.ParquetFile(local_path)
+        num_rows = pf.metadata.num_rows
+        all_col_names = pf.schema_arrow.names
+        cols_to_read = all_col_names[:c]
+        df = pd.read_parquet(local_path, columns=cols_to_read).head(n)
+
+        has_named_index = not (isinstance(df.index, pd.RangeIndex) and df.index.name is None)
+        if has_named_index:
+            df = df.reset_index()
+
+        return {
+            "num_rows": num_rows,
+            "num_columns": len(all_col_names),
+            "top_left_preview": {
+                "column_names": list(df.columns[:c]),
+                "row_names": None,
+                "data": _dataframe_to_data(df, c),
+            },
+        }
+
+    if fmt == LocalFormat.CSV_MATRIX:
+        df = pd.read_csv(local_path, index_col=0, nrows=n)
+        num_rows = _count_csv_lines(local_path)
+        all_col_names = list(pd.read_csv(local_path, index_col=0, nrows=0).columns)
+
+        return {
+            "num_rows": num_rows,
+            "num_columns": len(all_col_names),
+            "top_left_preview": {
+                "column_names": all_col_names[:c],
+                "row_names": [str(x) for x in df.index[:n]],
+                "data": _dataframe_to_data(df, c),
+            },
+        }
+
+    if fmt == LocalFormat.CSV_TABLE:
+        df = pd.read_csv(local_path, nrows=n)
+        num_rows = _count_csv_lines(local_path)
+        all_col_names = list(df.columns)
+
+        return {
+            "num_rows": num_rows,
+            "num_columns": len(all_col_names),
+            "top_left_preview": {
+                "column_names": all_col_names[:c],
+                "row_names": None,
+                "data": _dataframe_to_data(df, c),
+            },
+        }
+
+    return None
+
+
+def _dataframe_to_data(df: pd.DataFrame, max_cols: int) -> List[List]:
+    """Convert a DataFrame to a list-of-lists, handling NaN -> None."""
+    subset = df.iloc[:, :max_cols]
+    return [
+        [_json_safe(v) for v in row]
+        for row in subset.values.tolist()
+    ]
+
+
+def _json_safe(v):
+    """Convert a value to something JSON-serializable. NaN/inf become None."""
+    if isinstance(v, float):
+        if pd.isna(v) or v == float("inf") or v == float("-inf"):
+            return None
+    return v
 
 
 class Client:
@@ -648,6 +753,33 @@ class Client:
 
         return upload_session_id
 
+    def _upload_previews(
+        self, files: List[File], dataset_version: "DatasetVersion"
+    ):
+        """Best-effort: generate and POST previews for each uploaded file."""
+        uploaded_by_name = {}
+        for f in files:
+            if isinstance(f, UploadedFile):
+                uploaded_by_name[f.name] = f
+
+        for dv_file in dataset_version.files:
+            uploaded = uploaded_by_name.get(dv_file.name)
+            if uploaded is None:
+                continue
+            try:
+                preview_data = _generate_preview_for_file(
+                    uploaded.local_path, uploaded.format
+                )
+                if preview_data is None:
+                    continue
+                self.api.post_datafile_preview(dv_file.datafile_id, preview_data)
+                log.info("Posted preview for %s", dv_file.name)
+            except Exception:
+                log.warning(
+                    "Failed to generate/post preview for %s", dv_file.name,
+                    exc_info=True,
+                )
+
     def _upload_file(self, upload_session_id, uploader: Uploader, upload: File):
         # one method for each type of file we can upload
         def _upload_uploaded_file(upload_file: UploadedFile):
@@ -813,7 +945,9 @@ class Client:
 
         dataset_version_id = metadata["versions"][0]["id"]
 
-        return self._dataset_version_summary(dataset_version_id)
+        result = self._dataset_version_summary(dataset_version_id)
+        self._upload_previews(files, result)
+        return result
 
     def replace_dataset(
         self,
@@ -848,7 +982,9 @@ class Client:
             add_existing_files=False,
         )
 
-        return self._dataset_version_summary(dataset_version_id)
+        result = self._dataset_version_summary(dataset_version_id)
+        self._upload_previews(files, result)
+        return result
 
     def update_dataset(
         self,
@@ -900,7 +1036,9 @@ class Client:
                 add_existing_files=True,
             )
 
-        return self._dataset_version_summary(dataset_version_id)
+        result = self._dataset_version_summary(dataset_version_id)
+        self._upload_previews(additions, result)
+        return result
 
     def _download_to_cache(self, datafile_id: str, *, format: str = "raw_test") -> str:
         try:
