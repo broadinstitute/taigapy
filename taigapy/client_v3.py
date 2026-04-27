@@ -192,6 +192,8 @@ def _create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
         aws_session_token=s3_credentials.session_token,
     )
 
+    # This is necessary for local development using MiniStack where the 
+    # taigapy client can actually talk to the local taiga server.
     if s3_credentials.endpoint_url:
         s3_kwargs["endpoint_url"] = s3_credentials.endpoint_url
         s3_kwargs["region_name"] = "us-east-1"
