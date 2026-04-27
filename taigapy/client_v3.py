@@ -117,6 +117,7 @@ class DatasetVersionFile:
     gs_path: Optional[str]
     datafile_id: str
     format: str
+    _server_id: Optional[str] = None
 
 
 @dataclass
@@ -185,12 +186,17 @@ def _create_s3_uploader(api: TaigaApi) -> Tuple[str, Uploader]:
     upload_session_id = api.create_upload_session()
     s3_credentials = api.get_s3_credentials()
 
-    s3_client = boto3.client(
-        "s3",
+    s3_kwargs = dict(
         aws_access_key_id=s3_credentials.access_key_id,
         aws_secret_access_key=s3_credentials.secret_access_key,
         aws_session_token=s3_credentials.session_token,
     )
+
+    if s3_credentials.endpoint_url:
+        s3_kwargs["endpoint_url"] = s3_credentials.endpoint_url
+        s3_kwargs["region_name"] = "us-east-1"
+
+    s3_client = boto3.client("s3", **s3_kwargs)
 
     def upload(local_path):
         bucket = s3_credentials.bucket
@@ -211,91 +217,90 @@ class MinDataFileMetadata:
     original_file_sha256: str
 
 
-def _count_csv_lines(path: str) -> int:
-    """Count data rows in a CSV file (excludes header)."""
-    count = 0
-    with open(path, "rb") as f:
-        for _ in f:
-            count += 1
-    return max(count - 1, 0)
+def _preview_hdf5(local_path: str) -> dict:
+    import h5py
+
+    with h5py.File(local_path, "r") as f:
+        num_rows = f["dim_0"].shape[0]
+        num_cols = f["dim_1"].shape[0]
+        row_names = [x.decode("utf8") for x in f["dim_0"][:PREVIEW_MAX_ROWS]]
+        col_names = [x.decode("utf8") for x in f["dim_1"][:PREVIEW_MAX_COLUMNS]]
+        data_slice = f["data"][:PREVIEW_MAX_ROWS, :PREVIEW_MAX_COLUMNS]
+
+    return {
+        "num_rows": num_rows,
+        "num_columns": num_cols,
+        "top_left_preview": {
+            "column_names": col_names,
+            "row_names": row_names,
+            "data": [[_json_safe(v) for v in row] for row in data_slice.tolist()],
+        },
+    }
+
+
+def _preview_parquet(local_path: str) -> dict:
+    from pyarrow import parquet as pq
+
+    pf = pq.ParquetFile(local_path)
+    num_rows = pf.metadata.num_rows
+    all_col_names = pf.schema_arrow.names
+    df = pd.read_parquet(local_path, columns=all_col_names[:PREVIEW_MAX_COLUMNS]).head(PREVIEW_MAX_ROWS)
+
+    has_named_index = not (isinstance(df.index, pd.RangeIndex) and df.index.name is None)
+    if has_named_index:
+        df = df.reset_index()
+
+    return {
+        "num_rows": num_rows,
+        "num_columns": len(all_col_names),
+        "top_left_preview": {
+            "column_names": list(df.columns[:PREVIEW_MAX_COLUMNS]),
+            "row_names": None,
+            "data": _dataframe_to_data(df, PREVIEW_MAX_COLUMNS),
+        },
+    }
+
+
+def _preview_csv_matrix(local_path: str) -> dict:
+    df = pd.read_csv(local_path, index_col=0)
+
+    return {
+        "num_rows": len(df),
+        "num_columns": len(df.columns),
+        "top_left_preview": {
+            "column_names": list(df.columns[:PREVIEW_MAX_COLUMNS]),
+            "row_names": [str(x) for x in df.index[:PREVIEW_MAX_ROWS]],
+            "data": _dataframe_to_data(df.head(PREVIEW_MAX_ROWS), PREVIEW_MAX_COLUMNS),
+        },
+    }
+
+
+def _preview_csv_table(local_path: str) -> dict:
+    df = pd.read_csv(local_path)
+
+    return {
+        "num_rows": len(df),
+        "num_columns": len(df.columns),
+        "top_left_preview": {
+            "column_names": list(df.columns[:PREVIEW_MAX_COLUMNS]),
+            "row_names": None,
+            "data": _dataframe_to_data(df.head(PREVIEW_MAX_ROWS), PREVIEW_MAX_COLUMNS),
+        },
+    }
 
 
 def _generate_preview_for_file(local_path: str, fmt: "LocalFormat") -> Optional[dict]:
-    """Generate a preview dict from a local file. Returns None if preview is not possible."""
-    import h5py
-    from pyarrow import parquet as pq
-
-    n = PREVIEW_MAX_ROWS
-    c = PREVIEW_MAX_COLUMNS
-
-    if fmt == LocalFormat.HDF5_MATRIX:
-        with h5py.File(local_path, "r") as f:
-            all_rows = [x.decode("utf8") for x in f["dim_0"]]
-            all_cols = [x.decode("utf8") for x in f["dim_1"]]
-            data_slice = f["data"][:n, :c]
-
-        return {
-            "num_rows": len(all_rows),
-            "num_columns": len(all_cols),
-            "top_left_preview": {
-                "column_names": all_cols[:c],
-                "row_names": all_rows[:n],
-                "data": [[_json_safe(v) for v in row] for row in data_slice.tolist()],
-            },
-        }
-
-    if fmt == LocalFormat.PARQUET_TABLE:
-        pf = pq.ParquetFile(local_path)
-        num_rows = pf.metadata.num_rows
-        all_col_names = pf.schema_arrow.names
-        cols_to_read = all_col_names[:c]
-        df = pd.read_parquet(local_path, columns=cols_to_read).head(n)
-
-        has_named_index = not (isinstance(df.index, pd.RangeIndex) and df.index.name is None)
-        if has_named_index:
-            df = df.reset_index()
-
-        return {
-            "num_rows": num_rows,
-            "num_columns": len(all_col_names),
-            "top_left_preview": {
-                "column_names": list(df.columns[:c]),
-                "row_names": None,
-                "data": _dataframe_to_data(df, c),
-            },
-        }
-
-    if fmt == LocalFormat.CSV_MATRIX:
-        df = pd.read_csv(local_path, index_col=0, nrows=n)
-        num_rows = _count_csv_lines(local_path)
-        all_col_names = list(pd.read_csv(local_path, index_col=0, nrows=0).columns)
-
-        return {
-            "num_rows": num_rows,
-            "num_columns": len(all_col_names),
-            "top_left_preview": {
-                "column_names": all_col_names[:c],
-                "row_names": [str(x) for x in df.index[:n]],
-                "data": _dataframe_to_data(df, c),
-            },
-        }
-
-    if fmt == LocalFormat.CSV_TABLE:
-        df = pd.read_csv(local_path, nrows=n)
-        num_rows = _count_csv_lines(local_path)
-        all_col_names = list(df.columns)
-
-        return {
-            "num_rows": num_rows,
-            "num_columns": len(all_col_names),
-            "top_left_preview": {
-                "column_names": all_col_names[:c],
-                "row_names": None,
-                "data": _dataframe_to_data(df, c),
-            },
-        }
-
-    return None
+    """Generate a preview dict from a local file. Returns None for unsupported formats."""
+    dispatch = {
+        LocalFormat.HDF5_MATRIX: _preview_hdf5,
+        LocalFormat.PARQUET_TABLE: _preview_parquet,
+        LocalFormat.CSV_MATRIX: _preview_csv_matrix,
+        LocalFormat.CSV_TABLE: _preview_csv_table,
+    }
+    handler = dispatch.get(fmt)
+    if handler is None:
+        return None
+    return handler(local_path)
 
 
 def _dataframe_to_data(df: pd.DataFrame, max_cols: int) -> List[List]:
@@ -309,9 +314,14 @@ def _dataframe_to_data(df: pd.DataFrame, max_cols: int) -> List[List]:
 
 def _json_safe(v):
     """Convert a value to something JSON-serializable. NaN/inf become None."""
-    if isinstance(v, float):
-        if pd.isna(v) or v == float("inf") or v == float("-inf"):
-            return None
+    import math
+
+    if v is None:
+        return None
+    if hasattr(v, "item"):
+        v = v.item()
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
     return v
 
 
@@ -772,7 +782,8 @@ class Client:
                 )
                 if preview_data is None:
                     continue
-                self.api.post_datafile_preview(dv_file.datafile_id, preview_data)
+                preview_id = dv_file._server_id or dv_file.datafile_id
+                self.api.post_datafile_preview(preview_id, preview_data)
                 log.info("Posted preview for %s", dv_file.name)
             except Exception:
                 log.warning(
@@ -894,6 +905,7 @@ class Client:
                         f"{permaname}.{version_number}/{f['name']}",
                     ),
                     format=f["type"],
+                    _server_id=f.get("id"),
                 )
                 for f in version_metadata["datasetVersion"]["datafiles"]
             ],

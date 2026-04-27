@@ -195,7 +195,7 @@ class S3Credentials:
         self.prefix: str = s3_credentials_dict["prefix"]
         self.secret_access_key: str = s3_credentials_dict["secretAccessKey"]
         self.session_token: str = s3_credentials_dict["sessionToken"]
-
+        self.endpoint_url: Optional[str] = s3_credentials_dict.get("endpointUrl")
 
 UploadS3DataFileDict = TypedDict(
     "UploadS3DataFileDict",
