@@ -117,7 +117,7 @@ class DatasetVersionFile:
     gs_path: Optional[str]
     datafile_id: str
     format: str
-    _server_id: Optional[str] = None
+    server_id: Optional[str] = None
 
 
 @dataclass
@@ -261,30 +261,38 @@ def _preview_parquet(local_path: str) -> dict:
     }
 
 
+def _count_lines(path: str) -> int:
+    """Count lines in a file by streaming one line at a time"""
+    with open(path) as f:
+        return sum(1 for _ in f)
+
+
 def _preview_csv_matrix(local_path: str) -> dict:
-    df = pd.read_csv(local_path, index_col=0)
+    num_rows = _count_lines(local_path) - 1  # subtract header
+    df = pd.read_csv(local_path, index_col=0, nrows=PREVIEW_MAX_ROWS)
 
     return {
-        "num_rows": len(df),
+        "num_rows": num_rows,
         "num_columns": len(df.columns),
         "top_left_preview": {
             "column_names": list(df.columns[:PREVIEW_MAX_COLUMNS]),
             "row_names": [str(x) for x in df.index[:PREVIEW_MAX_ROWS]],
-            "data": _dataframe_to_data(df.head(PREVIEW_MAX_ROWS), PREVIEW_MAX_COLUMNS),
+            "data": _dataframe_to_data(df, PREVIEW_MAX_COLUMNS),
         },
     }
 
 
 def _preview_csv_table(local_path: str) -> dict:
-    df = pd.read_csv(local_path)
+    num_rows = _count_lines(local_path) - 1  # subtract header
+    df = pd.read_csv(local_path, nrows=PREVIEW_MAX_ROWS)
 
     return {
-        "num_rows": len(df),
+        "num_rows": num_rows,
         "num_columns": len(df.columns),
         "top_left_preview": {
             "column_names": list(df.columns[:PREVIEW_MAX_COLUMNS]),
             "row_names": None,
-            "data": _dataframe_to_data(df.head(PREVIEW_MAX_ROWS), PREVIEW_MAX_COLUMNS),
+            "data": _dataframe_to_data(df, PREVIEW_MAX_COLUMNS),
         },
     }
 
@@ -804,7 +812,7 @@ class Client:
                 )
                 if preview_data is None:
                     continue
-                preview_id = dv_file._server_id or dv_file.datafile_id
+                preview_id = dv_file.server_id or dv_file.datafile_id
                 self.api.post_datafile_preview(preview_id, preview_data)
                 log.info("Posted preview for %s", dv_file.name)
             except Exception:
@@ -927,7 +935,7 @@ class Client:
                         f"{permaname}.{version_number}/{f['name']}",
                     ),
                     format=f["type"],
-                    _server_id=f.get("id"),
+                    server_id=f.get("id"),
                 )
                 for f in version_metadata["datasetVersion"]["datafiles"]
             ],
