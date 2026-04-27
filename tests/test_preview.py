@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import pytest
+
+from conftest import add_mock_dataset_version
 
 from taigapy.client_v3 import (
     Client,
@@ -250,3 +253,30 @@ class TestUploadPreviewIntegration:
 
         assert len(version.files) == 1
         mock_client.api.post_datafile_preview.assert_called_once()
+
+
+class TestGetPreview:
+    def test_with_id(self, mock_client: Client):
+        expected = {"num_rows": 10, "num_columns": 3, "top_left_preview": {"column_names": ["a"], "row_names": ["r1"], "data": [[1]]}}
+        mock_client.api.get_datafile_preview.return_value = expected
+
+        result = mock_client.get_preview(id="my-dataset.1/my_table")
+
+        mock_client.api.get_datafile_preview.assert_called_once_with("my-dataset.1/my_table")
+        assert result == expected
+
+    def test_with_name_version_file(self, mock_client: Client, mock_db):
+        add_mock_dataset_version(mock_db, "my-dataset", 2, [{"name": "tbl", "format": "HDF5"}])
+        expected = {"num_rows": 5}
+        mock_client.api.get_datafile_preview.return_value = expected
+
+        result = mock_client.get_preview(name="my-dataset", version=2, file="tbl")
+
+        mock_client.api.get_datafile_preview.assert_called_once_with("my-dataset.2/tbl")
+        assert result == expected
+
+    def test_returns_none_when_no_preview(self, mock_client: Client):
+        mock_client.api.get_datafile_preview.return_value = None
+
+        result = mock_client.get_preview(id="my-dataset.1/my_table")
+        assert result is None

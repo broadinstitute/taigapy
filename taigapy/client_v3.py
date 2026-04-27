@@ -525,6 +525,28 @@ class Client:
                 f"Got an internal error when trying to get({repr(id)})"
             ) from ex
 
+    def get_preview(
+        self,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        version: Optional[DatasetVersion] = None,
+        file: Optional[str] = None,
+    ) -> Optional[dict]:
+        """
+        Get the stored preview for a datafile. Returns None if no preview exists.
+        """
+        if id is None:
+            assert name is not None
+            assert file is not None
+
+            if version is None:
+                dataset_metadata = self.api.get_dataset_version_metadata(name, None)
+                version = get_latest_valid_version_from_metadata(dataset_metadata)
+
+            id = f"{name}.{version}/{file}"
+
+        return self.api.get_datafile_preview(id)
+
     def _get(self, datafile_id: str, only_use_cache=False) -> pd.DataFrame:
         """
         Retrieve the specified file as a pandas.Dataframe
