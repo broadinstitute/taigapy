@@ -590,7 +590,7 @@ class TaigaClient:
         add_taiga_ids: Optional[Sequence[UploadVirtualDataFileDict]] = None,
         add_gcs_files: Optional[Sequence[UploadGCSDataFileDict]] = None,
         folder_id: str = None,
-        upload_async: bool = True,
+        upload_async: bool = False,
     ) -> Optional[str]:
         """Creates a new dataset named dataset_name with local files upload_files and virtual datafiles add_taiga_ids in the folder with id parent_folder_id.
 
