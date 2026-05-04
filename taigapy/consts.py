@@ -4,3 +4,6 @@ DEFAULT_TAIGA_URL = "https://cds.team/taiga"
 # which is often useful in adhoc scripts being submitted onto the cluster.
 DEFAULT_CACHE_DIR = "~/.taiga"
 CACHE_FILE = ".cache.db"
+
+PREVIEW_MAX_ROWS = 50
+PREVIEW_MAX_COLUMNS = 50

@@ -454,6 +454,31 @@ class TaigaApi:
 
         return new_dataset_version_id
 
+    def post_datafile_preview(self, datafile_id: str, preview_data: dict):
+        api_endpoint = "/api/datafile-preview/{}".format(datafile_id)
+        r = self._request_post(
+            api_endpoint, data=preview_data, standard_reponse_handling=False
+        )
+        if r.status_code not in (200, 201):
+            raise TaigaHttpException(
+                "Failed to post preview for {}: status {}".format(
+                    datafile_id, r.status_code
+                )
+            )
+
+    def get_datafile_preview(self, datafile_id: str) -> Optional[dict]:
+        api_endpoint = "/api/datafile-preview/{}".format(datafile_id)
+        r = self._request_get(api_endpoint, standard_reponse_handling=False)
+        if r.status_code == 404:
+            return None
+        if r.status_code != 200:
+            raise TaigaHttpException(
+                "Failed to get preview for {}: status {}".format(
+                    datafile_id, r.status_code
+                )
+            )
+        return r.json()
+
     def upload_to_gcs(self, datafile_id: str, dest_gcs_path: str):
         api_endpoint = "/api/datafile/copy_to_google_bucket"
         params = {"datafile_id": datafile_id, "gcs_path": dest_gcs_path}
